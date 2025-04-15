@@ -9,24 +9,25 @@ const char* VERSION_URL = "https://raw.githubusercontent.com/ronkuijpers/Wordclo
 const char* FIRMWARE_URL = "https://github.com/ronkuijpers/Wordclock/releases/latest/download/firmware.bin";
 
 void checkForFirmwareUpdate() {
-  Serial.println("[OTA] Controle op nieuwe firmware...");
+  logln("[OTA] Controle op nieuwe firmware...");
 
   HTTPClient http;
   http.begin(VERSION_URL);
   int httpCode = http.GET();
 
   if (httpCode != 200) {
-    Serial.printf("[OTA] Fout bij ophalen versie (%d)\n", httpCode);
+    logln("[OTA] Fout bij ophalen versie (%d)\n", httpCode);
     http.end();
     return;
   }
 
   String remoteVersion = http.getString();
   remoteVersion.trim();
-  Serial.printf("[OTA] Huidige versie: %s | Beschikbaar: %s\n", BUILD_VERSION, remoteVersion.c_str());
+  logln("[OTA] Huidige versie: " + String(BUILD_VERSION) + " | Beschikbaar: " + remoteVersion);
+
 
   if (remoteVersion != BUILD_VERSION) {
-    Serial.println("[OTA] Nieuwe firmware gevonden, update wordt uitgevoerd...");
+    logln("[OTA] Nieuwe firmware gevonden, update wordt uitgevoerd...");
     http.end();
 
     http.begin(FIRMWARE_URL);
@@ -36,17 +37,17 @@ void checkForFirmwareUpdate() {
       WiFiClient* stream = http.getStreamPtr();
 
       if (!Update.begin(len)) {
-        Serial.println("[OTA] Update.begin() mislukt");
+        logln("[OTA] Update.begin() mislukt");
         return;
       }
 
       size_t written = Update.writeStream(*stream);
       if (written == len && Update.end() && Update.isFinished()) {
-        Serial.println("[OTA] Update geslaagd. Herstart...");
+        logln("[OTA] Update geslaagd. Herstart...");
         delay(1000);
         ESP.restart();
       } else {
-        Serial.println("[OTA] Update mislukt");
+        logln("[OTA] Update mislukt");
       }
 
     } else {
@@ -55,7 +56,7 @@ void checkForFirmwareUpdate() {
 
     http.end();
   } else {
-    Serial.println("[OTA] Firmware is up-to-date.");
+    logln("[OTA] Firmware is up-to-date.");
     http.end();
   }
 }
