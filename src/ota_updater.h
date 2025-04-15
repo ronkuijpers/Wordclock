@@ -4,6 +4,7 @@
 #include <HTTPClient.h>
 #include <Update.h>
 #include "config.h"
+#include "log.h"
 
 const char* VERSION_URL = "https://raw.githubusercontent.com/ronkuijpers/Wordclock/main/version.txt";
 const char* FIRMWARE_URL = "https://github.com/ronkuijpers/Wordclock/releases/latest/download/firmware.bin";
@@ -16,7 +17,7 @@ void checkForFirmwareUpdate() {
   int httpCode = http.GET();
 
   if (httpCode != 200) {
-    logln("[OTA] Fout bij ophalen versie (%d)\n", httpCode);
+    logln("[OTA] Fout bij ophalen versie: " + String(httpCode));
     http.end();
     return;
   }
@@ -24,7 +25,6 @@ void checkForFirmwareUpdate() {
   String remoteVersion = http.getString();
   remoteVersion.trim();
   logln("[OTA] Huidige versie: " + String(BUILD_VERSION) + " | Beschikbaar: " + remoteVersion);
-
 
   if (remoteVersion != BUILD_VERSION) {
     logln("[OTA] Nieuwe firmware gevonden, update wordt uitgevoerd...");
@@ -47,11 +47,11 @@ void checkForFirmwareUpdate() {
         delay(1000);
         ESP.restart();
       } else {
-        logln("[OTA] Update mislukt");
+        logln("[OTA] Update mislukt tijdens schrijven");
       }
 
     } else {
-      logln("[OTA] Kon firmware niet downloaden (%d)\n", code);
+      logln("[OTA] Kon firmware niet downloaden. HTTP code: " + String(code));
     }
 
     http.end();
