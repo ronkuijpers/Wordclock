@@ -39,15 +39,13 @@ String getDashboardHTML(String logContent) {
     Wordclock Aan/Uit
   </label>
   <br><br>
-  html += "<p>Build versie: ";
+  <div><strong>Build versie:</strong> )rawliteral";
   html += BUILD_VERSION;
-  html += "</p>";
+  html += R"rawliteral(</div>
   <pre id='logBox'></pre>
 </body>
 </html>
 )rawliteral";
+
   return html;
 }
-
-
-
