@@ -1,6 +1,6 @@
 #pragma once
 
-#define BUILD_VERSION "v0.0.1"
+#define BUILD_VERSION "v0.0.2"
 
 #define NUM_LEDS 125
 #define DATA_PIN 4
