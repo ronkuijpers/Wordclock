@@ -25,13 +25,26 @@ void setup() {
   Serial.begin(115200);
   delay(1000);
 
-  checkForFirmwareUpdate();  // Bij startup
-
   setupNetwork();  // bevat WiFiManager, OTA en Telnet-setup
 
   // Setup Dashboard
   setupWebRoutes();
   server.begin();
+
+  logln("Verbinden met WiFi...");
+  int retry = 0;
+  while (WiFi.status() != WL_CONNECTED && retry < 20) {
+    delay(500);
+    logln(".");
+    retry++;
+  }
+
+  if (WiFi.status() == WL_CONNECTED) {
+    logln("WiFi verbonden met IP: " + WiFi.localIP().toString());
+    checkForFirmwareUpdate();  // ✅ pas nu
+  } else {
+    logln("WiFi-verbinding mislukt na meerdere pogingen.");
+  }
 
   // Tijd sync
   configTime(0, 0, NTP_SERVER, BACKUP_NTP_SERVER);
