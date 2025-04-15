@@ -23,7 +23,10 @@ void checkForFirmwareUpdate() {
   client->setInsecure();  // accepteert elk certificaat (voor GitHub HTTPS)
 
   HTTPClient http;
-  http.begin(*client, VERSION_URL);
+  String versionUrl = String(VERSION_URL) + "?ts=" + String(millis());
+  http.setFollowRedirects(HTTPC_STRICT_FOLLOW_REDIRECTS);
+  http.begin(*client, versionUrl);
+
 
   int httpCode = http.GET();
   if (httpCode != 200) {
