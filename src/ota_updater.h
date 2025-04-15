@@ -3,8 +3,7 @@
 #include <WiFi.h>
 #include <HTTPClient.h>
 #include <Update.h>
-
-#define BUILD_VERSION "v1.0.0"
+#include "config.h"
 
 const char* VERSION_URL = "https://raw.githubusercontent.com/ronkuijpers/Wordclock/main/version.txt";
 const char* FIRMWARE_URL = "https://github.com/ronkuijpers/Wordclock/releases/latest/download/firmware.bin";
