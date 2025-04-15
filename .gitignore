@@ -4,7 +4,6 @@
 *.bin
 *.eep
 *.map
-*.d/Users/ron/esphome-projects/Wordclock/README.md
 *.o
 *.a
 *.pyc
