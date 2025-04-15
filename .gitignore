@@ -1,0 +1,38 @@
+# Arduino build bestanden
+*.elf
+*.hex
+*.bin
+*.eep
+*.map
+*.d/Users/ron/esphome-projects/Wordclock/README.md
+*.o
+*.a
+*.pyc
+
+# VS Code instellingen (indien gebruikt)
+.vscode/
+
+# MacOS systeembestanden
+.DS_Store
+
+# Windows systeembestanden
+Thumbs.db
+
+# Geheimen en gevoelige data
+secrets.h
+upload_params.ini
+
+# Backup- en tijdelijke bestanden
+*.bak
+*.tmp
+*.swp
+
+# PlatformIO (indien gebruikt)
+.pio/
+
+# Arduino bibliotheken die lokaal in de repo staan
+lib/
+
+# Eventuele logbestanden
+*.log
+
