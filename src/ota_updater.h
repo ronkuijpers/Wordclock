@@ -51,7 +51,7 @@ void checkForFirmwareUpdate() {
       }
 
     } else {
-      Serial.printf("[OTA] Kon firmware niet downloaden (%d)\n", code);
+      logln("[OTA] Kon firmware niet downloaden (%d)\n", code);
     }
 
     http.end();
