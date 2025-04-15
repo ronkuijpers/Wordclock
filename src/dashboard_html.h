@@ -39,6 +39,10 @@ String getDashboardHTML(String logContent) {
     Wordclock Aan/Uit
   </label>
   <br><br>
+  <button onclick="if(confirm('Weet je zeker dat je de klok wilt herstarten?')) location.href='/restart';">
+    Herstart Wordclock
+  </button>
+  <br><br>
   <div><strong>Build versie:</strong> )rawliteral";
   html += BUILD_VERSION;
   html += R"rawliteral(</div>

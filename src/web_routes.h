@@ -45,4 +45,24 @@ void setupWebRoutes() {
     clockEnabled = (state == "on");
     server.send(200, "text/plain", "OK");
   });
+  
+  // Device restart
+  server.on("/restart", []() {
+    logln("⚠️ Herstart via dashboard aangevraagd");
+    server.send(200, "text/html", R"rawliteral(
+      <html>
+        <head>
+          <meta http-equiv='refresh' content='10;url=/' />
+        </head>
+        <body>
+          <h1>Wordclock wordt herstart...</h1>
+          <p>Je wordt over 10 seconden automatisch teruggestuurd naar het dashboard.</p>
+        </body>
+      </html>
+    )rawliteral");
+    delay(100);  // Kleine vertraging om de HTTP-respons te voltooien
+    ESP.restart();
+  });
+  
+  
 }

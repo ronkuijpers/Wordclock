@@ -1,4 +1,3 @@
-#include "network.h"
 #include <WiFiManager.h>
 #include <ArduinoOTA.h>
 #include <WiFiServer.h>
@@ -10,38 +9,41 @@ WiFiClient telnetClient;
 
 void setupNetwork() {
   WiFiManager wm;
+  logln("WiFiManager start verbinding...");
   bool res = wm.autoConnect(AP_NAME);
+
   if (!res) {
-    logln("Kon geen verbinding maken!");
+    logln("❌ Geen WiFi-verbinding. Herstart...");
     ESP.restart();
   }
-  logln("WiFi verbonden!");
-  logln("IP-adres: " + WiFi.localIP().toString());
 
-  // OTA
+  logln("✅ WiFi verbonden met netwerk: " + String(WiFi.SSID()));
+  logln("📡 IP-adres: " + WiFi.localIP().toString());
+
+  // OTA via LAN
   ArduinoOTA.setHostname(CLOCK_NAME);
   ArduinoOTA.setPassword(OTA_PASSWORD);
   ArduinoOTA.setPort(OTA_PORT);
-  ArduinoOTA.onStart([]() { logln("Start OTA-update"); });
-  ArduinoOTA.onEnd([]() { logln("Einde OTA-update"); });
+  ArduinoOTA.onStart([]() { logln("🔄 Start netwerk OTA-update"); });
+  ArduinoOTA.onEnd([]() { logln("✅ OTA-update voltooid"); });
   ArduinoOTA.begin();
-  logln("OTA klaar!");
+  logln("🟢 Netwerk OTA-service actief, wacht op upload");
 
   // Telnet
   telnetServer.begin();
   telnetServer.setNoDelay(true);
-  logln("Telnet-server gestart op poort 23");
+  logln("✅ Telnet-server gestart op poort 23");
 }
 
 void handleTelnet() {
   if (telnetServer.hasClient()) {
     if (!telnetClient || !telnetClient.connected()) {
       telnetClient = telnetServer.available();
-      logln("Nieuwe Telnet client verbonden");
+      logln("🔌 Nieuwe Telnet-client verbonden op " + telnetClient.remoteIP().toString());
       telnetClient.println("✅ Verbonden met Wordclock Telnet log");
     } else {
       WiFiClient extraClient = telnetServer.available();
-      extraClient.stop();
+      extraClient.stop(); // Alleen één client tegelijk
     }
   }
 }
