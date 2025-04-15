@@ -46,7 +46,9 @@ void checkForFirmwareUpdate() {
     firmwareClient->setInsecure();
 
     HTTPClient firmwareHttp;
+    firmwareHttp.setFollowRedirects(HTTPC_STRICT_FOLLOW_REDIRECTS);  // 🔁 automatisch redirects volgen
     firmwareHttp.begin(*firmwareClient, FIRMWARE_URL);
+
 
     int code = firmwareHttp.GET();
     if (code == 200) {
