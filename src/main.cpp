@@ -40,7 +40,7 @@ void setup() {
   }
 
   if (WiFi.status() == WL_CONNECTED) {
-    logln("Verbonden met WiFi. Start firmware check." + WiFi.localIP().toString());
+    logln("Verbonden met WiFi. Start firmware check.");
     checkForFirmwareUpdate();  // ✅ pas nu
   } else {
     logln("WiFi-verbinding niet beschikbaar. Firmware check niet uitgevoerd.");
