@@ -31,7 +31,7 @@ void setup() {
   setupWebRoutes();
   server.begin();
 
-  logln("Verbinden met WiFi...");
+  logln("Controleren op WiFi verbinding");
   int retry = 0;
   while (WiFi.status() != WL_CONNECTED && retry < 20) {
     delay(500);
@@ -40,10 +40,10 @@ void setup() {
   }
 
   if (WiFi.status() == WL_CONNECTED) {
-    logln("WiFi verbonden met IP: " + WiFi.localIP().toString());
+    logln("Verbonden met WiFi. Start firmware check." + WiFi.localIP().toString());
     checkForFirmwareUpdate();  // ✅ pas nu
   } else {
-    logln("WiFi-verbinding mislukt na meerdere pogingen.");
+    logln("WiFi-verbinding niet beschikbaar. Firmware check niet uitgevoerd.");
   }
 
   // Tijd sync
