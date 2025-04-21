@@ -50,6 +50,21 @@ String getDashboardHTML(String logContent) {
   <div><strong>Build versie:</strong> )rawliteral";
   html += BUILD_VERSION;
   html += R"rawliteral(</div>
+  <br><br>
+  <label for="colorPicker">LED kleur:</label>
+  <input type="color" id="colorPicker" name="colorPicker" value="#ffffff">
+
+  <script>
+    const picker = document.getElementById('colorPicker');
+    picker.addEventListener('input', () => {
+      // stuur gekozen hex kleur naar ESP32
+      fetch(`/setColor?color=${picker.value.substring(1)}`)
+        .then(resp => {
+          if (!resp.ok) console.error('Kon kleur niet opslaan');
+        });
+    });
+  </script>
+  <br>
   <pre id='logBox'></pre>
 </body>
 </html>

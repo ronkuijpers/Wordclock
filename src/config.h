@@ -1,6 +1,6 @@
 #pragma once
 
-#define BUILD_VERSION "v0.0.2"
+#define BUILD_VERSION "v0.0.3"
 
 #define NUM_LEDS 114
 #define DATA_PIN 4
@@ -15,5 +15,5 @@
 #define LOG_LEVEL_INFO  2
 #define LOG_LEVEL_ERROR 1
 #define LOG_LEVEL LOG_LEVEL_DEBUG  // of INFO / ERROR
-#define LOG_BUFFER_SIZE 50  // bijvoorbeeld
+#define LOG_BUFFER_SIZE 150  // bijvoorbeeld
 

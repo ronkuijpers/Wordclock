@@ -7,6 +7,7 @@ extern WebServer server;
 extern String logBuffer[];
 extern int logIndex;
 extern bool clockEnabled;
+uint8_t currentR = 0, currentG = 0, currentB = 0, currentW = 255;
 
 // Functie om alle routes te registreren
 void setupWebRoutes() {
@@ -82,6 +83,31 @@ void setupWebRoutes() {
     resetWiFiSettings();
   });
   
+  server.on("/setColor", HTTP_GET, [&]() {
+    if (!server.hasArg("color")) {
+      server.send(400, "text/plain", "Missing color");
+      return;
+    }
+    String hex = server.arg("color");  // "RRGGBB"
+    if (hex.length() != 6) {
+      server.send(400, "text/plain", "Invalid color");
+      return;
+    }
+    long val = strtol(hex.c_str(), nullptr, 16);
+    // Haal RGB uit de hex
+    currentR = (val >> 16) & 0xFF;
+    currentG = (val >> 8)  & 0xFF;
+    currentB =  val        & 0xFF;
+
+    if (currentR==255 && currentG==255 && currentB==255) {
+      currentW = 255;
+      currentR = currentG = currentB = 0;
+    } else {
+      currentW = 0;
+    }
+
+    server.send(200, "text/plain", "OK");
+  });
   
   
 }
