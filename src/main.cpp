@@ -43,22 +43,31 @@ void setup() {
     retry++;
   }
 
-  if (WiFi.status() == WL_CONNECTED) {
-    logln("✅ Verbonden met WiFi. Start firmwarecheck...");
-    checkForFirmwareUpdate();
-  } else {
-    logln("⚠️ Geen WiFi. Firmwarecheck overgeslagen.");
-  }
+  // weer uncommenten als aan de gang met OTA
+  // if (WiFi.status() == WL_CONNECTED) {
+  //   logln("✅ Verbonden met WiFi. Start firmwarecheck...");
+  //   checkForFirmwareUpdate();
+  // } else {
+  //   logln("⚠️ Geen WiFi. Firmwarecheck overgeslagen.");
+  // }
 
   // Tijd synchroniseren via NTP
-  configTime(0, 0, NTP_SERVER, BACKUP_NTP_SERVER);
+  // CET-1CEST,M3.5.0/2,M10.5.0/3 betekent:
+  //   Winter: CET = UTC+1  (CE[T]-1)
+  //   Zomer:  CEST = UTC+2 (CEST)
+  //   Wissel op de laatste zondag van maart om 02:00 en oktober om 03:00
+  configTime("CET-1CEST,M3.5.0/2,M10.5.0/3", NTP_SERVER, BACKUP_NTP_SERVER);
   logln("⌛ Wachten op NTP...");
   struct tm timeinfo;
   while (!getLocalTime(&timeinfo)) {
     log(".");
     delay(500);
   }
-  logln("🕒 Tijd gesynchroniseerd");
+  logln("🕒 Tijd gesynchroniseerd: " +
+    String(timeinfo.tm_mday) + "/" +
+    String(timeinfo.tm_mon+1) + " " +
+    String(timeinfo.tm_hour) + ":" +
+    String(timeinfo.tm_min));
 
   wordclock_setup();
 }
@@ -80,12 +89,12 @@ void loop() {
     }
 
     // Dagelijkse firmwarecheck om 02:00
-    time_t now = time(nullptr);
-    if (timeinfo.tm_hour == 2 && timeinfo.tm_min == 0 && now - lastFirmwareCheck > 3600) {
-      logln("🛠️ Dagelijkse firmwarecheck gestart...");
-      checkForFirmwareUpdate();
-      lastFirmwareCheck = now;
-    }
+    // time_t now = time(nullptr);
+    // if (timeinfo.tm_hour == 2 && timeinfo.tm_min == 0 && now - lastFirmwareCheck > 3600) {
+    //   logln("🛠️ Dagelijkse firmwarecheck gestart...");
+    //   checkForFirmwareUpdate();
+    //   lastFirmwareCheck = now;
+    // }
   }
 
   delay(50); // Laat ruimte over voor andere processen
