@@ -72,7 +72,9 @@ void loop() {
   struct tm timeinfo;
   if (getLocalTime(&timeinfo)) {
     if (timeinfo.tm_min != lastDisplayedMinute) {
-      logln("🔄 Nieuwe minuut: " + String(timeinfo.tm_hour) + ":" + String(timeinfo.tm_min));
+      char buf[9];  // "HH:MM\0"
+      sprintf(buf, "🔄 %02d:%02d", timeinfo.tm_hour, timeinfo.tm_min);
+      logln(String(buf));
       wordclock_loop();
       lastDisplayedMinute = timeinfo.tm_min;
     }

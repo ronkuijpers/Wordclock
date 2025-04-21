@@ -26,6 +26,8 @@ void checkForFirmwareUpdate() {
   String versionUrl = String(VERSION_URL) + "?ts=" + String(millis());
   http.setFollowRedirects(HTTPC_STRICT_FOLLOW_REDIRECTS);
   http.begin(*client, versionUrl);
+  http.addHeader("Cache-Control", "no-cache");
+  http.addHeader("Pragma", "no-cache");
 
 
   int httpCode = http.GET();
