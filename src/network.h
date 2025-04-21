@@ -8,4 +8,7 @@ extern WiFiServer telnetServer;
 extern WiFiClient telnetClient;
 
 void setupNetwork();
+void setupOTA();
+void setupTelnet();
 void handleTelnet();
+void resetWiFiSettings();

@@ -8,9 +8,13 @@ WiFiServer telnetServer(23);
 WiFiClient telnetClient;
 
 void setupNetwork() {
+  WiFi.mode(WIFI_STA);
   WiFiManager wm;
+
+  wm.setConfigPortalTimeout(180);  // optioneel: sluit AP na 3 minuten
+
   logln("WiFiManager start verbinding...");
-  bool res = wm.autoConnect(AP_NAME);
+  bool res = wm.autoConnect(AP_NAME, AP_PASSWORD);
 
   if (!res) {
     logln("❌ Geen WiFi-verbinding. Herstart...");
@@ -19,7 +23,10 @@ void setupNetwork() {
 
   logln("✅ WiFi verbonden met netwerk: " + String(WiFi.SSID()));
   logln("📡 IP-adres: " + WiFi.localIP().toString());
+}
 
+
+void setupOTA() {
   // OTA via LAN
   ArduinoOTA.setHostname(CLOCK_NAME);
   ArduinoOTA.setPassword(OTA_PASSWORD);
@@ -28,7 +35,9 @@ void setupNetwork() {
   ArduinoOTA.onEnd([]() { logln("✅ OTA-update voltooid"); });
   ArduinoOTA.begin();
   logln("🟢 Netwerk OTA-service actief, wacht op upload");
+}
 
+void setupTelnet() {
   // Telnet
   telnetServer.begin();
   telnetServer.setNoDelay(true);
@@ -46,4 +55,12 @@ void handleTelnet() {
       extraClient.stop(); // Alleen één client tegelijk
     }
   }
+}
+
+void resetWiFiSettings() {
+  logln("🔁 WiFiManager instellingen worden gewist...");
+  WiFiManager wm;
+  wm.resetSettings();     // <-- belangrijk
+  delay(500);             // geef de EEPROM even tijd
+  ESP.restart();
 }

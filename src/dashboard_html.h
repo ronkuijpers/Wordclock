@@ -43,6 +43,10 @@ String getDashboardHTML(String logContent) {
     Herstart Wordclock
   </button>
   <br><br>
+  <button onclick="if(confirm('Weet je zeker dat je de WiFi wilt resetten?')) location.href='/resetwifi';">
+  Reset WiFi
+  </button>
+  <br><br>
   <div><strong>Build versie:</strong> )rawliteral";
   html += BUILD_VERSION;
   html += R"rawliteral(</div>

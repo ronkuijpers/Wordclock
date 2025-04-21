@@ -1,5 +1,6 @@
 #pragma once
 #include <WebServer.h>
+#include <network.h>
 
 // Verwijzing naar globale variabelen
 extern WebServer server;
@@ -63,6 +64,24 @@ void setupWebRoutes() {
     delay(100);  // Kleine vertraging om de HTTP-respons te voltooien
     ESP.restart();
   });
+
+  server.on("/resetwifi", []() {
+    logln("⚠️ Reset WiFi via dashboard aangevraagd");
+    server.send(200, "text/html", R"rawliteral(
+      <html>
+        <head>
+          <meta http-equiv='refresh' content='10;url=/' />
+        </head>
+        <body>
+          <h1>WiFi wordt gereset...</h1>
+          <p>WiFi-instellingen worden gewist. Mogelijk moet je opnieuw verbinding maken met het access point 'Wordclock'.</p>
+        </body>
+      </html>
+    )rawliteral");
+    delay(100);  // Kleine vertraging om de HTTP-respons te voltooien
+    resetWiFiSettings();
+  });
+  
   
   
 }
