@@ -4,8 +4,8 @@
 #include "secrets.h"
 #include "log.h"
 
-WiFiServer telnetServer(23);
-WiFiClient telnetClient;
+// WiFiServer telnetServer(23);
+// WiFiClient telnetClient;
 
 void setupNetwork() {
   WiFi.mode(WIFI_STA);
@@ -64,25 +64,25 @@ void setupOTA() {
   logln("🟢 Netwerk OTA-service actief, wacht op upload");
 }
 
-void setupTelnet() {
-  // Telnet
-  telnetServer.begin();
-  telnetServer.setNoDelay(true);
-  logln("✅ Telnet-server gestart op poort 23");
-}
+// void setupTelnet() {
+//   // Telnet
+//   telnetServer.begin();
+//   telnetServer.setNoDelay(true);
+//   logln("✅ Telnet-server gestart op poort 23");
+// }
 
-void handleTelnet() {
-  if (telnetServer.hasClient()) {
-    if (!telnetClient || !telnetClient.connected()) {
-      telnetClient = telnetServer.available();
-      logln("🔌 Nieuwe Telnet-client verbonden op " + telnetClient.remoteIP().toString());
-      telnetClient.println("✅ Verbonden met Wordclock Telnet log");
-    } else {
-      WiFiClient extraClient = telnetServer.available();
-      extraClient.stop(); // Alleen één client tegelijk
-    }
-  }
-}
+// void handleTelnet() {
+//   if (telnetServer.hasClient()) {
+//     if (!telnetClient || !telnetClient.connected()) {
+//       telnetClient = telnetServer.available();
+//       logln("🔌 Nieuwe Telnet-client verbonden op " + telnetClient.remoteIP().toString());
+//       telnetClient.println("✅ Verbonden met Wordclock Telnet log");
+//     } else {
+//       WiFiClient extraClient = telnetServer.available();
+//       extraClient.stop(); // Alleen één client tegelijk
+//     }
+//   }
+// }
 
 void resetWiFiSettings() {
   logln("🔁 WiFiManager instellingen worden gewist...");

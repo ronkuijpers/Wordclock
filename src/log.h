@@ -1,6 +1,6 @@
 #pragma once
 #include <Arduino.h>
-#include "network.h"  // Voor toegang tot telnetClient
+// #include "network.h"  // Voor toegang tot telnetClient
 #include "config.h"
 
 // Basis logfunctie

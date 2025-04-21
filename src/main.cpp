@@ -31,7 +31,7 @@ void setup() {
 
   setupNetwork();             // WiFiManager
   setupOTA();                 // OTA
-  setupTelnet();              // Telnet
+  // setupTelnet();              // Telnet
   setupWebRoutes();           // Dashboard-routes
   server.begin();
 
@@ -52,13 +52,19 @@ void setup() {
   // }
 
   // Tijd synchroniseren via NTP
-  // CET-1CEST,M3.5.0/2,M10.5.0/3 betekent:
-  //   Winter: CET = UTC+1  (CE[T]-1)
-  //   Zomer:  CEST = UTC+2 (CEST)
-  //   Wissel op de laatste zondag van maart om 02:00 en oktober om 03:00
-  configTime("CET-1CEST,M3.5.0/2,M10.5.0/3", NTP_SERVER, BACKUP_NTP_SERVER);
+  configTzTime(
+    "CET-1CEST,M3.5.0/2,M10.5.0/3",  // TZ‑string voor Amsterdam
+    NTP_SERVER,
+    BACKUP_NTP_SERVER
+  );
+  
+  configTzTime("CET-1CEST,M3.5.0/2,M10.5.0/3",
+    NTP_SERVER,
+    BACKUP_NTP_SERVER);
   logln("⌛ Wachten op NTP...");
+  
   struct tm timeinfo;
+  
   while (!getLocalTime(&timeinfo)) {
     log(".");
     delay(500);
@@ -73,7 +79,7 @@ void setup() {
 }
 
 void loop() {
-  handleTelnet();
+  // handleTelnet();
   server.handleClient();
   ArduinoOTA.handle();
 

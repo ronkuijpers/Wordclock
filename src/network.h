@@ -4,11 +4,11 @@
 #include "config.h"
 
 
-extern WiFiServer telnetServer;
-extern WiFiClient telnetClient;
+// extern WiFiServer telnetServer;
+// extern WiFiClient telnetClient;
 
 void setupNetwork();
 void setupOTA();
-void setupTelnet();
-void handleTelnet();
+// void setupTelnet();
+// void handleTelnet();
 void resetWiFiSettings();

@@ -6,9 +6,9 @@ int logIndex = 0;
 void log(String msg, int level) {
   if (level > LOG_LEVEL) return;
 
-  if (telnetClient && telnetClient.connected()) {
-    telnetClient.print(msg);
-  }
+  // if (telnetClient && telnetClient.connected()) {
+  //   telnetClient.print(msg);
+  // }
 
   Serial.print(msg);
 
