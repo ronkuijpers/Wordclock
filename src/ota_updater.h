@@ -3,10 +3,11 @@
 #include <WiFi.h>
 #include <WiFiClientSecure.h>
 #include <HTTPClient.h>
-#include <Update.h>
 #include <ArduinoJson.h>
+#include <Update.h>
 #include "config.h"
 #include "log.h"
+#include "secrets.h"
 
 void checkForFirmwareUpdate() {
   logln("🔍 Checking for new firmware...");
@@ -17,54 +18,56 @@ void checkForFirmwareUpdate() {
     return;
   }
 
-  client->setInsecure(); // Accept all certificates (for GitHub raw)
+  client->setInsecure(); // Accept all certificates (for GitHub etc.)
 
-  HTTPClient versionHttp;
-  versionHttp.begin(*client, VERSION_URL);
+  HTTPClient http;
+  http.begin(*client, VERSION_URL);
+  int httpCode = http.GET();
 
-  int httpCode = versionHttp.GET();
   if (httpCode != HTTP_CODE_OK) {
-    logln("❌ Version check failed: HTTP " + String(httpCode));
-    versionHttp.end();
+    logln("❌ Failed to fetch firmware info: HTTP " + String(httpCode));
+    http.end();
     delete client;
     return;
   }
 
-  String payload = versionHttp.getString();
-  versionHttp.end();
-
-  JsonDocument doc;
-
-  DeserializationError error = deserializeJson(doc, payload);
+  StaticJsonDocument<512> doc;
+  DeserializationError error = deserializeJson(doc, http.getStream());
   if (error) {
-    logln("❌ JSON parse failed: " + String(error.c_str()));
+    logln("❌ Failed to parse firmware info JSON");
+    http.end();
     delete client;
     return;
   }
 
-  String remoteVersion = doc["version"] | "";
-  String firmwareUrl = doc["url"] | FIRMWARE_URL;
-
-  if (remoteVersion == "" || firmwareUrl == "") {
-    logln("❌ Invalid version data in JSON");
-    delete client;
-    return;
-  }
+  String remoteVersion = doc["version"];
+  String firmwareUrl = doc["url"];
+  logln("ℹ️ Remote version: " + remoteVersion);
 
   if (remoteVersion == FIRMWARE_VERSION) {
-    logln("✅ Firmware is up to date (v" + remoteVersion + ")");
+    logln("✅ Already on the latest version (" + String(FIRMWARE_VERSION) + ")");
+    http.end();
     delete client;
     return;
   }
 
-  logln("⬇️ New firmware v" + remoteVersion + " found. Starting OTA...");
+  http.end();
 
+  logln("⬇️ Firmware update available: " + firmwareUrl);
   HTTPClient firmwareHttp;
   firmwareHttp.begin(*client, firmwareUrl);
+  int firmwareCode = firmwareHttp.GET();
 
-  int fwCode = firmwareHttp.GET();
-  if (fwCode != HTTP_CODE_OK) {
-    logln("❌ Firmware download failed: HTTP " + String(fwCode));
+  if (firmwareCode == HTTP_CODE_MOVED_PERMANENTLY || firmwareCode == HTTP_CODE_FOUND) {
+    String newLocation = firmwareHttp.header("Location");
+    logln("🔁 Redirecting to: " + newLocation);
+    firmwareHttp.end();
+    firmwareHttp.begin(*client, newLocation);
+    firmwareCode = firmwareHttp.GET();
+  }
+
+  if (firmwareCode != HTTP_CODE_OK) {
+    logln("❌ Firmware download failed: HTTP " + String(firmwareCode));
     firmwareHttp.end();
     delete client;
     return;
@@ -85,7 +88,7 @@ void checkForFirmwareUpdate() {
     return;
   }
 
-  WiFiClient& stream = firmwareHttp.getStream();
+  WiFiClient &stream = firmwareHttp.getStream();
   size_t written = Update.writeStream(stream);
 
   if (written != contentLength) {

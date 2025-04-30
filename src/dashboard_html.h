@@ -51,6 +51,10 @@ String getDashboardHTML(String logContent) {
   Start LED Sequence
   </button>
   <br><br>
+  <form action="/check_update" method="post">
+  <button type="submit">Check for Update</button>
+  </form>
+  <br><br>
   <div><strong>Build versie:</strong> )rawliteral";
   html += FIRMWARE_VERSION;
   html += R"rawliteral(</div>

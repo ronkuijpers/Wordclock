@@ -5,6 +5,8 @@
 #include "sequence_controller.h"
 #include "led_state.h"
 #include "time_mapper.h"
+#include "ota_updater.h"
+
 
 // Verwijzing naar globale variabelen
 extern WebServer server;
@@ -159,4 +161,10 @@ void setupWebRoutes() {
       }
     }
   });
+
+  server.on("/check_update", HTTP_POST, []() {
+    checkForFirmwareUpdate();
+    server.send(200, "text/html", "<meta http-equiv='refresh' content='2; url=/' /><p>Firmware check initiated. Redirecting...</p>");
+  });
+  
 }
