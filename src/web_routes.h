@@ -166,7 +166,10 @@ void setupWebRoutes() {
     checkForFirmwareUpdate();
     server.send(200, "text/html", "<meta http-equiv='refresh' content='2; url=/' /><p>Firmware check initiated. Redirecting...</p>");
   });
-  
+
+  server.on("/getBrightness", []() {
+    server.send(200, "text/plain", String(ledState.getBrightness()));
+  });  
 
   server.on("/setBrightness", []() {
     if (!server.hasArg("level")) {
