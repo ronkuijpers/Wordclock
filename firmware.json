@@ -1,4 +1,5 @@
 {
     "version": "0.0.4",
-    "firmware": "https://github.com/ronkuijpers/Wordclock/releases/latest/download/firmware.bin"
+    "firmware": "https://github.com/ronkuijpers/Wordclock/releases/latest/download/firmware.bin",
+    "random": "x"
 }

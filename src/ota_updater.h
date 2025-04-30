@@ -18,13 +18,13 @@ void checkForFirmwareUpdate() {
     return;
   }
 
-  client->setInsecure(); // Accept all certificates (for GitHub etc.)
+  client->setInsecure(); // Skip cert validation
 
   HTTPClient http;
   http.begin(*client, VERSION_URL);
   int httpCode = http.GET();
 
-  if (httpCode != HTTP_CODE_OK) {
+  if (httpCode != 200) {
     logln("❌ Failed to fetch firmware info: HTTP " + String(httpCode));
     http.end();
     delete client;
@@ -40,17 +40,16 @@ void checkForFirmwareUpdate() {
     return;
   }
 
-  String remoteVersion = doc["version"];
   if (!doc["firmware"].is<const char*>()) {
     logln("❌ Firmware URL missing or invalid in JSON");
     http.end();
     delete client;
     return;
   }
-  
+
+  String remoteVersion = doc["version"].as<String>();
   String firmwareUrl = doc["firmware"].as<String>();
-  logln("⬇️ Firmware update available: " + firmwareUrl);
-  
+
   logln("ℹ️ Remote version: " + remoteVersion);
 
   if (remoteVersion == FIRMWARE_VERSION) {
@@ -60,14 +59,14 @@ void checkForFirmwareUpdate() {
     return;
   }
 
+  logln("⬇️ Firmware update available: " + firmwareUrl);
   http.end();
 
-  logln("⬇️ Firmware update available: " + firmwareUrl);
   HTTPClient firmwareHttp;
   firmwareHttp.begin(*client, firmwareUrl);
   int firmwareCode = firmwareHttp.GET();
 
-  if (firmwareCode == HTTP_CODE_MOVED_PERMANENTLY || firmwareCode == HTTP_CODE_FOUND) {
+  if (firmwareCode == 301 || firmwareCode == 302) {
     String newLocation = firmwareHttp.header("Location");
     logln("🔁 Redirecting to: " + newLocation);
     firmwareHttp.end();
@@ -75,7 +74,7 @@ void checkForFirmwareUpdate() {
     firmwareCode = firmwareHttp.GET();
   }
 
-  if (firmwareCode != HTTP_CODE_OK) {
+  if (firmwareCode != 200) {
     logln("❌ Firmware download failed: HTTP " + String(firmwareCode));
     firmwareHttp.end();
     delete client;
