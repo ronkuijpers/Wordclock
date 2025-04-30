@@ -1,4 +1,6 @@
 #include "wordclock.h"
+#include "time_mapper.h"
+
 
 void wordclock_setup() {
   initLeds();
@@ -12,18 +14,27 @@ void wordclock_loop() {
     return;
   }
 
-  // TEST: elke oneven LED
-  std::vector<uint16_t> indices;
-  for (uint16_t i = 1; i < NUM_LEDS; i += 2) {
-    indices.push_back(i);
+  struct tm timeinfo;
+  if (!getLocalTime(&timeinfo)) {
+    logln("❌ Kon tijd niet ophalen");
+    return;
   }
+  
+  int currentMinute = timeinfo.tm_min;
+  
+  static int lastDisplayedMinute = -1;
+  if (currentMinute != lastDisplayedMinute) {
+    lastDisplayedMinute = currentMinute;
+  
+    // Bepaal welke LEDs aan moeten
+    std::vector<uint16_t> indices = get_led_indices_for_time(&timeinfo);
+    showLeds(indices);
 
-  // Doorgeven aan de controller
-  showLeds(indices);
-
-  static bool logged = false;
-  if (!logged) {
-    logln("Oneven LEDs opgelicht");
-    logged = true;
+    // Log welke LED-indexen zijn aangezet
+    String ledList = "";
+    for (uint16_t idx : indices) {
+      ledList += String(idx) + ",";
+    }
+    logln(String("LED indices: ") + ledList);
   }
 }

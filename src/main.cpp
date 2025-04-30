@@ -16,6 +16,11 @@
 #include "config.h"
 #include "ota_updater.h"
 
+
+
+
+
+
 bool clockEnabled = true;
 
 // Webserver

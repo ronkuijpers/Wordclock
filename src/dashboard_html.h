@@ -47,6 +47,10 @@ String getDashboardHTML(String logContent) {
   Reset WiFi
   </button>
   <br><br>
+  <button onclick="if(confirm('Sequence starten?')) fetch('/startSequence');">
+  Start LED Sequence
+  </button>
+  <br><br>
   <div><strong>Build versie:</strong> )rawliteral";
   html += BUILD_VERSION;
   html += R"rawliteral(</div>

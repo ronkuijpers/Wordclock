@@ -2,9 +2,9 @@
 
 #define BUILD_VERSION "v0.0.2"
 
-#define NUM_LEDS 114
+#define NUM_LEDS 161
 #define DATA_PIN 4
-#define DEFAULT_BRIGHTNESS 10
+#define DEFAULT_BRIGHTNESS 5
 
 #define CLOCK_NAME "Wordclock"
 #define AP_NAME "Wordclock_AP"

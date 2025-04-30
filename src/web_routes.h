@@ -1,6 +1,8 @@
 #pragma once
 #include <WebServer.h>
 #include <network.h>
+#include "sequence_controller.h"
+
 
 // Verwijzing naar globale variabelen
 extern WebServer server;
@@ -107,6 +109,12 @@ void setupWebRoutes() {
     }
 
     server.send(200, "text/plain", "OK");
+  });
+  
+  server.on("/startSequence", []() {
+    logln("✨ Startup sequence gestart via dashboard");
+    startupSequence();
+    server.send(200, "text/plain", "Startup sequence uitgevoerd");
   });
   
   

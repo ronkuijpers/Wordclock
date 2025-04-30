@@ -1,29 +1,49 @@
-struct WordPosition {
-    const char* word;
-    int indices[10];  // max 10 leds per woord
-  };
-  
-  const WordPosition WORDS[] = {
-    { "HET IS",   { 0, 1, 2, 4, 5 } },
-    { "UUR",   { 6, 7, 8 } },
-    { "VIJF OVER",  { 9, 10, 11, 12, 14, 15, 16, 17 } },
-    { "TIEN OVER", { 18, 19, 20, 21, 23, 24, 25, 26, 27 }},
-    { "KWART OVER", { 28, 29, 30, 31, 32, 34, 35, 36, 37 }},
-    { "VIJF VOOR",  { 38, 39, 40, 41, 43, 44, 45, 46 } },
-    { "TIEN VOOR", { 47, 48, 49, 50, 52, 53, 54, 55 }},
-    { "KWART VOOR", { 56, 57, 58, 59, 60, 62, 63, 64, 65 }},    
-    { "HALF", { 66, 67, 68, 69 }},
-    { "EEN", { 70, 71, 72 }},
-    { "TWEE", { 73, 74, 75, 76 }},
-    { "DRIE", { 77, 78, 79, 80 }},
-    { "VIER", { 81, 82, 83, 84 }},
-    { "VIJF", { 85, 86, 87, 88 }},
-    { "ZES", { 89, 90, 91 }},
-    { "ZEVEN", { 92, 93, 94, 95, 96 }},
-    { "ACHT", { 97, 98, 99, 100 }},
-    { "NEGEN", { 101, 102, 103, 104, 105 }},
-    { "TIEN", { 106, 107, 108, 109 }},
-    { "ELF", { 110, 111, 112 }},
-    { "TWAALF", { 113, 114, 115, 116, 117, 118 }},
-  };
-  
+#include "grid_layout.h"
+
+// De layout van het grid (alleen voor referentie of debugging)
+const char* LETTER_GRID[GRID_HEIGHT] = {
+  "HETBISWYBRC", // 1..11
+  "RTIENMMUHLC", // 26..16
+  "VIJFCWKWART", // 31..41
+  "OVERXTTXLVB", // 56..46
+  "QKEVOORTFIG", // 61..71
+  "DRIEKBZEVEN", // 86..76
+  "VTTIENELNRC", // 91..101
+  "TWAALFSFRSF", // 116..106
+  "EENEGENACHT", // 121..131
+  "XEVIJFJXUUR", // 146..136
+  "..-.-.-.-.."  // 151..161
+};
+
+// De indexen van de 4 extra minuut-leds (na het hoofdgrid)
+const int EXTRA_MINUTE_LEDS[4] = {
+  LED_COUNT_GRID + 7,
+  LED_COUNT_GRID + 9,
+  LED_COUNT_GRID + 11,
+  LED_COUNT_GRID + 13
+};
+
+// Mapping van woorden naar hun LED-posities
+const WordPosition WORDS[WORDS_COUNT] = {
+  { "HET IS",      { 1, 2, 3, 5, 6 } },
+  { "UUR",         { 138, 137, 136 } },
+  { "VIJF OVER",   { 31, 32, 33, 34, 56, 55, 54, 53 } },
+  { "TIEN OVER",   { 25, 24, 23, 22, 56, 55, 54, 53 } },
+  { "KWART OVER",  { 37, 38, 39, 40, 41, 56, 55, 54, 53 } },
+  { "VIJF VOOR",   { 31, 32, 33, 34, 64, 65, 66, 67 } },
+  { "TIEN VOOR",   { 25, 24, 23, 22, 64, 65, 66, 67 } },
+  { "KWART VOOR",  { 37, 38, 39, 40, 41, 64, 65, 66, 67 } },
+  { "HALF",        { 18, 39, 48, 69 } },
+  { "EEN",         { 121, 122, 123 } },
+  { "TWEE",        { 92, 115, 122, 145 } },
+  { "DRIE",        { 86, 85, 84, 83 } },
+  { "VIER",        { 47, 70, 77, 100 } },
+  { "VIJF",        { 144, 143, 142, 141 } },
+  { "ZES",         { 80, 97, 110 } },
+  { "ZEVEN",       { 80, 79, 78, 77, 76 } },
+  { "ACHT",        { 128, 129, 130, 131 } },
+  { "NEGEN",       { 123, 124, 125, 126, 127 } },
+  { "TIEN",        { 93, 94, 95, 96 } },
+  { "ELF",         { 79, 98, 109 } },
+  { "TWAALF",      { 116, 115, 114, 113, 112, 111 } }
+};
