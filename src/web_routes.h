@@ -59,11 +59,11 @@ void setupWebRoutes() {
     server.send(200, "text/html", R"rawliteral(
       <html>
         <head>
-          <meta http-equiv='refresh' content='10;url=/' />
+          <meta http-equiv='refresh' content='3;url=/' />
         </head>
         <body>
           <h1>Wordclock wordt herstart...</h1>
-          <p>Je wordt over 10 seconden automatisch teruggestuurd naar het dashboard.</p>
+          <p>Je wordt over 3 seconden automatisch teruggestuurd naar het dashboard.</p>
         </body>
       </html>
     )rawliteral");

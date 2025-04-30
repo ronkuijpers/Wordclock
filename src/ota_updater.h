@@ -63,16 +63,9 @@ void checkForFirmwareUpdate() {
   http.end();
 
   HTTPClient firmwareHttp;
+  firmwareHttp.setFollowRedirects(HTTPC_STRICT_FOLLOW_REDIRECTS);
   firmwareHttp.begin(*client, firmwareUrl);
   int firmwareCode = firmwareHttp.GET();
-
-  if (firmwareCode == 301 || firmwareCode == 302) {
-    String newLocation = firmwareHttp.header("Location");
-    logln("🔁 Redirecting to: " + newLocation);
-    firmwareHttp.end();
-    firmwareHttp.begin(*client, newLocation);
-    firmwareCode = firmwareHttp.GET();
-  }
 
   if (firmwareCode != 200) {
     logln("❌ Firmware download failed: HTTP " + String(firmwareCode));
