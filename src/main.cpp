@@ -15,13 +15,12 @@
 #include "log.h"
 #include "config.h"
 #include "ota_updater.h"
-
-
-
-
+#include "sequence_controller.h"
 
 
 bool clockEnabled = true;
+StartupSequence startupSequence;
+
 
 // Webserver
 WebServer server(80);
@@ -80,33 +79,45 @@ void setup() {
     String(timeinfo.tm_hour) + ":" +
     String(timeinfo.tm_min));
 
+  ledState.begin();
+
   wordclock_setup();
 }
 
 void loop() {
+  static unsigned long lastLoop = 0;
+  unsigned long now = millis();
+  if (now - lastLoop >= 50) {
+    lastLoop = now;
+
+      // Alleen updaten als de minuut veranderd is
+    struct tm timeinfo;
+    if (getLocalTime(&timeinfo)) {
+      if (timeinfo.tm_min != lastDisplayedMinute) {
+        char buf[20];  // ruim genoeg voor emoji + " HH:MM\0"
+        snprintf(buf, sizeof(buf), "🔄 %02d:%02d", timeinfo.tm_hour, timeinfo.tm_min);
+        logln(String(buf));
+        wordclock_loop();
+        lastDisplayedMinute = timeinfo.tm_min;
+      }
+
+      // Dagelijkse firmwarecheck om 02:00
+      // time_t now = time(nullptr);
+      // if (timeinfo.tm_hour == 2 && timeinfo.tm_min == 0 && now - lastFirmwareCheck > 3600) {
+      //   logln("🛠️ Dagelijkse firmwarecheck gestart...");
+      //   checkForFirmwareUpdate();
+      //   lastFirmwareCheck = now;
+      // }
+    }
+  }
+
   // handleTelnet();
   server.handleClient();
   ArduinoOTA.handle();
 
-  // Alleen updaten als de minuut veranderd is
-  struct tm timeinfo;
-  if (getLocalTime(&timeinfo)) {
-    if (timeinfo.tm_min != lastDisplayedMinute) {
-      char buf[20];  // ruim genoeg voor emoji + " HH:MM\0"
-      snprintf(buf, sizeof(buf), "🔄 %02d:%02d", timeinfo.tm_hour, timeinfo.tm_min);
-      logln(String(buf));
-      wordclock_loop();
-      lastDisplayedMinute = timeinfo.tm_min;
-    }
-
-    // Dagelijkse firmwarecheck om 02:00
-    // time_t now = time(nullptr);
-    // if (timeinfo.tm_hour == 2 && timeinfo.tm_min == 0 && now - lastFirmwareCheck > 3600) {
-    //   logln("🛠️ Dagelijkse firmwarecheck gestart...");
-    //   checkForFirmwareUpdate();
-    //   lastFirmwareCheck = now;
-    // }
+  // Non-blocking startup animation step
+  if (startupSequence.isRunning()) {
+    startupSequence.update();
   }
 
-  delay(50); // Laat ruimte over voor andere processen
 }

@@ -2,14 +2,14 @@
 #include <WebServer.h>
 #include <network.h>
 #include "sequence_controller.h"
-
+#include "led_state.h"
+#include "time_mapper.h"
 
 // Verwijzing naar globale variabelen
 extern WebServer server;
 extern String logBuffer[];
 extern int logIndex;
 extern bool clockEnabled;
-uint8_t currentR = 0, currentG = 0, currentB = 0, currentW = 255;
 
 // Functie om alle routes te registreren
 void setupWebRoutes() {
@@ -85,7 +85,7 @@ void setupWebRoutes() {
     resetWiFiSettings();
   });
   
-  server.on("/setColor", HTTP_GET, [&]() {
+  server.on("/setColor", HTTP_GET, []() {
     if (!server.hasArg("color")) {
       server.send(400, "text/plain", "Missing color");
       return;
@@ -95,25 +95,29 @@ void setupWebRoutes() {
       server.send(400, "text/plain", "Invalid color");
       return;
     }
+  
     long val = strtol(hex.c_str(), nullptr, 16);
-    // Haal RGB uit de hex
-    currentR = (val >> 16) & 0xFF;
-    currentG = (val >> 8)  & 0xFF;
-    currentB =  val        & 0xFF;
-
-    if (currentR==255 && currentG==255 && currentB==255) {
-      currentW = 255;
-      currentR = currentG = currentB = 0;
-    } else {
-      currentW = 0;
+    uint8_t r = (val >> 16) & 0xFF;
+    uint8_t g = (val >> 8) & 0xFF;
+    uint8_t b =  val       & 0xFF;
+  
+    ledState.setRGB(r, g, b);
+  
+    // Refresh display immediately with new color
+    struct tm timeinfo;
+    if (getLocalTime(&timeinfo)) {
+      std::vector<uint16_t> indices = get_led_indices_for_time(&timeinfo);
+      showLeds(indices);
     }
-
+  
     server.send(200, "text/plain", "OK");
   });
   
+  
   server.on("/startSequence", []() {
     logln("✨ Startup sequence gestart via dashboard");
-    startupSequence();
+    extern StartupSequence startupSequence;
+    startupSequence.start();
     server.send(200, "text/plain", "Startup sequence uitgevoerd");
   });
   
