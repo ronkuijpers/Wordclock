@@ -31,7 +31,7 @@ void checkForFirmwareUpdate() {
     return;
   }
 
-  StaticJsonDocument<512> doc;
+  JsonDocument doc;
   DeserializationError error = deserializeJson(doc, http.getStream());
   if (error) {
     logln("❌ Failed to parse firmware info JSON");
@@ -41,7 +41,16 @@ void checkForFirmwareUpdate() {
   }
 
   String remoteVersion = doc["version"];
-  String firmwareUrl = doc["url"];
+  if (!doc["firmware"].is<const char*>()) {
+    logln("❌ Firmware URL missing or invalid in JSON");
+    http.end();
+    delete client;
+    return;
+  }
+  
+  String firmwareUrl = doc["firmware"].as<String>();
+  logln("⬇️ Firmware update available: " + firmwareUrl);
+  
   logln("ℹ️ Remote version: " + remoteVersion);
 
   if (remoteVersion == FIRMWARE_VERSION) {
