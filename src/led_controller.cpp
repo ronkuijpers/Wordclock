@@ -1,16 +1,15 @@
 #include "led_controller.h"
 #include "config.h"
 #include "log.h"
+#include "led_state.h"
+
 
 // Instantie van de NeoPixel-strip
 static Adafruit_NeoPixel strip(NUM_LEDS, DATA_PIN, NEO_GRBW + NEO_KHZ800);
 
-// Externe kleurvariabelen
-extern uint8_t currentR, currentG, currentB, currentW;
-
 void initLeds() {
     strip.begin();
-    strip.setBrightness(DEFAULT_BRIGHTNESS);
+    strip.setBrightness(ledState.getBrightness());
     strip.clear();
     strip.show();
 }
@@ -20,11 +19,9 @@ void showLeds(const std::vector<uint16_t> &ledIndices) {
     for (uint16_t idx : ledIndices) {
       if (idx < strip.numPixels()) {
         // Gebruik de berekende RGB én W
-        strip.setPixelColor(idx,
-          strip.Color(currentR,
-                      currentG,
-                      currentB,
-                      currentW));
+        uint8_t r, g, b, w;
+        ledState.getRGBW(r, g, b, w);
+        strip.setPixelColor(idx, strip.Color(r, g, b, w));
       }
     }
     strip.show();

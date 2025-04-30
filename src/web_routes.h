@@ -1,6 +1,7 @@
 #pragma once
 #include <WebServer.h>
 #include <network.h>
+#include <Update.h>
 #include "sequence_controller.h"
 #include "led_state.h"
 #include "time_mapper.h"
@@ -121,5 +122,41 @@ void setupWebRoutes() {
     server.send(200, "text/plain", "Startup sequence uitgevoerd");
   });
   
+  server.on("/uploadFirmware", HTTP_POST, []() {
+    // Start the firmware upload process
+    HTTPUpload& upload = server.upload();
   
+    if (upload.status == UPLOAD_FILE_START) {
+      String filename = upload.filename;
+      if (!filename.endsWith(".bin")) {
+        server.send(400, "text/plain", "Invalid file format");
+        return;
+      }
+  
+      // Start the firmware update process
+      if (!Update.begin(UPDATE_SIZE_UNKNOWN)) {
+        server.send(500, "text/plain", "Failed to start firmware update");
+        return;
+      }
+  
+      logln("Starting firmware update...");
+    }
+    else if (upload.status == UPLOAD_FILE_WRITE) {
+      // Write the uploaded data to flash memory
+      if (Update.write(upload.buf, upload.currentSize) != upload.currentSize) {
+        server.send(500, "text/plain", "Failed to write firmware data");
+        return;
+      }
+    }
+    else if (upload.status == UPLOAD_FILE_END) {
+      // Finalize the firmware update
+      if (Update.end(true)) {
+        server.send(200, "text/plain", "Firmware update successful. Restarting...");
+        delay(1000);
+        ESP.restart();
+      } else {
+        server.send(500, "text/plain", "Firmware update failed");
+      }
+    }
+  });
 }

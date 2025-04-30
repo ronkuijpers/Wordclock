@@ -70,6 +70,13 @@ String getDashboardHTML(String logContent) {
   </script>
   <br>
   <pre id='logBox'></pre>
+  <h2>Upload New Firmware</h2>
+  <form action="/uploadFirmware" method="POST" enctype="multipart/form-data">
+    <label for="firmwareFile">Choose Firmware File:</label>
+    <input type="file" id="firmwareFile" name="firmwareFile" accept=".bin" required>
+    <br><br>
+    <button type="submit">Upload</button>
+  </form>
 </body>
 </html>
 )rawliteral";
