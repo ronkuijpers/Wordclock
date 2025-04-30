@@ -45,15 +45,6 @@ String getDashboardHTML(String logContent) {
         })
         .catch(err => console.error("Fout:", err));
     }
-    
-    const picker = document.getElementById('colorPicker');
-    picker.addEventListener('input', () => {
-      // stuur gekozen hex kleur naar ESP32
-      fetch(`/setColor?color=${picker.value.substring(1)}`)
-        .then(resp => {
-          if (!resp.ok) console.error('Kon kleur niet opslaan');
-        });
-    });
 
     function updateBrightness(val) {
       document.getElementById("brightnessValue").innerText = val;
@@ -61,6 +52,7 @@ String getDashboardHTML(String logContent) {
     }
 
     window.addEventListener('DOMContentLoaded', () => {
+      // ⬇️ Synchroniseer helderheid
       fetch('/getBrightness')
         .then(resp => resp.text())
         .then(val => {
@@ -68,6 +60,15 @@ String getDashboardHTML(String logContent) {
           document.getElementById("brightnessValue").innerText = val;
         })
         .catch(err => console.error("Kan helderheid niet ophalen:", err));
+
+      // ⬇️ Kleurkiezer eventlistener pas NA DOM geladen
+      const picker = document.getElementById('colorPicker');
+      picker.addEventListener('input', () => {
+        fetch(`/setColor?color=${picker.value.substring(1)}`)
+          .then(resp => {
+            if (!resp.ok) console.error('Kon kleur niet opslaan');
+          });
+      });
     });
 
     setInterval(updateStatusAndLog, 2000);
@@ -104,6 +105,7 @@ String getDashboardHTML(String logContent) {
   <input type="color" id="colorPicker" name="colorPicker" value="#ffffff">
   <br><br>
   <label for="brightnessSlider">Helderheid: <span id="brightnessValue">?</span></label>
+  <br>
   <input type="range" id="brightnessSlider" min="0" max="255" value="128" oninput="updateBrightness(this.value)">
   <br><br>
   <pre id='logBox'></pre>
