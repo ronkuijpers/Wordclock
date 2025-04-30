@@ -47,24 +47,15 @@ void setup() {
     retry++;
   }
 
-  // weer uncommenten als aan de gang met OTA
-  // if (WiFi.status() == WL_CONNECTED) {
-  //   logln("✅ Verbonden met WiFi. Start firmwarecheck...");
-  //   checkForFirmwareUpdate();
-  // } else {
-  //   logln("⚠️ Geen WiFi. Firmwarecheck overgeslagen.");
-  // }
+  if (WiFi.status() == WL_CONNECTED) {
+    logln("✅ Verbonden met WiFi. Start firmwarecheck...");
+    checkForFirmwareUpdate();
+  } else {
+    logln("⚠️ Geen WiFi. Firmwarecheck overgeslagen.");
+  }
 
   // Tijd synchroniseren via NTP
-  configTzTime(
-    "CET-1CEST,M3.5.0/2,M10.5.0/3",  // TZ‑string voor Amsterdam
-    NTP_SERVER,
-    BACKUP_NTP_SERVER
-  );
-  
-  configTzTime("CET-1CEST,M3.5.0/2,M10.5.0/3",
-    NTP_SERVER,
-    BACKUP_NTP_SERVER);
+  configTzTime(TZ_INFO, NTP_SERVER1, NTP_SERVER2);
   logln("⌛ Wachten op NTP...");
   
   struct tm timeinfo;
@@ -80,7 +71,7 @@ void setup() {
     String(timeinfo.tm_min));
 
   ledState.begin();
-
+  initWordMap();
   wordclock_setup();
 }
 
@@ -90,7 +81,7 @@ void loop() {
   if (now - lastLoop >= 50) {
     lastLoop = now;
 
-      // Alleen updaten als de minuut veranderd is
+    // Alleen updaten als de minuut veranderd is
     struct tm timeinfo;
     if (getLocalTime(&timeinfo)) {
       if (timeinfo.tm_min != lastDisplayedMinute) {
@@ -102,12 +93,12 @@ void loop() {
       }
 
       // Dagelijkse firmwarecheck om 02:00
-      // time_t now = time(nullptr);
-      // if (timeinfo.tm_hour == 2 && timeinfo.tm_min == 0 && now - lastFirmwareCheck > 3600) {
-      //   logln("🛠️ Dagelijkse firmwarecheck gestart...");
-      //   checkForFirmwareUpdate();
-      //   lastFirmwareCheck = now;
-      // }
+      time_t nowEpoch = time(nullptr);
+      if (timeinfo.tm_hour == 2 && timeinfo.tm_min == 0 && nowEpoch - lastFirmwareCheck > 3600) {
+        logln("🛠️ Dagelijkse firmwarecheck gestart...");
+        checkForFirmwareUpdate();
+        lastFirmwareCheck = nowEpoch;
+      }
     }
   }
 

@@ -1,4 +1,16 @@
 #include "grid_layout.h"
+#include <unordered_map>
+#include <string>
+#include <Arduino.h>
+
+
+std::unordered_map<std::string, const WordPosition*> wordMap;
+
+void initWordMap() {
+  for (int i = 0; i < WORDS_COUNT; ++i) {
+    wordMap[std::string(WORDS[i].word)] = &WORDS[i];
+  }
+}
 
 // De layout van het grid (alleen voor referentie of debugging)
 const char* LETTER_GRID[GRID_HEIGHT] = {

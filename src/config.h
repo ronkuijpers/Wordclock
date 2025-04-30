@@ -9,8 +9,13 @@
 #define CLOCK_NAME "Wordclock"
 #define AP_NAME "Wordclock_AP"
 #define OTA_PORT 3232
-#define NTP_SERVER "pool.ntp.org"
-#define BACKUP_NTP_SERVER "time.nist.gov"
+
+// Time
+#define TZ_INFO "CET-1CEST,M3.5.0/2,M10.5.0/3"
+#define NTP_SERVER1 "pool.ntp.org"
+#define NTP_SERVER2 "time.nist.gov"
+
+// Logging
 #define LOG_LEVEL_DEBUG 3
 #define LOG_LEVEL_INFO  2
 #define LOG_LEVEL_ERROR 1

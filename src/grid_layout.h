@@ -1,5 +1,8 @@
 #pragma once
 
+#include <unordered_map>
+#include <string>
+#include <Arduino.h>
 #include "wordposition.h"
 
 // Afmetingen van het lettergrid
@@ -16,3 +19,6 @@ constexpr int WORDS_COUNT = 21;
 extern const WordPosition WORDS[WORDS_COUNT];
 extern const char* LETTER_GRID[GRID_HEIGHT];
 extern const int EXTRA_MINUTE_LEDS[4];
+
+extern std::unordered_map<std::string, const WordPosition*> wordMap;
+void initWordMap();

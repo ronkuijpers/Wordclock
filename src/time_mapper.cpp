@@ -6,18 +6,15 @@
 #include "log.h"
 #include "wordposition.h"
 #include "time_mapper.h"
+#include "grid_layout.h"
 
-
-// Helper: maps a word string to its LED indices
 std::vector<uint16_t> get_leds_for_word(const char* word) {
   std::vector<uint16_t> result;
-  for (int i = 0; i < WORDS_COUNT; ++i) {
-    const auto& w = WORDS[i];
-    if (strcmp(w.word, word) == 0) {
-      for (int i = 0; i < 10 && w.indices[i] != 0; ++i) {
-        result.push_back(w.indices[i]);
-      }
-      break;
+  auto it = wordMap.find(std::string(word));
+  if (it != wordMap.end()) {
+    const WordPosition* w = it->second;
+    for (int i = 0; i < 20 && w->indices[i] != 0; ++i) {
+      result.push_back(w->indices[i]);
     }
   }
   return result;
