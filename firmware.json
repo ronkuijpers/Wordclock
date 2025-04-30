@@ -1,4 +1,4 @@
 {
-    "version": "0.0.2",
-    "firmware": "https://your-server.com/firmware.bin"
+    "version": "0.0.3",
+    "firmware": "https://github.com/ronkuijpers/Wordclock/releases/latest/download/firmware.bin"
 }

@@ -52,7 +52,7 @@ String getDashboardHTML(String logContent) {
   </button>
   <br><br>
   <div><strong>Build versie:</strong> )rawliteral";
-  html += BUILD_VERSION;
+  html += FIRMWARE_VERSION;
   html += R"rawliteral(</div>
   <br><br>
   <label for="colorPicker">LED kleur:</label>

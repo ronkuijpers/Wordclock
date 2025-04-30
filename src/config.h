@@ -1,6 +1,6 @@
 #pragma once
 
-#define BUILD_VERSION "v0.0.2"
+#define FIRMWARE_VERSION "0.0.2"
 
 #define NUM_LEDS 161
 #define DATA_PIN 4

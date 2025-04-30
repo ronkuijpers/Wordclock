@@ -4,11 +4,9 @@
 #include <WiFiClientSecure.h>
 #include <HTTPClient.h>
 #include <Update.h>
+#include <ArduinoJson.h>
 #include "config.h"
 #include "log.h"
-
-const char* VERSION_URL = "https://raw.githubusercontent.com/ronkuijpers/Wordclock/main/version.txt";
-const char* FIRMWARE_URL = "https://github.com/ronkuijpers/Wordclock/releases/latest/download/firmware.bin";
 
 void checkForFirmwareUpdate() {
   logln("🔍 Checking for new firmware...");
@@ -19,14 +17,54 @@ void checkForFirmwareUpdate() {
     return;
   }
 
-  client->setInsecure(); // Accept all certificates (useful for self-signed)
+  client->setInsecure(); // Accept all certificates (for GitHub raw)
+
+  HTTPClient versionHttp;
+  versionHttp.begin(*client, VERSION_URL);
+
+  int httpCode = versionHttp.GET();
+  if (httpCode != HTTP_CODE_OK) {
+    logln("❌ Version check failed: HTTP " + String(httpCode));
+    versionHttp.end();
+    delete client;
+    return;
+  }
+
+  String payload = versionHttp.getString();
+  versionHttp.end();
+
+  JsonDocument doc;
+
+  DeserializationError error = deserializeJson(doc, payload);
+  if (error) {
+    logln("❌ JSON parse failed: " + String(error.c_str()));
+    delete client;
+    return;
+  }
+
+  String remoteVersion = doc["version"] | "";
+  String firmwareUrl = doc["url"] | FIRMWARE_URL;
+
+  if (remoteVersion == "" || firmwareUrl == "") {
+    logln("❌ Invalid version data in JSON");
+    delete client;
+    return;
+  }
+
+  if (remoteVersion == FIRMWARE_VERSION) {
+    logln("✅ Firmware is up to date (v" + remoteVersion + ")");
+    delete client;
+    return;
+  }
+
+  logln("⬇️ New firmware v" + remoteVersion + " found. Starting OTA...");
 
   HTTPClient firmwareHttp;
-  firmwareHttp.begin(*client, OTA_UPDATE_URL);
+  firmwareHttp.begin(*client, firmwareUrl);
 
-  int httpCode = firmwareHttp.GET();
-  if (httpCode != HTTP_CODE_OK) {
-    logln("❌ Firmware check failed: HTTP " + String(httpCode));
+  int fwCode = firmwareHttp.GET();
+  if (fwCode != HTTP_CODE_OK) {
+    logln("❌ Firmware download failed: HTTP " + String(fwCode));
     firmwareHttp.end();
     delete client;
     return;
@@ -39,8 +77,6 @@ void checkForFirmwareUpdate() {
     delete client;
     return;
   }
-
-  logln("⬇️ Starting OTA update (" + String(contentLength) + " bytes)");
 
   if (!Update.begin(contentLength)) {
     logln("❌ Update.begin() failed");
@@ -79,78 +115,3 @@ void checkForFirmwareUpdate() {
     delete client;
   }
 }
-
-
-// void checkForFirmwareUpdate() {
-//   logln("[OTA] Controle op nieuwe firmware...");
-
-//   if (WiFi.status() != WL_CONNECTED) {
-//     logln("[OTA] Geen WiFi-verbinding, update afgebroken.");
-//     return;
-//   }
-
-//   // 🔐 Maak een veilige verbinding die geen certificaten eist
-//   WiFiClientSecure *client = new WiFiClientSecure;
-//   client->setInsecure();  // accepteert elk certificaat (voor GitHub HTTPS)
-
-//   HTTPClient http;
-//   String versionUrl = String(VERSION_URL) + "?ts=" + String(millis());
-//   http.setFollowRedirects(HTTPC_STRICT_FOLLOW_REDIRECTS);
-//   http.begin(*client, versionUrl);
-//   http.addHeader("Cache-Control", "no-cache");
-//   http.addHeader("Pragma", "no-cache");
-
-
-//   int httpCode = http.GET();
-//   if (httpCode != 200) {
-//     logln("[OTA] Fout bij ophalen versie: " + String(httpCode));
-//     http.end();
-//     return;
-//   }
-
-//   String remoteVersion = http.getString();
-//   remoteVersion.trim();
-//   logln("[OTA] Huidige versie: " + String(BUILD_VERSION) + " | Beschikbaar: " + remoteVersion);
-
-//   http.end();  // sluit versie-check
-
-//   if (remoteVersion != BUILD_VERSION) {
-//     logln("[OTA] Nieuwe firmware gevonden, update wordt uitgevoerd...");
-
-//     // 🔁 Hergebruik een nieuwe client voor de download
-//     WiFiClientSecure *firmwareClient = new WiFiClientSecure;
-//     firmwareClient->setInsecure();
-
-//     HTTPClient firmwareHttp;
-//     firmwareHttp.setFollowRedirects(HTTPC_STRICT_FOLLOW_REDIRECTS);  // 🔁 automatisch redirects volgen
-//     firmwareHttp.begin(*firmwareClient, FIRMWARE_URL);
-
-
-//     int code = firmwareHttp.GET();
-//     if (code == 200) {
-//       int len = firmwareHttp.getSize();
-//       WiFiClient* stream = firmwareHttp.getStreamPtr();
-
-//       if (!Update.begin(len)) {
-//         logln("[OTA] Update.begin() mislukt");
-//         return;
-//       }
-
-//       size_t written = Update.writeStream(*stream);
-//       if (written == len && Update.end() && Update.isFinished()) {
-//         logln("[OTA] Update geslaagd. Herstart...");
-//         delay(1000);
-//         ESP.restart();
-//       } else {
-//         logln("[OTA] Update mislukt tijdens schrijven of afronden");
-//       }
-
-//     } else {
-//       logln("[OTA] Kon firmware niet downloaden. HTTP code: " + String(code));
-//     }
-
-//     firmwareHttp.end();
-//   } else {
-//     logln("[OTA] Firmware is up-to-date.");
-//   }
-// }
