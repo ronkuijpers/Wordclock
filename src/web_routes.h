@@ -162,9 +162,10 @@ void setupWebRoutes() {
     }
   });
 
-  server.on("/check_update", HTTP_POST, []() {
+  server.on("/checkForUpdate", HTTP_ANY, []() {
+    server.send(200, "text/plain", "Firmware update gestart");
+    delay(100);
     checkForFirmwareUpdate();
-    server.send(200, "text/html", "<meta http-equiv='refresh' content='2; url=/' /><p>Firmware check initiated. Redirecting...</p>");
   });
 
   server.on("/getBrightness", []() {
