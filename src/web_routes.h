@@ -167,4 +167,25 @@ void setupWebRoutes() {
     server.send(200, "text/html", "<meta http-equiv='refresh' content='2; url=/' /><p>Firmware check initiated. Redirecting...</p>");
   });
   
+
+  server.on("/setBrightness", []() {
+    if (!server.hasArg("level")) {
+      server.send(400, "text/plain", "Missing brightness level");
+      return;
+    }
+  
+    int level = server.arg("level").toInt();
+    level = constrain(level, 0, 255);
+    ledState.setBrightness(level);
+  
+    // Toepassen op actieve leds
+    struct tm timeinfo;
+    if (getLocalTime(&timeinfo)) {
+      auto indices = get_led_indices_for_time(&timeinfo);
+      showLeds(indices);  // gebruikt actuele kleur + nieuwe helderheid
+    }
+  
+    server.send(200, "text/plain", "OK");
+  });
+  
 }

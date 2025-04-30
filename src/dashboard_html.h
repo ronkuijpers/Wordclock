@@ -72,7 +72,15 @@ String getDashboardHTML(String logContent) {
         });
     });
   </script>
-  <br>
+  <br><br>
+  <label for="brightnessSlider">Helderheid:</label>
+  <input type="range" id="brightnessSlider" min="0" max="255" value="128" oninput="updateBrightness(this.value)">
+  <script>
+    function updateBrightness(val) {
+      fetch(`/setBrightness?level=${val}`);
+    }
+  </script>
+  <br><br>
   <pre id='logBox'></pre>
   <h2>Upload New Firmware</h2>
   <form action="/uploadFirmware" method="POST" enctype="multipart/form-data">

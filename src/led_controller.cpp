@@ -15,15 +15,16 @@ void initLeds() {
 }
 
 void showLeds(const std::vector<uint16_t> &ledIndices) {
-    strip.clear();
-    for (uint16_t idx : ledIndices) {
-      if (idx < strip.numPixels()) {
-        // Gebruik de berekende RGB én W
-        uint8_t r, g, b, w;
-        ledState.getRGBW(r, g, b, w);
-        strip.setPixelColor(idx, strip.Color(r, g, b, w));
-      }
+  strip.clear();
+  for (uint16_t idx : ledIndices) {
+    if (idx < strip.numPixels()) {
+      // Gebruik de berekende RGB én W
+      uint8_t r, g, b, w;
+      ledState.getRGBW(r, g, b, w);
+      strip.setPixelColor(idx, strip.Color(r, g, b, w));
     }
-    strip.show();
   }
+  strip.setBrightness(ledState.getBrightness());
+  strip.show();
+}
 

@@ -1,8 +1,11 @@
 #include "wordclock.h"
 #include "time_mapper.h"
+#include "led_state.h"
+
 
 
 void wordclock_setup() {
+  ledState.begin();
   initLeds();
   logln("Wordclock setup complete");
 }
