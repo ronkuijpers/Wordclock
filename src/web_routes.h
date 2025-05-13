@@ -124,43 +124,42 @@ void setupWebRoutes() {
     server.send(200, "text/plain", "Startup sequence uitgevoerd");
   });
   
-  server.on("/uploadFirmware", HTTP_POST, []() {
-    // Start the firmware upload process
-    HTTPUpload& upload = server.upload();
-  
-    if (upload.status == UPLOAD_FILE_START) {
-      String filename = upload.filename;
-      if (!filename.endsWith(".bin")) {
-        server.send(400, "text/plain", "Invalid file format");
-        return;
-      }
-  
-      // Start the firmware update process
-      if (!Update.begin(UPDATE_SIZE_UNKNOWN)) {
-        server.send(500, "text/plain", "Failed to start firmware update");
-        return;
-      }
-  
-      logln("Starting firmware update...");
-    }
-    else if (upload.status == UPLOAD_FILE_WRITE) {
-      // Write the uploaded data to flash memory
-      if (Update.write(upload.buf, upload.currentSize) != upload.currentSize) {
-        server.send(500, "text/plain", "Failed to write firmware data");
-        return;
-      }
-    }
-    else if (upload.status == UPLOAD_FILE_END) {
-      // Finalize the firmware update
-      if (Update.end(true)) {
-        server.send(200, "text/plain", "Firmware update successful. Restarting...");
+  server.on(
+    "/uploadFirmware",
+    HTTP_POST,
+    []() {
+      server.send(200, "text/plain", Update.hasError() ? "Firmware update failed" : "Firmware update successful. Rebooting...");
+      if (!Update.hasError()) {
         delay(1000);
         ESP.restart();
-      } else {
-        server.send(500, "text/plain", "Firmware update failed");
+      }
+    },
+    []() {
+      HTTPUpload& upload = server.upload();
+  
+      if (upload.status == UPLOAD_FILE_START) {
+        logln("📂 Start upload: " + upload.filename);
+        if (!Update.begin(UPDATE_SIZE_UNKNOWN)) {
+          logln("❌ Update.begin() mislukt");
+          Update.printError(Serial);
+        }
+      } else if (upload.status == UPLOAD_FILE_WRITE) {
+        size_t written = Update.write(upload.buf, upload.currentSize);
+        if (written != upload.currentSize) {
+          logln("❌ Fout bij schrijven chunk");
+          Update.printError(Serial);
+        } else {
+          logln("✏️ Geschreven: " + String(written) + " bytes");
+        }
+      } else if (upload.status == UPLOAD_FILE_END) {
+        logln("📥 Upload voltooid: totaal " + String(Update.size()) + " bytes");
+        if (!Update.end(true)) {
+          logln("❌ Update.end() mislukt");
+          Update.printError(Serial);
+        }
       }
     }
-  });
+  );  
 
   server.on("/checkForUpdate", HTTP_ANY, []() {
     server.send(200, "text/plain", "Firmware update gestart");
