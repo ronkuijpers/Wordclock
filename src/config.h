@@ -19,6 +19,6 @@
 #define LOG_LEVEL_DEBUG 3
 #define LOG_LEVEL_INFO  2
 #define LOG_LEVEL_ERROR 1
-#define LOG_LEVEL LOG_LEVEL_DEBUG  // of INFO / ERROR
-#define LOG_BUFFER_SIZE 150  // bijvoorbeeld
+#define LOG_LEVEL LOG_LEVEL_DEBUG  // or INFO / ERROR
+#define LOG_BUFFER_SIZE 150  // for example
 

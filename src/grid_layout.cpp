@@ -12,7 +12,7 @@ void initWordMap() {
   }
 }
 
-// De layout van het grid (alleen voor referentie of debugging)
+// The grid layout (for reference or debugging only)
 const char* LETTER_GRID[GRID_HEIGHT] = {
   "HETBISWYBRC", // 1..11
   "RTIENMMUHLC", // 26..16
@@ -27,7 +27,7 @@ const char* LETTER_GRID[GRID_HEIGHT] = {
   "..-.-.-.-.."  // 151..161
 };
 
-// De indexen van de 4 extra minuut-leds (na het hoofdgrid)
+// The indices of the four extra minute LEDs (after the main grid)
 const int EXTRA_MINUTE_LEDS[4] = {
   LED_COUNT_GRID + 7,
   LED_COUNT_GRID + 9,
@@ -35,7 +35,7 @@ const int EXTRA_MINUTE_LEDS[4] = {
   LED_COUNT_GRID + 13
 };
 
-// Mapping van woorden naar hun LED-posities
+// Mapping of words to their LED positions
 const WordPosition WORDS[WORDS_COUNT] = {
   { "HET IS",      { 1, 2, 3, 5, 6 } },
   { "UUR",         { 138, 137, 136 } },

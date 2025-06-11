@@ -33,9 +33,9 @@ String getDashboardHTML(String logContent) {
         .then(response => {
           if (response.ok) {
             console.log("Update started...");
-            // Geef gebruiker feedback:
+            // Provide user feedback:
             document.getElementById("status").innerText = "Update gestart. ESP herstart...";
-            // Wacht 10 seconden en probeer dan opnieuw te laden
+            // Wait 10 seconds and then try again
             setTimeout(() => {
               location.reload();
             }, 10000);
@@ -52,7 +52,7 @@ String getDashboardHTML(String logContent) {
     }
 
     window.addEventListener('DOMContentLoaded', () => {
-      // ⬇️ Synchroniseer helderheid
+      // ⬇️ Sync brightness
       fetch('/getBrightness')
         .then(resp => resp.text())
         .then(val => {
@@ -61,7 +61,7 @@ String getDashboardHTML(String logContent) {
         })
         .catch(err => console.error("Kan helderheid niet ophalen:", err));
 
-      // ⬇️ Kleurkiezer eventlistener pas NA DOM geladen
+      // ⬇️ Color picker event listener after DOM loaded
       const picker = document.getElementById('colorPicker');
       picker.addEventListener('input', () => {
         fetch(`/setColor?color=${picker.value.substring(1)}`)

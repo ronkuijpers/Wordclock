@@ -8,15 +8,15 @@
 #include "ota_updater.h"
 
 
-// Verwijzing naar globale variabelen
+// References to global variables
 extern WebServer server;
 extern String logBuffer[];
 extern int logIndex;
 extern bool clockEnabled;
 
-// Functie om alle routes te registreren
+// Function to register all routes
 void setupWebRoutes() {
-  // Hoofdpagina
+  // Main page
   server.on("/", []() {
     extern String getDashboardHTML(String logContent);
     String logContent = "";
@@ -29,7 +29,7 @@ void setupWebRoutes() {
     server.send(200, "text/html", getDashboardHTML(logContent));
   });
 
-  // Log ophalen
+  // Fetch log
   server.on("/log", []() {
     String logContent = "";
     int i = logIndex;
@@ -41,12 +41,12 @@ void setupWebRoutes() {
     server.send(200, "text/plain", logContent);
   });
 
-  // Status opvragen
+  // Get status
   server.on("/status", []() {
     server.send(200, "text/plain", clockEnabled ? "on" : "off");
   });
 
-  // Aan/uit zetten
+  // Turn on/off
   server.on("/toggle", []() {
     String state = server.arg("state");
     clockEnabled = (state == "on");
@@ -67,7 +67,7 @@ void setupWebRoutes() {
         </body>
       </html>
     )rawliteral");
-    delay(100);  // Kleine vertraging om de HTTP-respons te voltooien
+    delay(100);  // Small delay to finish the HTTP response
     ESP.restart();
   });
 
@@ -84,7 +84,7 @@ void setupWebRoutes() {
         </body>
       </html>
     )rawliteral");
-    delay(100);  // Kleine vertraging om de HTTP-respons te voltooien
+    delay(100);  // Small delay to finish the HTTP response
     resetWiFiSettings();
   });
   
@@ -181,11 +181,11 @@ void setupWebRoutes() {
     level = constrain(level, 0, 255);
     ledState.setBrightness(level);
   
-    // Toepassen op actieve leds
+      // Apply to active LEDs
     struct tm timeinfo;
     if (getLocalTime(&timeinfo)) {
       auto indices = get_led_indices_for_time(&timeinfo);
-      showLeds(indices);  // gebruikt actuele kleur + nieuwe helderheid
+      showLeds(indices);  // uses current color + new brightness
     }
   
     server.send(200, "text/plain", "OK");

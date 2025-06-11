@@ -4,10 +4,10 @@
 #include "log.h"
 #include "led_controller.h"
 
-// clockEnabled wordt extern gedefinieerd in main.cpp
+// clockEnabled is defined externally in main.cpp
 extern bool clockEnabled;
 
-// Zet alleen nog de prototypes voor setup/loop
+// Only declare the prototypes for setup/loop
 void wordclock_setup();
 void wordclock_loop();
 

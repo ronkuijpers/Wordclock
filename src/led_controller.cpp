@@ -4,7 +4,7 @@
 #include "led_state.h"
 
 
-// Instantie van de NeoPixel-strip
+// Instance of the NeoPixel strip
 static Adafruit_NeoPixel strip(NUM_LEDS, DATA_PIN, NEO_GRBW + NEO_KHZ800);
 
 void initLeds() {
@@ -18,7 +18,7 @@ void showLeds(const std::vector<uint16_t> &ledIndices) {
   strip.clear();
   for (uint16_t idx : ledIndices) {
     if (idx < strip.numPixels()) {
-      // Gebruik de berekende RGB én W
+      // Use the calculated RGB and W
       uint8_t r, g, b, w;
       ledState.getRGBW(r, g, b, w);
       strip.setPixelColor(idx, strip.Color(r, g, b, w));
