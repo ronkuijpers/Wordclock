@@ -54,7 +54,7 @@ void setup() {
     logln("⚠️ Geen WiFi. Firmwarecheck overgeslagen.");
   }
 
-  // Tijd synchroniseren via NTP
+  // Synchronize time via NTP
   configTzTime(TZ_INFO, NTP_SERVER1, NTP_SERVER2);
   logln("⌛ Wachten op NTP...");
   
@@ -81,18 +81,18 @@ void loop() {
   if (now - lastLoop >= 50) {
     lastLoop = now;
 
-    // Alleen updaten als de minuut veranderd is
+    // Update only if the minute has changed
     struct tm timeinfo;
     if (getLocalTime(&timeinfo)) {
       if (timeinfo.tm_min != lastDisplayedMinute) {
-        char buf[20];  // ruim genoeg voor emoji + " HH:MM\0"
+        char buf[20];  // enough space for emoji + " HH:MM\0"
         snprintf(buf, sizeof(buf), "🔄 %02d:%02d", timeinfo.tm_hour, timeinfo.tm_min);
         logln(String(buf));
         wordclock_loop();
         lastDisplayedMinute = timeinfo.tm_min;
       }
 
-      // Dagelijkse firmwarecheck om 02:00
+      // Daily firmware check at 02:00
       time_t nowEpoch = time(nullptr);
       if (timeinfo.tm_hour == 2 && timeinfo.tm_min == 0 && nowEpoch - lastFirmwareCheck > 3600) {
         logln("🛠️ Dagelijkse firmwarecheck gestart...");

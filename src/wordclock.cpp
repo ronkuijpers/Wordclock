@@ -12,7 +12,7 @@ void wordclock_setup() {
 
 void wordclock_loop() {
   if (!clockEnabled) {
-    // klok uit: alles uit
+    // clock off: clear all LEDs
     showLeds({});
     return;
   }
@@ -29,11 +29,11 @@ void wordclock_loop() {
   if (currentMinute != lastDisplayedMinute) {
     lastDisplayedMinute = currentMinute;
   
-    // Bepaal welke LEDs aan moeten
+    // Determine which LEDs should be on
     std::vector<uint16_t> indices = get_led_indices_for_time(&timeinfo);
     showLeds(indices);
 
-    // Log welke LED-indexen zijn aangezet
+    // Log which LED indices were activated
     String ledList = "";
     for (uint16_t idx : indices) {
       ledList += String(idx) + ",";

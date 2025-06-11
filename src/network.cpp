@@ -11,7 +11,7 @@ void setupNetwork() {
   WiFi.mode(WIFI_STA);
   WiFiManager wm;
 
-  wm.setConfigPortalTimeout(180);  // optioneel: sluit AP na 3 minuten
+  wm.setConfigPortalTimeout(180);  // optional: close AP after 3 minutes
 
   logln("WiFiManager start verbinding...");
   bool res = wm.autoConnect(AP_NAME, AP_PASSWORD);
@@ -27,12 +27,12 @@ void setupNetwork() {
 
 
 void setupOTA() {
-  // 1) Basisconfiguratie
+  // 1) Basic configuration
   ArduinoOTA.setHostname(CLOCK_NAME);
   ArduinoOTA.setPassword(OTA_PASSWORD);
   ArduinoOTA.setPort(OTA_PORT);
 
-  // 2) Callbacks voor extra logging
+  // 2) Callbacks for additional logging
   ArduinoOTA.onStart([]() {
     logln("🔄 Start netwerk OTA-update");
   });
@@ -59,7 +59,7 @@ void setupOTA() {
     logln(msg);
   });
 
-  // 3) Start de service
+  // 3) Start the service
   ArduinoOTA.begin();
   logln("🟢 Netwerk OTA-service actief, wacht op upload");
 }
@@ -79,7 +79,7 @@ void setupOTA() {
 //       telnetClient.println("✅ Verbonden met Wordclock Telnet log");
 //     } else {
 //       WiFiClient extraClient = telnetServer.available();
-//       extraClient.stop(); // Alleen één client tegelijk
+//       extraClient.stop(); // Only one client at a time
 //     }
 //   }
 // }
@@ -87,7 +87,7 @@ void setupOTA() {
 void resetWiFiSettings() {
   logln("🔁 WiFiManager instellingen worden gewist...");
   WiFiManager wm;
-  wm.resetSettings();     // <-- belangrijk
-  delay(500);             // geef de EEPROM even tijd
+  wm.resetSettings();     // <-- important
+  delay(500);             // give the EEPROM some time
   ESP.restart();
 }

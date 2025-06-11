@@ -4,7 +4,7 @@
 #include <Adafruit_NeoPixel.h>
 #include <vector>
 
-// Exporteer de functieprototypes:
+// Export the function prototypes:
 void initLeds();
 void showLeds(const std::vector<uint16_t> &ledIndices);
 
