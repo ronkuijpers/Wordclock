@@ -4,7 +4,7 @@
 #include "log.h"
 #include "led_controller.h"
 
-// clockEnabled wordt extern gedefinieerd in Wordclock.ino
+// clockEnabled wordt extern gedefinieerd in main.cpp
 extern bool clockEnabled;
 
 // Zet alleen nog de prototypes voor setup/loop
