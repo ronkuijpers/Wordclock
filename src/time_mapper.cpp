@@ -6,7 +6,6 @@
 #include "log.h"
 #include "wordposition.h"
 #include "time_mapper.h"
-#include "grid_layout.h"
 
 std::vector<uint16_t> get_leds_for_word(const char* word) {
   std::vector<uint16_t> result;
