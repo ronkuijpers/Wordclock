@@ -8,6 +8,9 @@
 #include "log.h"
 #include "time_mapper.h"
 #include "ota_updater.h"
+#include "led_controller.h"
+#include "config.h"
+#include "display_settings.h"
 
 
 // References to global variables
@@ -18,15 +21,14 @@ extern bool clockEnabled;
 
 // Function to register all routes
 void setupWebRoutes() {
-  // Main page
-  server.serveStatic("/dashboard.html", SPIFFS, "/dashboard.html", "max-age=86400");
-  server.serveStatic("/style.css", SPIFFS, "/style.css", "max-age=86400");
-  server.serveStatic("/script.js", SPIFFS, "/script.js", "max-age=86400");
+  // Main pages
+  server.serveStatic("/dashboard.html", SPIFFS, "/dashboard2.html", "max-age=86400");
+  // Legacy assets no longer used; keep route mapping simple
 
   server.serveStatic("/dashboard2.html", SPIFFS, "/dashboard2.html", "max-age=86400");
 
   server.on("/", HTTP_GET, []() {
-    server.sendHeader("Location", "/dashboard.html", true);
+    server.sendHeader("Location", "/dashboard2.html", true);
     server.send(302, "text/plain", "");
   });
 
@@ -51,6 +53,17 @@ void setupWebRoutes() {
   server.on("/toggle", []() {
     String state = server.arg("state");
     clockEnabled = (state == "on");
+    // Apply immediately
+    if (clockEnabled) {
+      struct tm timeinfo;
+      if (getLocalTime(&timeinfo)) {
+        auto indices = get_led_indices_for_time(&timeinfo);
+        showLeds(indices);
+      }
+    } else {
+      // Clear LEDs when turning off
+      showLeds({});
+    }
     server.send(200, "text/plain", "OK");
   });
   
@@ -193,7 +206,29 @@ void setupWebRoutes() {
     server.send(200, "text/plain", "OK");
   });
 
-  server.on("/setLogLevel", HTTP_POST, []() {
+  // Expose firmware version
+  server.on("/version", []() {
+    server.send(200, "text/plain", FIRMWARE_VERSION);
+  });
+
+  // Het Is duration (0..360 seconds; 0=never, 360=always)
+  server.on("/getHetIsDuration", []() {
+    server.send(200, "text/plain", String(displaySettings.getHetIsDurationSec()));
+  });
+
+  server.on("/setHetIsDuration", []() {
+    if (!server.hasArg("seconds")) {
+      server.send(400, "text/plain", "Missing seconds");
+      return;
+    }
+    int val = server.arg("seconds").toInt();
+    if (val < 0) val = 0; if (val > 360) val = 360;
+    displaySettings.setHetIsDurationSec((uint16_t)val);
+    logInfo("⏱️ HET IS duur ingesteld op " + String(val) + "s");
+    server.send(200, "text/plain", "OK");
+  });
+
+  server.on("/setLogLevel", HTTP_ANY, []() {
     if (!server.hasArg("level")) {
       server.send(400, "text/plain", "Missing log level");
       return;
@@ -215,6 +250,19 @@ void setupWebRoutes() {
     setLogLevel(level);
     logInfo("🔧 Log level gewijzigd naar: " + levelStr);
     server.send(200, "text/plain", "OK");
+  });
+
+  server.on("/getLogLevel", HTTP_GET, []() {
+    // Return current level as string
+    String s = "INFO";
+    extern LogLevel LOG_LEVEL; // declared in log.cpp
+    switch (LOG_LEVEL) {
+      case LOG_LEVEL_DEBUG: s = "DEBUG"; break;
+      case LOG_LEVEL_INFO:  s = "INFO";  break;
+      case LOG_LEVEL_WARN:  s = "WARN";  break;
+      case LOG_LEVEL_ERROR: s = "ERROR"; break;
+    }
+    server.send(200, "text/plain", s);
   });
 
   

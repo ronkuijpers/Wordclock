@@ -5,7 +5,6 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Wordclock Dashboard</title>
   <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
-  <script src="https://unpkg.com/axios/dist/axios.min.js"></script>
 </head>
 <body class="bg-gray-100 text-gray-800 font-sans">
   <div class="max-w-xl mx-auto p-4">
@@ -17,7 +16,10 @@
     <section class="bg-white p-4 rounded-2xl shadow mb-4">
       <div class="flex justify-between items-center mb-2">
         <h2 class="text-xl font-semibold">Status</h2>
-        <span id="statusIndicator" class="inline-block w-4 h-4 rounded-full bg-gray-400"></span>
+        <div class="flex items-center gap-2">
+          <span id="statusIndicator" class="inline-block w-4 h-4 rounded-full bg-gray-400"></span>
+          <span id="statusText" class="text-sm text-gray-600">-</span>
+        </div>
       </div>
       <div class="flex gap-2">
         <button id="toggleClockOn" class="w-full py-2 rounded bg-green-500 text-white hover:bg-green-600">Aan</button>
@@ -32,6 +34,7 @@
 
     <section class="bg-white p-4 rounded-2xl shadow mb-4">
       <h2 class="text-xl font-semibold mb-2">Helderheid</h2>
+      <label class="block text-sm mb-1">Niveau: <span id="brightnessValue2" class="font-mono">-</span></label>
       <input type="range" min="0" max="255" id="brightnessSlider" class="w-full">
     </section>
 
@@ -42,6 +45,31 @@
         <button id="resetWifiBtn" class="py-2 rounded bg-blue-500 text-white hover:bg-blue-600">📶 Reset WiFi</button>
         <button id="startSequenceBtn" class="py-2 rounded bg-purple-500 text-white hover:bg-purple-600">✨ Start Sequence</button>
         <button id="updateBtn" class="py-2 rounded bg-gray-700 text-white hover:bg-gray-800">⬆️ Update</button>
+      </div>
+      <p id="updateStatus" class="text-xs text-gray-600 mt-2"></p>
+    </section>
+
+    <section class="bg-white p-4 rounded-2xl shadow mb-4">
+      <h2 class="text-xl font-semibold mb-2">Firmware uploaden</h2>
+      <form action="/uploadFirmware" method="POST" enctype="multipart/form-data" class="space-y-2">
+        <input type="file" name="firmwareFile" accept=".bin" required class="block w-full text-sm text-gray-700" />
+        <button type="submit" class="py-2 px-3 rounded bg-gray-700 text-white hover:bg-gray-800">Upload</button>
+      </form>
+      <p class="mt-2 text-sm"><strong>Build versie:</strong> <span id="version">-</span></p>
+    </section>
+
+    <section class="bg-white p-4 rounded-2xl shadow mb-4">
+      <h2 class="text-xl font-semibold mb-2">Weergave</h2>
+      <label class="inline-flex items-center space-x-2 mb-2">
+        <input type="checkbox" id="hetIsAlways2" class="form-checkbox">
+        <span>'HET IS' altijd tonen</span>
+      </label>
+      <div>
+        <label for="hetIsDuration2" class="block text-sm mb-1">'HET IS' tonen (seconden):
+          <span id="hetIsDurationValue2" class="font-mono">30</span>
+        </label>
+        <input type="range" min="0" max="360" value="30" id="hetIsDuration2" class="w-full">
+        <p class="text-xs text-gray-500 mt-1">0 = nooit, 360 = altijd</p>
       </div>
     </section>
 
@@ -55,8 +83,11 @@
     const updateStatus = async () => {
       const res = await fetch('/status');
       const status = await res.text();
+      const on = status === 'on';
       document.getElementById('statusIndicator').className =
-        'inline-block w-4 h-4 rounded-full ' + (status === 'on' ? 'bg-green-500' : 'bg-red-500');
+        'inline-block w-4 h-4 rounded-full ' + (on ? 'bg-green-500' : 'bg-red-500');
+      const st = document.getElementById('statusText');
+      if (st) st.textContent = on ? 'Wordclock aan' : 'Wordclock uit';
     };
 
     document.getElementById('toggleClockOn').onclick = () => {
@@ -70,12 +101,28 @@
       fetch(`/setColor?color=${hex}`);
     };
     document.getElementById('brightnessSlider').oninput = (e) => {
-      fetch(`/setBrightness?level=${e.target.value}`);
+      const v = e.target.value;
+      const lbl = document.getElementById('brightnessValue2');
+      if (lbl) lbl.textContent = v;
+      fetch(`/setBrightness?level=${v}`);
     };
-    document.getElementById('restartBtn').onclick = () => fetch('/restart');
-    document.getElementById('resetWifiBtn').onclick = () => fetch('/resetwifi');
+    document.getElementById('restartBtn').onclick = () => {
+      if (confirm('Herstart Wordclock?')) fetch('/restart');
+    };
+    document.getElementById('resetWifiBtn').onclick = () => {
+      if (confirm('WiFi resetten?')) fetch('/resetwifi');
+    };
     document.getElementById('startSequenceBtn').onclick = () => fetch('/startSequence');
-    document.getElementById('updateBtn').onclick = () => fetch('/checkForUpdate');
+    document.getElementById('updateBtn').onclick = async () => {
+      const r = await fetch('/checkForUpdate');
+      if (r.ok) {
+        const el = document.getElementById('updateStatus');
+        if (el) el.textContent = 'Update gestart. ESP herstart...';
+        setTimeout(() => location.reload(), 10000);
+      } else {
+        alert('Update mislukt');
+      }
+    };
 
     const loadLog = async () => {
       const res = await fetch('/log');
@@ -84,7 +131,57 @@
 
     updateStatus();
     loadLog();
-    setInterval(loadLog, 10000);
+    setInterval(loadLog, 5000);
+
+    // Init brightness value
+    fetch('/getBrightness')
+      .then(resp => resp.text())
+      .then(val => {
+        const s = document.getElementById('brightnessSlider');
+        const lbl = document.getElementById('brightnessValue2');
+        if (s) s.value = val;
+        if (lbl) lbl.textContent = val;
+      });
+
+    // Load firmware version
+    fetch('/version').then(r => r.text()).then(v => {
+      const el = document.getElementById('version');
+      if (el) el.textContent = v;
+    });
+
+    // Init HET IS controls
+    const durSlider2 = document.getElementById('hetIsDuration2');
+    const durValue2 = document.getElementById('hetIsDurationValue2');
+    const alwaysCb2 = document.getElementById('hetIsAlways2');
+    fetch('/getHetIsDuration')
+      .then(r => r.text())
+      .then(secStr => {
+        const sec = parseInt(secStr, 10) || 30;
+        durSlider2.value = sec;
+        durValue2.textContent = sec;
+        alwaysCb2.checked = sec >= 360;
+        durSlider2.disabled = alwaysCb2.checked;
+      });
+    durSlider2.addEventListener('input', () => {
+      const sec = parseInt(durSlider2.value, 10);
+      durValue2.textContent = sec;
+    });
+    durSlider2.addEventListener('change', () => {
+      const sec = parseInt(durSlider2.value, 10);
+      fetch(`/setHetIsDuration?seconds=${sec}`);
+      alwaysCb2.checked = sec >= 360;
+      durSlider2.disabled = alwaysCb2.checked;
+    });
+    alwaysCb2.addEventListener('change', () => {
+      if (alwaysCb2.checked) {
+        durSlider2.disabled = true;
+        durSlider2.value = 360;
+        durValue2.textContent = 360;
+        fetch('/setHetIsDuration?seconds=360');
+      } else {
+        durSlider2.disabled = false;
+      }
+    });
   </script>
 
   <div class="mb-4">
@@ -110,6 +207,15 @@
     .then(msg => console.log(msg))
     .catch(err => console.error("Logniveau wijzigen mislukt:", err));
   }
+
+  // Initialize log level selector
+  fetch('/getLogLevel')
+    .then(r => r.text())
+    .then(lvl => {
+      const sel = document.getElementById('logLevel');
+      if (sel) sel.value = (lvl || 'INFO');
+    })
+    .catch(() => {});
 
   </script>
 

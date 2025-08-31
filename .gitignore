@@ -20,6 +20,7 @@ Thumbs.db
 # Geheimen en gevoelige data
 secrets.h
 upload_params.ini
+uploadfs_ota.py
 
 # Backup- en tijdelijke bestanden
 *.bak

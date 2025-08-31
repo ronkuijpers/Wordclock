@@ -10,30 +10,29 @@
 #include <WebServer.h>
 #include "wordclock.h"
 #include "secrets.h"
-#include "esp_log.h"
-#include "dashboard_html.h"
 #include "web_routes.h"
 #include "network.h"
 #include "log.h"
 #include "config.h"
 #include "ota_updater.h"
 #include "sequence_controller.h"
+#include "display_settings.h"
 
 
 bool clockEnabled = true;
 StartupSequence startupSequence;
+DisplaySettings displaySettings;
 
 
 // Webserver
 WebServer server(80);
 
-// Tracking
-time_t lastFirmwareCheck = 0;
-int lastDisplayedMinute = -1;
+// Tracking (handled inside loop as statics)
 
 void setup() {
   Serial.begin(115200);
   delay(1000);
+  initLogSettings();
 
   setupNetwork();             // WiFiManager
   setupOTA();                 // OTA
@@ -86,6 +85,7 @@ void setup() {
     String(timeinfo.tm_min));
 
   ledState.begin();
+  displaySettings.begin();
   initWordMap();
   wordclock_setup();
 
@@ -102,24 +102,16 @@ void loop() {
     return;  // <-- Voorkomt dat klok al tijd toont
   }
 
-  // Tijd-update elke minuut
+  // Tijd- en animatie-update (wordclock_loop regelt zelf per-minuut/animatie)
   static unsigned long lastLoop = 0;
   unsigned long now = millis();
   if (now - lastLoop >= 50) {
     lastLoop = now;
+    wordclock_loop();
 
+    // Dagelijkse firmwarecheck om 02:00
     struct tm timeinfo;
     if (getLocalTime(&timeinfo)) {
-      static int lastDisplayedMinute = -1;
-      if (timeinfo.tm_min != lastDisplayedMinute) {
-        lastDisplayedMinute = timeinfo.tm_min;
-        char buf[20];
-        snprintf(buf, sizeof(buf), "🔄 %02d:%02d", timeinfo.tm_hour, timeinfo.tm_min);
-        logDebug(String(buf));
-        wordclock_loop();
-      }
-
-      // Dagelijkse firmwarecheck om 02:00
       time_t nowEpoch = time(nullptr);
       static time_t lastFirmwareCheck = 0;
       if (timeinfo.tm_hour == 2 && timeinfo.tm_min == 0 && nowEpoch - lastFirmwareCheck > 3600) {

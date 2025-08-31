@@ -9,6 +9,7 @@ enum LogLevel {
   LOG_LEVEL_WARN,
   LOG_LEVEL_ERROR
 };
+extern LogLevel LOG_LEVEL;
 
 // Basic log function
 void log(String msg, int level = LOG_LEVEL_INFO);
@@ -21,3 +22,4 @@ void logln(String msg, int level = LOG_LEVEL_INFO);
 #define logError(msg) logln(msg, LOG_LEVEL_ERROR)
 
 void setLogLevel(LogLevel level);
+void initLogSettings();
