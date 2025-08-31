@@ -3,6 +3,7 @@
 #include <SPIFFS.h>
 #include <Update.h>
 #include <WebServer.h>
+#include "secrets.h"
 #include "sequence_controller.h"
 #include "led_state.h"
 #include "log.h"
@@ -11,6 +12,8 @@
 #include "led_controller.h"
 #include "config.h"
 #include "display_settings.h"
+#include "ui_auth.h"
+#include "wordclock.h"
 
 
 // References to global variables
@@ -19,21 +22,154 @@ extern String logBuffer[];
 extern int logIndex;
 extern bool clockEnabled;
 
+// Simple Basic-Auth guard for admin resources
+static bool ensureAdminAuth() {
+  if (!server.authenticate(ADMIN_USER, ADMIN_PASS)) {
+    server.requestAuthentication(BASIC_AUTH, ADMIN_REALM);
+    return false;
+  }
+  return true;
+}
+
+// Guard for general UI access (dynamic password via Preferences)
+static bool ensureUiAuth() {
+  // Allow admin credentials to pass UI guard as well
+  if (server.authenticate(ADMIN_USER, ADMIN_PASS)) {
+    return true;
+  }
+  // Basic Auth with dynamic UI creds
+  if (!server.authenticate(uiAuth.getUser().c_str(), uiAuth.getPass().c_str())) {
+    server.requestAuthentication(BASIC_AUTH, "Wordclock UI");
+    return false;
+  }
+  // Force password change flow (only for UI user, not admin)
+  if (uiAuth.needsChange()) {
+    String uri = server.uri();
+    if (!(uri == "/changepw.html" || uri == "/setUIPassword")) {
+      server.sendHeader("Location", "/changepw.html", true);
+      server.send(302, "text/plain", "");
+      return false;
+    }
+  }
+  return true;
+}
+
+// Clear persistent settings (factory reset helper)
+static void performFactoryReset() {
+  Preferences p;
+  const char* keys[] = { "ui_auth", "display", "led", "log" };
+  for (auto ns : keys) {
+    p.begin(ns, false);
+    p.clear();
+    p.end();
+  }
+}
+
 // Function to register all routes
 void setupWebRoutes() {
   // Main pages
-  server.serveStatic("/dashboard.html", SPIFFS, "/dashboard2.html", "max-age=86400");
-  // Legacy assets no longer used; keep route mapping simple
+  // Dashboard (protected)
+  server.on("/dashboard.html", HTTP_GET, []() {
+    if (!ensureUiAuth()) return;
+    File f = SPIFFS.open("/dashboard.html", "r");
+    if (!f) { server.send(404, "text/plain", "dashboard not found"); return; }
+    server.streamFile(f, "text/html");
+    f.close();
+  });
 
-  server.serveStatic("/dashboard2.html", SPIFFS, "/dashboard2.html", "max-age=86400");
+  // Forgot password page (public)
+  server.on("/forgot.html", HTTP_GET, []() {
+    File f = SPIFFS.open("/forgot.html", "r");
+    if (!f) { server.send(404, "text/plain", "forgot not found"); return; }
+    server.streamFile(f, "text/html");
+    f.close();
+  });
 
+  // Factory reset (public, requires POST). Resets preferences + WiFi and restarts.
+  server.on("/factoryreset", HTTP_POST, []() {
+    server.send(200, "text/html", R"rawliteral(
+      <html>
+        <head><meta http-equiv='refresh' content='8;url=/' /></head>
+        <body>
+          <h1>Factory reset gestart...</h1>
+          <p>Het apparaat wordt teruggezet naar fabrieksinstellingen en herstart zo.</p>
+        </body>
+      </html>
+    )rawliteral");
+    delay(200);
+    performFactoryReset();
+    resetWiFiSettings(); // will restart
+  });
+
+  // Change password page (protected, but accessible during forced-change flow)
+  server.on("/changepw.html", HTTP_GET, []() {
+    // Only require Basic Auth, no redirect to itself
+    if (!server.authenticate(uiAuth.getUser().c_str(), uiAuth.getPass().c_str())) {
+      server.requestAuthentication(BASIC_AUTH, "Wordclock UI");
+      return;
+    }
+    File f = SPIFFS.open("/changepw.html", "r");
+    if (!f) { server.send(404, "text/plain", "changepw not found"); return; }
+    server.streamFile(f, "text/html");
+    f.close();
+  });
+
+  // Logout endpoints: return 401 to clear Basic Auth in browser
+  server.on("/logout", HTTP_GET, []() {
+    server.sendHeader("WWW-Authenticate", "Basic realm=\"Wordclock UI\"");
+    server.send(401, "text/plain", "Uitgelogd. Sluit het tabblad of log opnieuw in.");
+  });
+  server.on("/adminlogout", HTTP_GET, []() {
+    server.sendHeader("WWW-Authenticate", String("Basic realm=\"") + ADMIN_REALM + "\"");
+    server.send(401, "text/plain", "Admin uitgelogd. Sluit het tabblad of log opnieuw in.");
+  });
+
+  // Handle password change
+  server.on("/setUIPassword", HTTP_POST, []() {
+    if (!server.authenticate(uiAuth.getUser().c_str(), uiAuth.getPass().c_str())) {
+      server.requestAuthentication(BASIC_AUTH, "Wordclock UI");
+      return;
+    }
+    if (!server.hasArg("new") || !server.hasArg("confirm")) {
+      server.send(400, "text/plain", "Missing fields");
+      return;
+    }
+    String n = server.arg("new");
+    String c = server.arg("confirm");
+    if (n != c) { server.send(400, "text/plain", "Wachtwoorden komen niet overeen"); return; }
+    if (n.length() < 6) { server.send(400, "text/plain", "Minimaal 6 tekens"); return; }
+    if (!uiAuth.setPassword(n)) { server.send(500, "text/plain", "Opslaan mislukt"); return; }
+    server.send(200, "text/plain", "OK");
+  });
+
+  // Protected admin page (Admin auth only)
+  server.on("/admin.html", HTTP_GET, []() {
+    if (!ensureAdminAuth()) return;
+    File f = SPIFFS.open("/admin.html", "r");
+    if (!f) {
+      server.send(404, "text/plain", "admin.html not found");
+      return;
+    }
+    server.streamFile(f, "text/html");
+    f.close();
+  });
+
+  // Public landing page with links to Login (protected) and Forgot
   server.on("/", HTTP_GET, []() {
-    server.sendHeader("Location", "/dashboard2.html", true);
-    server.send(302, "text/plain", "");
+    File f = SPIFFS.open("/login.html", "r");
+    if (!f) {
+      // Fallback: redirect to protected dashboard
+      server.sendHeader("Location", "/dashboard.html", true);
+      server.send(302, "text/plain", "");
+      return;
+    }
+    server.streamFile(f, "text/html");
+    f.close();
   });
 
   // Fetch log
   server.on("/log", []() {
+    if (!ensureUiAuth()) return;
     String logContent = "";
     int i = logIndex;
     for (int count = 0; count < LOG_BUFFER_SIZE; count++) {
@@ -46,11 +182,13 @@ void setupWebRoutes() {
 
   // Get status
   server.on("/status", []() {
+    if (!ensureUiAuth()) return;
     server.send(200, "text/plain", clockEnabled ? "on" : "off");
   });
 
   // Turn on/off
   server.on("/toggle", []() {
+    if (!ensureUiAuth()) return;
     String state = server.arg("state");
     clockEnabled = (state == "on");
     // Apply immediately
@@ -69,6 +207,7 @@ void setupWebRoutes() {
   
   // Device restart
   server.on("/restart", []() {
+    if (!ensureUiAuth()) return;
     logInfo("⚠️ Herstart via dashboard aangevraagd");
     server.send(200, "text/html", R"rawliteral(
       <html>
@@ -86,6 +225,7 @@ void setupWebRoutes() {
   });
 
   server.on("/resetwifi", []() {
+    if (!ensureUiAuth()) return;
     logInfo("⚠️ Reset WiFi via dashboard aangevraagd");
     server.send(200, "text/html", R"rawliteral(
       <html>
@@ -103,6 +243,7 @@ void setupWebRoutes() {
   });
   
   server.on("/setColor", HTTP_GET, []() {
+    if (!ensureUiAuth()) return;
     if (!server.hasArg("color")) {
       server.send(400, "text/plain", "Missing color");
       return;
@@ -129,9 +270,21 @@ void setupWebRoutes() {
   
     server.send(200, "text/plain", "OK");
   });
+
+  // Get current color as RRGGBB (white maps to FFFFFF)
+  server.on("/getColor", HTTP_GET, []() {
+    if (!ensureUiAuth()) return;
+    uint8_t r, g, b, w;
+    ledState.getRGBW(r, g, b, w);
+    if (w > 0) { r = g = b = 255; }
+    char buf[7];
+    snprintf(buf, sizeof(buf), "%02X%02X%02X", r, g, b);
+    server.send(200, "text/plain", String(buf));
+  });
   
   
   server.on("/startSequence", []() {
+    if (!ensureUiAuth()) return;
     logInfo("✨ Startup sequence gestart via dashboard");
     extern StartupSequence startupSequence;
     startupSequence.start();
@@ -142,6 +295,7 @@ void setupWebRoutes() {
     "/uploadFirmware",
     HTTP_POST,
     []() {
+      if (!ensureUiAuth()) return;
       server.send(200, "text/plain", Update.hasError() ? "Firmware update failed" : "Firmware update successful. Rebooting...");
       if (!Update.hasError()) {
         delay(1000);
@@ -149,6 +303,7 @@ void setupWebRoutes() {
       }
     },
     []() {
+      if (!ensureUiAuth()) return;
       HTTPUpload& upload = server.upload();
   
       if (upload.status == UPLOAD_FILE_START) {
@@ -177,16 +332,19 @@ void setupWebRoutes() {
   );  
 
   server.on("/checkForUpdate", HTTP_ANY, []() {
+    if (!ensureUiAuth()) return;
     server.send(200, "text/plain", "Firmware update gestart");
     delay(100);
     checkForFirmwareUpdate();
   });
 
   server.on("/getBrightness", []() {
+    if (!ensureUiAuth()) return;
     server.send(200, "text/plain", String(ledState.getBrightness()));
   });  
 
   server.on("/setBrightness", []() {
+    if (!ensureUiAuth()) return;
     if (!server.hasArg("level")) {
       server.send(400, "text/plain", "Missing brightness level");
       return;
@@ -208,15 +366,45 @@ void setupWebRoutes() {
 
   // Expose firmware version
   server.on("/version", []() {
+    if (!ensureUiAuth()) return;
     server.send(200, "text/plain", FIRMWARE_VERSION);
+  });
+
+  // Sell mode endpoints (force 10:47 display)
+  server.on("/getSellMode", []() {
+    if (!ensureUiAuth()) return;
+    server.send(200, "text/plain", displaySettings.isSellMode() ? "on" : "off");
+  });
+  server.on("/setSellMode", []() {
+    if (!ensureUiAuth()) return;
+    if (!server.hasArg("state")) {
+      server.send(400, "text/plain", "Missing state");
+      return;
+    }
+    String st = server.arg("state");
+    bool on = (st == "on" || st == "1" || st == "true");
+    displaySettings.setSellMode(on);
+    // Trigger animation to new effective time
+    struct tm t = {};
+    if (on) {
+      t.tm_hour = 10;
+      t.tm_min = 47;
+    } else {
+      if (!getLocalTime(&t)) { server.send(200, "text/plain", "OK"); return; }
+    }
+    wordclock_force_animation_for_time(&t);
+    logInfo(String("🛒 Verkooptijd ") + (on ? "AAN (10:47)" : "UIT"));
+    server.send(200, "text/plain", "OK");
   });
 
   // Het Is duration (0..360 seconds; 0=never, 360=always)
   server.on("/getHetIsDuration", []() {
+    if (!ensureUiAuth()) return;
     server.send(200, "text/plain", String(displaySettings.getHetIsDurationSec()));
   });
 
   server.on("/setHetIsDuration", []() {
+    if (!ensureUiAuth()) return;
     if (!server.hasArg("seconds")) {
       server.send(400, "text/plain", "Missing seconds");
       return;
@@ -229,6 +417,7 @@ void setupWebRoutes() {
   });
 
   server.on("/setLogLevel", HTTP_ANY, []() {
+    if (!ensureUiAuth()) return;
     if (!server.hasArg("level")) {
       server.send(400, "text/plain", "Missing log level");
       return;
@@ -253,6 +442,7 @@ void setupWebRoutes() {
   });
 
   server.on("/getLogLevel", HTTP_GET, []() {
+    if (!ensureUiAuth()) return;
     // Return current level as string
     String s = "INFO";
     extern LogLevel LOG_LEVEL; // declared in log.cpp

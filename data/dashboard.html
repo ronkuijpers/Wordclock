@@ -8,9 +8,15 @@
 </head>
 <body class="bg-gray-100 text-gray-800 font-sans">
   <div class="max-w-xl mx-auto p-4">
-    <header class="text-center mb-6">
-      <h1 class="text-3xl font-bold">🕒 Wordclock Dashboard</h1>
-      <p class="text-sm text-gray-600">Beheer je slimme klok eenvoudig</p>
+    <header class="flex items-center justify-between mb-6">
+      <div>
+        <h1 class="text-3xl font-bold">🕒 Wordclock Dashboard</h1>
+        <p class="text-sm text-gray-600">Beheer je slimme klok eenvoudig</p>
+      </div>
+      <div class="flex items-center gap-4">
+        <a href="/admin.html" class="text-sm text-blue-600 hover:underline">Admin</a>
+        <a href="/logout" class="text-sm text-gray-600 hover:underline">Logout</a>
+      </div>
     </header>
 
     <section class="bg-white p-4 rounded-2xl shadow mb-4">
@@ -27,6 +33,7 @@
       </div>
     </section>
 
+    
     <section class="bg-white p-4 rounded-2xl shadow mb-4">
       <h2 class="text-xl font-semibold mb-2">Kleur</h2>
       <input type="color" id="colorPicker" class="w-full h-12 rounded p-0 border-2" />
@@ -75,6 +82,16 @@
 
     <section class="bg-white p-4 rounded-2xl shadow">
       <h2 class="text-xl font-semibold mb-2">Logboek</h2>
+      <div class="flex items-center gap-3 mb-2">
+        <label for="logLevel" class="text-sm">Logniveau</label>
+        <select id="logLevel" class="flex-1 rounded-md border-gray-300 shadow-sm">
+          <option value="ERROR">ERROR</option>
+          <option value="WARN">WARN</option>
+          <option value="INFO">INFO</option>
+          <option value="DEBUG">DEBUG</option>
+        </select>
+      </div>
+      <p id="logLevelStatus" class="text-xs text-gray-500 mb-2"></p>
       <pre id="logOutput" class="bg-gray-100 p-2 h-40 overflow-y-auto rounded"></pre>
     </section>
   </div>
@@ -149,6 +166,16 @@
       if (el) el.textContent = v;
     });
 
+    // Init color picker to current color
+    fetch('/getColor')
+      .then(r => r.text())
+      .then(hex => {
+        const cp = document.getElementById('colorPicker');
+        if (cp && hex && hex.length === 6) {
+          cp.value = '#' + hex;
+        }
+      });
+
     // Init HET IS controls
     const durSlider2 = document.getElementById('hetIsDuration2');
     const durValue2 = document.getElementById('hetIsDurationValue2');
@@ -182,41 +209,31 @@
         durSlider2.disabled = false;
       }
     });
-  </script>
 
-  <div class="mb-4">
-    <label for="logLevel" class="block text-sm font-medium text-gray-700">Logniveau</label>
-    <select id="logLevel" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm" onchange="setLogLevel(this.value)">
-      <option value="ERROR">ERROR</option>
-      <option value="WARN">WARN</option>
-      <option value="INFO">INFO</option>
-      <option value="DEBUG">DEBUG</option>
-    </select>
-  </div>
-
-  <script>
-  function setLogLevel(level) {
-    fetch('/setLogLevel', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/x-www-form-urlencoded'
-      },
-      body: `level=${encodeURIComponent(level)}`
-    })
-    .then(response => response.text())
-    .then(msg => console.log(msg))
-    .catch(err => console.error("Logniveau wijzigen mislukt:", err));
-  }
-
-  // Initialize log level selector
-  fetch('/getLogLevel')
-    .then(r => r.text())
-    .then(lvl => {
-      const sel = document.getElementById('logLevel');
-      if (sel) sel.value = (lvl || 'INFO');
-    })
-    .catch(() => {});
-
+    // Init log level controls
+    const logLevelSel = document.getElementById('logLevel');
+    const logLevelStatus = document.getElementById('logLevelStatus');
+    function setLogLevelUI(lvl) {
+      if (logLevelSel) logLevelSel.value = lvl;
+      if (logLevelStatus) logLevelStatus.textContent = `Huidig logniveau: ${lvl}`;
+    }
+    fetch('/getLogLevel')
+      .then(r => r.text())
+      .then(lvl => setLogLevelUI(lvl || 'INFO'))
+      .catch(() => {});
+    if (logLevelSel) {
+      logLevelSel.addEventListener('change', () => {
+        const lvl = logLevelSel.value;
+        fetch('/setLogLevel', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          body: `level=${encodeURIComponent(lvl)}`
+        })
+        .then(r => r.text())
+        .then(() => setLogLevelUI(lvl))
+        .catch(() => alert('Logniveau wijzigen mislukt'));
+      });
+    }
   </script>
 
 </body>

@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Wordclock Admin</title>
+  <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+</head>
+<body class="bg-gray-100 text-gray-800 font-sans">
+  <div class="max-w-xl mx-auto p-4">
+    <header class="flex items-center justify-between mb-6">
+      <h1 class="text-3xl font-bold">🔐 Admin</h1>
+      <div class="flex items-center gap-4">
+        <a href="/dashboard.html" class="text-sm text-blue-600 hover:underline">Terug naar dashboard</a>
+        <a href="/adminlogout" class="text-sm text-gray-600 hover:underline">Logout</a>
+      </div>
+    </header>
+
+    <section class="bg-white p-4 rounded-2xl shadow">
+      <p class="text-sm text-gray-700">Deze pagina is beveiligd met een fabrikant‑wachtwoord.</p>
+      <ul class="list-disc pl-6 mt-3 text-sm text-gray-700">
+        <li>Gebruik deze pagina voor productie‑/service‑acties.</li>
+        <li>Kritieke endpoints blijven alleen via dit wachtwoord toegankelijk.</li>
+      </ul>
+      <div class="mt-4 grid grid-cols-2 gap-2">
+        <a class="py-2 rounded bg-yellow-500 text-white text-center hover:bg-yellow-600" href="/restart">🔁 Herstart</a>
+        <a class="py-2 rounded bg-blue-500 text-white text-center hover:bg-blue-600" href="/resetwifi">📶 Reset WiFi</a>
+        <a class="py-2 rounded bg-purple-500 text-white text-center hover:bg-purple-600" href="/startSequence">✨ Start Sequence</a>
+        <a class="py-2 rounded bg-gray-700 text-white text-center hover:bg-gray-800" href="#" id="updateBtnAdm">⬆️ Update</a>
+      </div>
+
+      <div class="mt-4">
+        <button id="factoryBtn" class="py-2 px-3 rounded bg-red-600 text-white hover:bg-red-700">🧨 Factory reset</button>
+        <p id="factoryMsg" class="text-xs text-gray-600 mt-2"></p>
+      </div>
+
+      <div class="mt-6 flex items-center gap-3">
+        <label for="sellMode" class="text-sm">Verkooptijd (toon 10:47)</label>
+        <input type="checkbox" id="sellMode" class="h-4 w-4">
+      </div>
+
+      <h2 class="text-xl font-semibold mt-6 mb-2">Kleur</h2>
+      <input type="color" id="adminColorPicker" class="w-full h-12 rounded p-0 border-2" />
+
+      <h2 class="text-xl font-semibold mt-6 mb-2">Firmware uploaden</h2>
+      <form action="/uploadFirmware" method="POST" enctype="multipart/form-data" class="space-y-2">
+        <input type="file" name="firmwareFile" accept=".bin" required class="block w-full text-sm text-gray-700" />
+        <button type="submit" class="py-2 px-3 rounded bg-gray-700 text-white hover:bg-gray-800">Upload</button>
+      </form>
+      <p id="updateStatus" class="text-xs text-gray-600 mt-2"></p>
+    </section>
+  </div>
+
+  <script>
+    // Update via OTA
+    document.getElementById('updateBtnAdm').onclick = async (e) => {
+      e.preventDefault();
+      const r = await fetch('/checkForUpdate');
+      const el = document.getElementById('updateStatus');
+      if (r.ok) {
+        if (el) el.textContent = 'Update gestart. ESP herstart...';
+        setTimeout(() => location.reload(), 10000);
+      } else {
+        if (el) el.textContent = 'Update mislukt';
+        alert('Update mislukt');
+      }
+    };
+
+    // Init verkooptijd toggle
+    const sell = document.getElementById('sellMode');
+    fetch('/getSellMode').then(r => r.text()).then(v => {
+      if (sell) sell.checked = (v.trim() === 'on');
+    });
+    sell.addEventListener('change', () => {
+      fetch(`/setSellMode?state=${sell.checked ? 'on' : 'off'}`)
+        .then(() => {
+          // no-op; device display updates immediately
+        });
+    });
+
+    // Init admin color picker
+    const acp = document.getElementById('adminColorPicker');
+    if (acp) {
+      fetch('/getColor').then(r => r.text()).then(hex => {
+        if (hex && hex.length === 6) acp.value = '#' + hex;
+      });
+      acp.addEventListener('input', (e) => {
+        const hex = e.target.value.substring(1);
+        fetch(`/setColor?color=${hex}`);
+      });
+    }
+
+    // Factory reset
+    const fbtn = document.getElementById('factoryBtn');
+    const fmsg = document.getElementById('factoryMsg');
+    if (fbtn) {
+      fbtn.addEventListener('click', async () => {
+        if (!confirm('Weet je zeker dat je een volledige factory reset wilt uitvoeren?')) return;
+        const r = await fetch('/factoryreset', { method: 'POST' });
+        if (r.ok) {
+          if (fmsg) fmsg.textContent = 'Factory reset gestart. Apparaat herstart zo...';
+          setTimeout(() => location.reload(), 10000);
+        } else {
+          if (fmsg) fmsg.textContent = 'Factory reset starten mislukt';
+        }
+      });
+    }
+  </script>
+</body>
+</html>

@@ -17,11 +17,13 @@
 #include "ota_updater.h"
 #include "sequence_controller.h"
 #include "display_settings.h"
+#include "ui_auth.h"
 
 
 bool clockEnabled = true;
 StartupSequence startupSequence;
 DisplaySettings displaySettings;
+UiAuth uiAuth;
 
 
 // Webserver
@@ -86,6 +88,7 @@ void setup() {
 
   ledState.begin();
   displaySettings.begin();
+  uiAuth.begin(UI_DEFAULT_PASS);
   initWordMap();
   wordclock_setup();
 

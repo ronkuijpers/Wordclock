@@ -6,6 +6,9 @@
 
 
 
+static bool g_forceAnim = false;
+static struct tm g_forcedTime = {};
+
 void wordclock_setup() {
   // ledState.begin() is initialized in main
   initLeds();
@@ -33,15 +36,35 @@ void wordclock_loop() {
     return;
   }
 
+  // Debug: log elke minuut-overgang
+  static int lastLoggedMinute = -1;
+  if (timeinfo.tm_min != lastLoggedMinute) {
+    lastLoggedMinute = timeinfo.tm_min;
+    char buf[20];
+    snprintf(buf, sizeof(buf), "🔄 %02d:%02d", timeinfo.tm_hour, timeinfo.tm_min);
+    logDebug(String(buf));
+  }
+
   // Determine current rounded bucket and extra minutes
-  int minute = timeinfo.tm_min;
+  // Apply sell-mode override (forces 10:47)
+  struct tm effective = timeinfo;
+  if (displaySettings.isSellMode()) {
+    effective.tm_hour = 10;
+    effective.tm_min = 47;
+  }
+
+  int minute = effective.tm_min;
   int rounded = (minute / 5) * 5;
   int extra = minute % 5;
 
-  // Start animation when the rounded bucket changes
-  if (rounded != lastRounded) {
+  // Start animation when the rounded bucket changes or when forced externally
+  if (rounded != lastRounded || g_forceAnim) {
     lastRounded = rounded;
-    segments = get_word_segments_for_time(&timeinfo);
+    struct tm animTime = effective;
+    if (g_forceAnim) {
+      animTime = g_forcedTime;
+    }
+    segments = get_word_segments_for_time(&animTime);
     // Respect setting: if duration==0, skip HET/IS entirely (both animation and steady state)
     uint16_t hisSec = displaySettings.getHetIsDurationSec();
     if (hisSec == 0 && segments.size() >= 2) {
@@ -53,6 +76,7 @@ void wordclock_loop() {
     animating = true;
     hetIsVisibleUntil = 0; // reset; will be set when animation completes
     logDebug("🎞️ Start animatie naar nieuwe tekst");
+    g_forceAnim = false;
   }
 
   // During animation: add next word every 500ms
@@ -85,7 +109,7 @@ void wordclock_loop() {
   }
 
   // Not animating: update full phrase + extra minute LEDs if needed
-  std::vector<std::vector<uint16_t>> baseSegs = get_word_segments_for_time(&timeinfo);
+  std::vector<std::vector<uint16_t>> baseSegs = get_word_segments_for_time(&effective);
   std::vector<uint16_t> indices;
   // Decide whether to include HET/IS based on setting and timer
   uint16_t hisSec = displaySettings.getHetIsDurationSec();
@@ -105,4 +129,10 @@ void wordclock_loop() {
     indices.push_back(EXTRA_MINUTE_LEDS[i]);
   }
   showLeds(indices);
+}
+
+void wordclock_force_animation_for_time(struct tm* timeinfo) {
+  if (!timeinfo) return;
+  g_forcedTime = *timeinfo;
+  g_forceAnim = true;
 }
