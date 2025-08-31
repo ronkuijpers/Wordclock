@@ -1,0 +1,54 @@
+<!-- dashboard.html -->
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Wordclock Dashboard</title>
+  <link rel="stylesheet" href="/style.css">
+  <script src="/script.js" defer></script>
+</head>
+<body>
+  <nav>
+    <button id="btn-control" onclick="showTab('control')">Bediening</button>
+    <button id="btn-log" onclick="showTab('log')">Log</button>
+    <button id="btn-update" onclick="showTab('update')">Instellingen</button>
+  </nav>
+
+  <div id="control" class="tab">
+    <label class="switch">
+      <input type='checkbox' id='clockToggle' onchange='toggleClock(this)'>
+      <span class="slider"></span>
+    </label>
+    <span id='clockStatusText'>Wordclock uit</span>
+    <div class="grid">
+      <div>
+        <label for="colorPicker">LED kleur:</label>
+        <input type="color" id="colorPicker" value="#ffffff">
+      </div>
+      <div>
+        <label for="brightnessSlider">Helderheid: <span id="brightnessValue">?</span></label>
+        <input type="range" id="brightnessSlider" min="0" max="255" value="128" oninput="updateBrightness(this.value)">
+      </div>
+    </div>
+  </div>
+
+  <div id="log" class="tab">
+    <pre id="logBox"></pre>
+  </div>
+
+  <div id="update" class="tab">
+    <button onclick="if(confirm('Herstart Wordclock?')) location.href='/restart';">Herstart Wordclock</button>
+    <button onclick="if(confirm('WiFi resetten?')) location.href='/resetwifi';">Reset WiFi</button>
+    <button onclick="if(confirm('Sequence starten?')) fetch('/startSequence');">Start LED Sequence</button>
+    <button onclick="checkForUpdate()">Check for updates</button>
+    <p id="status"></p>
+    <h2>Firmware uploaden</h2>
+    <form action="/uploadFirmware" method="POST" enctype="multipart/form-data">
+      <input type="file" name="firmwareFile" accept=".bin" required>
+      <button type="submit">Upload</button>
+    </form>
+    <p><strong>Build versie:</strong> <span id="version">-</span></p>
+  </div>
+</body>
+</html>

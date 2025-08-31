@@ -10,11 +10,11 @@
 #include "secrets.h"
 
 void checkForFirmwareUpdate() {
-  logln("🔍 Checking for new firmware...");
+  logInfo("🔍 Checking for new firmware...");
 
   WiFiClientSecure *client = new WiFiClientSecure;
   if (!client) {
-    logln("❌ Failed to allocate WiFiClientSecure");
+    logError("❌ Failed to allocate WiFiClientSecure");
     return;
   }
 
@@ -25,7 +25,7 @@ void checkForFirmwareUpdate() {
   int httpCode = http.GET();
 
   if (httpCode != 200) {
-    logln("❌ Failed to fetch firmware info: HTTP " + String(httpCode));
+    logError("❌ Failed to fetch firmware info: HTTP " + String(httpCode));
     http.end();
     delete client;
     return;
@@ -34,14 +34,14 @@ void checkForFirmwareUpdate() {
   JsonDocument doc;
   DeserializationError error = deserializeJson(doc, http.getStream());
   if (error) {
-    logln("❌ Failed to parse firmware info JSON");
+    logError("❌ Failed to parse firmware info JSON");
     http.end();
     delete client;
     return;
   }
 
   if (!doc["firmware"].is<const char*>()) {
-    logln("❌ Firmware URL missing or invalid in JSON");
+    logError("❌ Firmware URL missing or invalid in JSON");
     http.end();
     delete client;
     return;
@@ -50,16 +50,16 @@ void checkForFirmwareUpdate() {
   String remoteVersion = doc["version"].as<String>();
   String firmwareUrl = doc["firmware"].as<String>();
 
-  logln("ℹ️ Remote version: " + remoteVersion);
+  logInfo("ℹ️ Remote version: " + remoteVersion);
 
   if (remoteVersion == FIRMWARE_VERSION) {
-    logln("✅ Already on the latest version (" + String(FIRMWARE_VERSION) + ")");
+    logInfo("✅ Already on the latest version (" + String(FIRMWARE_VERSION) + ")");
     http.end();
     delete client;
     return;
   }
 
-  logln("⬇️ Firmware update available: " + firmwareUrl);
+  logInfo("⬇️ Firmware update available: " + firmwareUrl);
   http.end();
 
   HTTPClient firmwareHttp;
@@ -68,7 +68,7 @@ void checkForFirmwareUpdate() {
   int firmwareCode = firmwareHttp.GET();
 
   if (firmwareCode != 200) {
-    logln("❌ Firmware download failed: HTTP " + String(firmwareCode));
+    logError("❌ Firmware download failed: HTTP " + String(firmwareCode));
     firmwareHttp.end();
     delete client;
     return;
@@ -76,14 +76,14 @@ void checkForFirmwareUpdate() {
 
   int contentLength = firmwareHttp.getSize();
   if (contentLength <= 0) {
-    logln("❌ Invalid firmware size");
+    logError("❌ Invalid firmware size");
     firmwareHttp.end();
     delete client;
     return;
   }
 
   if (!Update.begin(contentLength)) {
-    logln("❌ Update.begin() failed");
+    logError("❌ Update.begin() failed");
     firmwareHttp.end();
     delete client;
     return;
@@ -93,7 +93,7 @@ void checkForFirmwareUpdate() {
   size_t written = Update.writeStream(stream);
 
   if (written != contentLength) {
-    logln("❌ Incomplete write: " + String(written) + "/" + String(contentLength));
+    logError("❌ Incomplete write: " + String(written) + "/" + String(contentLength));
     Update.abort();
     firmwareHttp.end();
     delete client;
@@ -101,20 +101,20 @@ void checkForFirmwareUpdate() {
   }
 
   if (!Update.end()) {
-    logln("❌ Update.end() failed");
+    logError("❌ Update.end() failed");
     firmwareHttp.end();
     delete client;
     return;
   }
 
   if (Update.isFinished()) {
-    logln("✅ Update successful, rebooting...");
+    logInfo("✅ Update successful, rebooting...");
     firmwareHttp.end();
     delete client;
     delay(1000);
     ESP.restart();
   } else {
-    logln("❌ Update not finished");
+    logError("❌ Update not finished");
     firmwareHttp.end();
     delete client;
   }

@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Wordclock Dashboard</title>
+  <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+  <script src="https://unpkg.com/axios/dist/axios.min.js"></script>
+</head>
+<body class="bg-gray-100 text-gray-800 font-sans">
+  <div class="max-w-xl mx-auto p-4">
+    <header class="text-center mb-6">
+      <h1 class="text-3xl font-bold">🕒 Wordclock Dashboard</h1>
+      <p class="text-sm text-gray-600">Beheer je slimme klok eenvoudig</p>
+    </header>
+
+    <section class="bg-white p-4 rounded-2xl shadow mb-4">
+      <div class="flex justify-between items-center mb-2">
+        <h2 class="text-xl font-semibold">Status</h2>
+        <span id="statusIndicator" class="inline-block w-4 h-4 rounded-full bg-gray-400"></span>
+      </div>
+      <div class="flex gap-2">
+        <button id="toggleClockOn" class="w-full py-2 rounded bg-green-500 text-white hover:bg-green-600">Aan</button>
+        <button id="toggleClockOff" class="w-full py-2 rounded bg-red-500 text-white hover:bg-red-600">Uit</button>
+      </div>
+    </section>
+
+    <section class="bg-white p-4 rounded-2xl shadow mb-4">
+      <h2 class="text-xl font-semibold mb-2">Kleur</h2>
+      <input type="color" id="colorPicker" class="w-full h-12 rounded p-0 border-2" />
+    </section>
+
+    <section class="bg-white p-4 rounded-2xl shadow mb-4">
+      <h2 class="text-xl font-semibold mb-2">Helderheid</h2>
+      <input type="range" min="0" max="255" id="brightnessSlider" class="w-full">
+    </section>
+
+    <section class="bg-white p-4 rounded-2xl shadow mb-4">
+      <h2 class="text-xl font-semibold mb-2">Acties</h2>
+      <div class="grid grid-cols-2 gap-2">
+        <button id="restartBtn" class="py-2 rounded bg-yellow-500 text-white hover:bg-yellow-600">🔁 Herstart</button>
+        <button id="resetWifiBtn" class="py-2 rounded bg-blue-500 text-white hover:bg-blue-600">📶 Reset WiFi</button>
+        <button id="startSequenceBtn" class="py-2 rounded bg-purple-500 text-white hover:bg-purple-600">✨ Start Sequence</button>
+        <button id="updateBtn" class="py-2 rounded bg-gray-700 text-white hover:bg-gray-800">⬆️ Update</button>
+      </div>
+    </section>
+
+    <section class="bg-white p-4 rounded-2xl shadow">
+      <h2 class="text-xl font-semibold mb-2">Logboek</h2>
+      <pre id="logOutput" class="bg-gray-100 p-2 h-40 overflow-y-auto rounded"></pre>
+    </section>
+  </div>
+
+  <script>
+    const updateStatus = async () => {
+      const res = await fetch('/status');
+      const status = await res.text();
+      document.getElementById('statusIndicator').className =
+        'inline-block w-4 h-4 rounded-full ' + (status === 'on' ? 'bg-green-500' : 'bg-red-500');
+    };
+
+    document.getElementById('toggleClockOn').onclick = () => {
+      fetch('/toggle?state=on').then(updateStatus);
+    };
+    document.getElementById('toggleClockOff').onclick = () => {
+      fetch('/toggle?state=off').then(updateStatus);
+    };
+    document.getElementById('colorPicker').oninput = (e) => {
+      const hex = e.target.value.substring(1);
+      fetch(`/setColor?color=${hex}`);
+    };
+    document.getElementById('brightnessSlider').oninput = (e) => {
+      fetch(`/setBrightness?level=${e.target.value}`);
+    };
+    document.getElementById('restartBtn').onclick = () => fetch('/restart');
+    document.getElementById('resetWifiBtn').onclick = () => fetch('/resetwifi');
+    document.getElementById('startSequenceBtn').onclick = () => fetch('/startSequence');
+    document.getElementById('updateBtn').onclick = () => fetch('/checkForUpdate');
+
+    const loadLog = async () => {
+      const res = await fetch('/log');
+      document.getElementById('logOutput').textContent = await res.text();
+    };
+
+    updateStatus();
+    loadLog();
+    setInterval(loadLog, 10000);
+  </script>
+
+  <div class="mb-4">
+    <label for="logLevel" class="block text-sm font-medium text-gray-700">Logniveau</label>
+    <select id="logLevel" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm" onchange="setLogLevel(this.value)">
+      <option value="ERROR">ERROR</option>
+      <option value="WARN">WARN</option>
+      <option value="INFO">INFO</option>
+      <option value="DEBUG">DEBUG</option>
+    </select>
+  </div>
+
+  <script>
+  function setLogLevel(level) {
+    fetch('/setLogLevel', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded'
+      },
+      body: `level=${encodeURIComponent(level)}`
+    })
+    .then(response => response.text())
+    .then(msg => console.log(msg))
+    .catch(err => console.error("Logniveau wijzigen mislukt:", err));
+  }
+
+  </script>
+
+</body>
+</html>

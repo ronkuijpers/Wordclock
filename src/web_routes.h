@@ -1,9 +1,11 @@
 #pragma once
-#include <WebServer.h>
 #include <network.h>
+#include <SPIFFS.h>
 #include <Update.h>
+#include <WebServer.h>
 #include "sequence_controller.h"
 #include "led_state.h"
+#include "log.h"
 #include "time_mapper.h"
 #include "ota_updater.h"
 
@@ -17,16 +19,15 @@ extern bool clockEnabled;
 // Function to register all routes
 void setupWebRoutes() {
   // Main page
-  server.on("/", []() {
-    extern String getDashboardHTML(String logContent);
-    String logContent = "";
-    int i = logIndex;
-    for (int count = 0; count < LOG_BUFFER_SIZE; count++) {
-      String line = logBuffer[i];
-      if (line.length() > 0) logContent += line + "\n";
-      i = (i + 1) % LOG_BUFFER_SIZE;
-    }
-    server.send(200, "text/html", getDashboardHTML(logContent));
+  server.serveStatic("/dashboard.html", SPIFFS, "/dashboard.html", "max-age=86400");
+  server.serveStatic("/style.css", SPIFFS, "/style.css", "max-age=86400");
+  server.serveStatic("/script.js", SPIFFS, "/script.js", "max-age=86400");
+
+  server.serveStatic("/dashboard2.html", SPIFFS, "/dashboard2.html", "max-age=86400");
+
+  server.on("/", HTTP_GET, []() {
+    server.sendHeader("Location", "/dashboard.html", true);
+    server.send(302, "text/plain", "");
   });
 
   // Fetch log
@@ -55,7 +56,7 @@ void setupWebRoutes() {
   
   // Device restart
   server.on("/restart", []() {
-    logln("⚠️ Herstart via dashboard aangevraagd");
+    logInfo("⚠️ Herstart via dashboard aangevraagd");
     server.send(200, "text/html", R"rawliteral(
       <html>
         <head>
@@ -72,7 +73,7 @@ void setupWebRoutes() {
   });
 
   server.on("/resetwifi", []() {
-    logln("⚠️ Reset WiFi via dashboard aangevraagd");
+    logInfo("⚠️ Reset WiFi via dashboard aangevraagd");
     server.send(200, "text/html", R"rawliteral(
       <html>
         <head>
@@ -118,7 +119,7 @@ void setupWebRoutes() {
   
   
   server.on("/startSequence", []() {
-    logln("✨ Startup sequence gestart via dashboard");
+    logInfo("✨ Startup sequence gestart via dashboard");
     extern StartupSequence startupSequence;
     startupSequence.start();
     server.send(200, "text/plain", "Startup sequence uitgevoerd");
@@ -138,23 +139,24 @@ void setupWebRoutes() {
       HTTPUpload& upload = server.upload();
   
       if (upload.status == UPLOAD_FILE_START) {
-        logln("📂 Start upload: " + upload.filename);
+        logInfo("📂 Start upload: " + upload.filename);
         if (!Update.begin(UPDATE_SIZE_UNKNOWN)) {
-          logln("❌ Update.begin() mislukt");
+          logError("❌ Update.begin() mislukt");
           Update.printError(Serial);
         }
       } else if (upload.status == UPLOAD_FILE_WRITE) {
         size_t written = Update.write(upload.buf, upload.currentSize);
         if (written != upload.currentSize) {
-          logln("❌ Fout bij schrijven chunk");
+          logError("❌ Fout bij schrijven chunk");
           Update.printError(Serial);
         } else {
-          logln("✏️ Geschreven: " + String(written) + " bytes");
+          logDebug("✏️ Geschreven: " + String(written) + " bytes");
         }
       } else if (upload.status == UPLOAD_FILE_END) {
-        logln("📥 Upload voltooid: totaal " + String(Update.size()) + " bytes");
+        logInfo("📥 Upload voltooid");
+        logDebug("Totaal " + String(Update.size()) + " bytes");
         if (!Update.end(true)) {
-          logln("❌ Update.end() mislukt");
+          logError("❌ Update.end() mislukt");
           Update.printError(Serial);
         }
       }
@@ -190,5 +192,30 @@ void setupWebRoutes() {
   
     server.send(200, "text/plain", "OK");
   });
+
+  server.on("/setLogLevel", HTTP_POST, []() {
+    if (!server.hasArg("level")) {
+      server.send(400, "text/plain", "Missing log level");
+      return;
+    }
+
+    String levelStr = server.arg("level");
+    LogLevel level;
+
+    if (levelStr == "DEBUG") level = LOG_LEVEL_DEBUG;
+    else if (levelStr == "INFO") level = LOG_LEVEL_INFO;
+    else if (levelStr == "WARN") level = LOG_LEVEL_WARN;
+    else if (levelStr == "ERROR") level = LOG_LEVEL_ERROR;
+    else {
+      server.send(400, "text/plain", "Invalid log level");
+      return;
+    }
+
+
+    setLogLevel(level);
+    logInfo("🔧 Log level gewijzigd naar: " + levelStr);
+    server.send(200, "text/plain", "OK");
+  });
+
   
 }

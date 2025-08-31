@@ -1,5 +1,7 @@
 #include "log.h"
 
+LogLevel LOG_LEVEL = DEFAULT_LOG_LEVEL;
+
 String logBuffer[LOG_BUFFER_SIZE];
 int logIndex = 0;
 
@@ -20,4 +22,8 @@ void log(String msg, int level) {
 
 void logln(String msg, int level) {
   log(msg + "\n", level);
+}
+
+void setLogLevel(LogLevel level) {
+  LOG_LEVEL = level;
 }

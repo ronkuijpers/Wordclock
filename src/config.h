@@ -16,9 +16,6 @@
 #define NTP_SERVER2 "time.nist.gov"
 
 // Logging
-#define LOG_LEVEL_DEBUG 3
-#define LOG_LEVEL_INFO  2
-#define LOG_LEVEL_ERROR 1
-#define LOG_LEVEL LOG_LEVEL_DEBUG  // or INFO / ERROR
+#define DEFAULT_LOG_LEVEL LOG_LEVEL_INFO
 #define LOG_BUFFER_SIZE 150  // for example
 

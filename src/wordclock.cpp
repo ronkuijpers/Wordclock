@@ -7,7 +7,7 @@
 void wordclock_setup() {
   ledState.begin();
   initLeds();
-  logln("Wordclock setup complete");
+  logInfo("Wordclock setup complete");
 }
 
 void wordclock_loop() {
@@ -19,7 +19,7 @@ void wordclock_loop() {
 
   struct tm timeinfo;
   if (!getLocalTime(&timeinfo)) {
-    logln("❌ Kon tijd niet ophalen");
+    logError("❌ Kon tijd niet ophalen");
     return;
   }
   
@@ -38,6 +38,6 @@ void wordclock_loop() {
     for (uint16_t idx : indices) {
       ledList += String(idx) + ",";
     }
-    logln(String("LED indices: ") + ledList);
+    logDebug(String("LED indices: ") + ledList);
   }
 }
