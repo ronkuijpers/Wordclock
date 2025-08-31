@@ -37,7 +37,7 @@
       const t = await r.text();
       if (r.ok) {
         msg.textContent = 'Wachtwoord opgeslagen. Doorsturen...'; msg.className = 'text-green-600 text-sm';
-        setTimeout(() => { window.location.href = '/dashboard2.html'; }, 1000);
+        setTimeout(() => { window.location.href = '/dashboard.html'; }, 1000);
       } else {
         msg.textContent = t || 'Fout bij opslaan'; msg.className = 'text-red-600 text-sm';
       }

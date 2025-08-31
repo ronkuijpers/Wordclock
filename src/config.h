@@ -1,6 +1,7 @@
 #pragma once
 
 #define FIRMWARE_VERSION "0.3"
+#define UI_VERSION "0.4"
 
 #define NUM_LEDS 161
 #define DATA_PIN 4
@@ -18,4 +19,3 @@
 // Logging
 #define DEFAULT_LOG_LEVEL LOG_LEVEL_INFO
 #define LOG_BUFFER_SIZE 150  // for example
-

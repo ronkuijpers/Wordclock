@@ -167,6 +167,15 @@ void setupWebRoutes() {
     f.close();
   });
 
+  // Update page (protected)
+  server.on("/update.html", HTTP_GET, []() {
+    if (!ensureUiAuth()) return;
+    File f = SPIFFS.open("/update.html", "r");
+    if (!f) { server.send(404, "text/plain", "update not found"); return; }
+    server.streamFile(f, "text/html");
+    f.close();
+  });
+
   // Fetch log
   server.on("/log", []() {
     if (!ensureUiAuth()) return;
@@ -305,7 +314,7 @@ void setupWebRoutes() {
     []() {
       if (!ensureUiAuth()) return;
       HTTPUpload& upload = server.upload();
-  
+
       if (upload.status == UPLOAD_FILE_START) {
         logInfo("📂 Start upload: " + upload.filename);
         if (!Update.begin(UPDATE_SIZE_UNKNOWN)) {
@@ -331,8 +340,49 @@ void setupWebRoutes() {
     }
   );  
 
+  // Separate endpoint for SPIFFS (UI) updates
+  server.on(
+    "/uploadSpiffs",
+    HTTP_POST,
+    []() {
+      if (!ensureUiAuth()) return;
+      server.send(200, "text/plain", Update.hasError() ? "SPIFFS update failed" : "SPIFFS update successful. Rebooting...");
+      if (!Update.hasError()) {
+        delay(1000);
+        ESP.restart();
+      }
+    },
+    []() {
+      if (!ensureUiAuth()) return;
+      HTTPUpload& upload = server.upload();
+      if (upload.status == UPLOAD_FILE_START) {
+        logInfo("📂 Start SPIFFS upload: " + upload.filename);
+        if (!Update.begin(UPDATE_SIZE_UNKNOWN, U_SPIFFS)) {
+          logError("❌ Update.begin(U_SPIFFS) mislukt");
+          Update.printError(Serial);
+        }
+      } else if (upload.status == UPLOAD_FILE_WRITE) {
+        size_t written = Update.write(upload.buf, upload.currentSize);
+        if (written != upload.currentSize) {
+          logError("❌ Fout bij schrijven chunk (SPIFFS)");
+          Update.printError(Serial);
+        } else {
+          logDebug("✏️ SPIFFS geschreven: " + String(written) + " bytes");
+        }
+      } else if (upload.status == UPLOAD_FILE_END) {
+        logInfo("📥 SPIFFS upload voltooid");
+        logDebug("SPIFFS totaal " + String(Update.size()) + " bytes");
+        if (!Update.end(true)) {
+          logError("❌ Update.end(U_SPIFFS) mislukt");
+          Update.printError(Serial);
+        }
+      }
+    }
+  );
+
   server.on("/checkForUpdate", HTTP_ANY, []() {
     if (!ensureUiAuth()) return;
+    logInfo("Firmware update handmatig gestart via UI");
     server.send(200, "text/plain", "Firmware update gestart");
     delay(100);
     checkForFirmwareUpdate();
@@ -368,6 +418,12 @@ void setupWebRoutes() {
   server.on("/version", []() {
     if (!ensureUiAuth()) return;
     server.send(200, "text/plain", FIRMWARE_VERSION);
+  });
+
+  // UI version from config
+  server.on("/uiversion", []() {
+    if (!ensureUiAuth()) return;
+    server.send(200, "text/plain", UI_VERSION);
   });
 
   // Sell mode endpoints (force 10:47 display)

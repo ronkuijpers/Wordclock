@@ -41,7 +41,14 @@
 
     <section class="bg-white p-4 rounded-2xl shadow mb-4">
       <h2 class="text-xl font-semibold mb-2">Helderheid</h2>
-      <label class="block text-sm mb-1">Niveau: <span id="brightnessValue2" class="font-mono">-</span></label>
+      <div class="flex items-center gap-3 mb-2">
+        <label class="text-sm">Niveau: <span id="brightnessValue2" class="font-mono">-</span></label>
+        <input type="number" id="brightnessInput" min="0" max="255" step="1" class="w-20 border rounded p-1 text-sm" />
+        <div class="flex items-center gap-1">
+          <button id="brightnessDec" class="px-2 py-1 rounded bg-gray-200 hover:bg-gray-300">−10</button>
+          <button id="brightnessInc" class="px-2 py-1 rounded bg-gray-200 hover:bg-gray-300">+10</button>
+        </div>
+      </div>
       <input type="range" min="0" max="255" id="brightnessSlider" class="w-full">
     </section>
 
@@ -62,7 +69,10 @@
         <input type="file" name="firmwareFile" accept=".bin" required class="block w-full text-sm text-gray-700" />
         <button type="submit" class="py-2 px-3 rounded bg-gray-700 text-white hover:bg-gray-800">Upload</button>
       </form>
-      <p class="mt-2 text-sm"><strong>Build versie:</strong> <span id="version">-</span></p>
+      <p class="mt-2 text-sm">
+        <strong>Firmware versie:</strong> <span id="version">-</span>
+        <span class="ml-4"><strong>UI versie:</strong> <span id="uiVersion">-</span></span>
+      </p>
     </section>
 
     <section class="bg-white p-4 rounded-2xl shadow mb-4">
@@ -75,7 +85,14 @@
         <label for="hetIsDuration2" class="block text-sm mb-1">'HET IS' tonen (seconden):
           <span id="hetIsDurationValue2" class="font-mono">30</span>
         </label>
-        <input type="range" min="0" max="360" value="30" id="hetIsDuration2" class="w-full">
+        <div class="flex items-center gap-3 mb-2">
+          <input type="number" id="hetIsDurationInput" min="0" max="360" step="1" class="w-24 border rounded p-1 text-sm" />
+          <div class="flex items-center gap-1">
+            <button id="hetIsDec" class="px-2 py-1 rounded bg-gray-200 hover:bg-gray-300">−5s</button>
+            <button id="hetIsInc" class="px-2 py-1 rounded bg-gray-200 hover:bg-gray-300">+5s</button>
+          </div>
+          <input type="range" min="0" max="360" value="30" id="hetIsDuration2" class="flex-1">
+        </div>
         <p class="text-xs text-gray-500 mt-1">0 = nooit, 360 = altijd</p>
       </div>
     </section>
@@ -117,12 +134,50 @@
       const hex = e.target.value.substring(1);
       fetch(`/setColor?color=${hex}`);
     };
-    document.getElementById('brightnessSlider').oninput = (e) => {
+    const brightnessSlider = document.getElementById('brightnessSlider');
+    const brightnessInput = document.getElementById('brightnessInput');
+    const brightnessDec = document.getElementById('brightnessDec');
+    const brightnessInc = document.getElementById('brightnessInc');
+    brightnessSlider.oninput = (e) => {
       const v = e.target.value;
       const lbl = document.getElementById('brightnessValue2');
       if (lbl) lbl.textContent = v;
+      if (brightnessInput) brightnessInput.value = v;
       fetch(`/setBrightness?level=${v}`);
     };
+    if (brightnessInput) {
+      brightnessInput.addEventListener('change', () => {
+        let v = parseInt(brightnessInput.value, 10);
+        if (isNaN(v)) v = 0; v = Math.max(0, Math.min(255, v));
+        brightnessInput.value = v;
+        brightnessSlider.value = v;
+        const lbl = document.getElementById('brightnessValue2');
+        if (lbl) lbl.textContent = v;
+        fetch(`/setBrightness?level=${v}`);
+      });
+    }
+    if (brightnessDec) {
+      brightnessDec.addEventListener('click', () => {
+        let v = parseInt(brightnessSlider.value || '0', 10) - 10;
+        v = Math.max(0, v);
+        brightnessSlider.value = v;
+        if (brightnessInput) brightnessInput.value = v;
+        const lbl = document.getElementById('brightnessValue2');
+        if (lbl) lbl.textContent = v;
+        fetch(`/setBrightness?level=${v}`);
+      });
+    }
+    if (brightnessInc) {
+      brightnessInc.addEventListener('click', () => {
+        let v = parseInt(brightnessSlider.value || '0', 10) + 10;
+        v = Math.min(255, v);
+        brightnessSlider.value = v;
+        if (brightnessInput) brightnessInput.value = v;
+        const lbl = document.getElementById('brightnessValue2');
+        if (lbl) lbl.textContent = v;
+        fetch(`/setBrightness?level=${v}`);
+      });
+    }
     document.getElementById('restartBtn').onclick = () => {
       if (confirm('Herstart Wordclock?')) fetch('/restart');
     };
@@ -130,7 +185,8 @@
       if (confirm('WiFi resetten?')) fetch('/resetwifi');
     };
     document.getElementById('startSequenceBtn').onclick = () => fetch('/startSequence');
-    document.getElementById('updateBtn').onclick = async () => {
+    /* update handled via update.html */
+/*
       const r = await fetch('/checkForUpdate');
       if (r.ok) {
         const el = document.getElementById('updateStatus');
@@ -139,7 +195,7 @@
       } else {
         alert('Update mislukt');
       }
-    };
+    */
 
     const loadLog = async () => {
       const res = await fetch('/log');
@@ -155,14 +211,21 @@
       .then(resp => resp.text())
       .then(val => {
         const s = document.getElementById('brightnessSlider');
+        const i = document.getElementById('brightnessInput');
         const lbl = document.getElementById('brightnessValue2');
         if (s) s.value = val;
+        if (i) i.value = val;
         if (lbl) lbl.textContent = val;
       });
 
     // Load firmware version
     fetch('/version').then(r => r.text()).then(v => {
       const el = document.getElementById('version');
+      if (el) el.textContent = v;
+    });
+    // Load UI version
+    fetch('/uiversion').then(r => r.text()).then(v => {
+      const el = document.getElementById('uiVersion');
       if (el) el.textContent = v;
     });
 
@@ -180,35 +243,86 @@
     const durSlider2 = document.getElementById('hetIsDuration2');
     const durValue2 = document.getElementById('hetIsDurationValue2');
     const alwaysCb2 = document.getElementById('hetIsAlways2');
+    const durInput = document.getElementById('hetIsDurationInput');
+    const hetIsDec = document.getElementById('hetIsDec');
+    const hetIsInc = document.getElementById('hetIsInc');
     fetch('/getHetIsDuration')
       .then(r => r.text())
       .then(secStr => {
         const sec = parseInt(secStr, 10) || 30;
         durSlider2.value = sec;
         durValue2.textContent = sec;
+        if (durInput) durInput.value = sec;
         alwaysCb2.checked = sec >= 360;
         durSlider2.disabled = alwaysCb2.checked;
+        if (durInput) durInput.disabled = alwaysCb2.checked;
       });
     durSlider2.addEventListener('input', () => {
       const sec = parseInt(durSlider2.value, 10);
       durValue2.textContent = sec;
+      if (durInput) durInput.value = sec;
     });
     durSlider2.addEventListener('change', () => {
       const sec = parseInt(durSlider2.value, 10);
       fetch(`/setHetIsDuration?seconds=${sec}`);
       alwaysCb2.checked = sec >= 360;
       durSlider2.disabled = alwaysCb2.checked;
+      if (durInput) durInput.disabled = alwaysCb2.checked;
     });
     alwaysCb2.addEventListener('change', () => {
       if (alwaysCb2.checked) {
         durSlider2.disabled = true;
         durSlider2.value = 360;
         durValue2.textContent = 360;
+        if (durInput) { durInput.disabled = true; durInput.value = 360; }
         fetch('/setHetIsDuration?seconds=360');
       } else {
+        // Zet terug naar standaard 30 seconden en maak invoer actief
         durSlider2.disabled = false;
+        if (durInput) durInput.disabled = false;
+        durSlider2.value = 30;
+        durValue2.textContent = 30;
+        if (durInput) durInput.value = 30;
+        fetch('/setHetIsDuration?seconds=30');
       }
     });
+    if (durInput) {
+      durInput.addEventListener('change', () => {
+        let sec = parseInt(durInput.value, 10);
+        if (isNaN(sec)) sec = 0; sec = Math.max(0, Math.min(360, sec));
+        durInput.value = sec;
+        durSlider2.value = sec;
+        durValue2.textContent = sec;
+        fetch(`/setHetIsDuration?seconds=${sec}`);
+        alwaysCb2.checked = sec >= 360;
+        durSlider2.disabled = alwaysCb2.checked;
+        durInput.disabled = alwaysCb2.checked;
+      });
+    }
+    function setHetIsSeconds(sec) {
+      sec = Math.max(0, Math.min(360, sec));
+      durSlider2.value = sec;
+      if (durInput) durInput.value = sec;
+      durValue2.textContent = sec;
+      fetch(`/setHetIsDuration?seconds=${sec}`);
+      alwaysCb2.checked = sec >= 360;
+      durSlider2.disabled = alwaysCb2.checked;
+      if (durInput) durInput.disabled = alwaysCb2.checked;
+    }
+    if (hetIsDec) {
+      hetIsDec.addEventListener('click', () => {
+        if (alwaysCb2.checked) { alwaysCb2.checked = false; durSlider2.disabled = false; if (durInput) durInput.disabled = false; }
+        let sec = parseInt(durSlider2.value || '0', 10) - 5;
+        setHetIsSeconds(sec);
+      });
+    }
+    if (hetIsInc) {
+      hetIsInc.addEventListener('click', () => {
+        if (alwaysCb2.checked) { alwaysCb2.checked = false; durSlider2.disabled = false; if (durInput) durInput.disabled = false; }
+        let sec = parseInt(durSlider2.value || '0', 10) + 5;
+        setHetIsSeconds(sec);
+      });
+    }
 
     // Init log level controls
     const logLevelSel = document.getElementById('logLevel');

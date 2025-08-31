@@ -104,6 +104,8 @@ void wordclock_loop() {
       } else {
         hetIsVisibleUntil = millis() + (unsigned long)hisSec * 1000UL;
       }
+      logDebug(String("Animatie voltooid; segments=") + segments.size() + String(
+                   ", HET IS duur=") + (hisSec>=360?"altijd": (hisSec==0?"uit":String(hisSec)+"s")));
     }
     return;
   }
@@ -113,11 +115,17 @@ void wordclock_loop() {
   std::vector<uint16_t> indices;
   // Decide whether to include HET/IS based on setting and timer
   uint16_t hisSec = displaySettings.getHetIsDurationSec();
+  static bool lastHetIsHidden = false;
   bool hideHetIs = false;
   if (hisSec == 0) hideHetIs = true;              // never show
   else if (hisSec < 360) {
     hideHetIs = (hetIsVisibleUntil != 0) && (millis() >= hetIsVisibleUntil);
   } // hisSec>=360 => always show
+
+  if (hideHetIs && !lastHetIsHidden) {
+    logDebug("'HET IS' verborgen na ingestelde tijd");
+  }
+  lastHetIsHidden = hideHetIs;
 
   for (size_t si = 0; si < baseSegs.size(); ++si) {
     // baseSegs[0] == HET, baseSegs[1] == IS per mapper design

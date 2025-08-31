@@ -47,9 +47,9 @@ void setup() {
   }
 
   if (!SPIFFS.begin(true)) {
-    Serial.println("SPIFFS mounten mislukt.");
+    logError("SPIFFS mounten mislukt.");
   } else {
-    Serial.println("SPIFFS succesvol geladen.");
+    logDebug("SPIFFS succesvol geladen.");
   }
 
   setupWebRoutes();           // Dashboard-routes
@@ -77,7 +77,7 @@ void setup() {
   struct tm timeinfo;
   
   while (!getLocalTime(&timeinfo)) {
-    log(".");
+    logDebug(".");
     delay(500);
   }
   logInfo("🕒 Tijd gesynchroniseerd: " +
