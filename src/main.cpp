@@ -1,4 +1,6 @@
 #include <Arduino.h>
+#include <ESPmDNS.h>
+#include <SPIFFS.h>
 #include <WiFi.h>
 #include <WiFiClient.h>
 #include <WiFiManager.h>
@@ -8,107 +10,118 @@
 #include <WebServer.h>
 #include "wordclock.h"
 #include "secrets.h"
-#include "esp_log.h"
-#include "dashboard_html.h"
 #include "web_routes.h"
 #include "network.h"
 #include "log.h"
 #include "config.h"
 #include "ota_updater.h"
 #include "sequence_controller.h"
+#include "display_settings.h"
+#include "ui_auth.h"
 
 
 bool clockEnabled = true;
 StartupSequence startupSequence;
+DisplaySettings displaySettings;
+UiAuth uiAuth;
 
 
 // Webserver
 WebServer server(80);
 
-// Tracking
-time_t lastFirmwareCheck = 0;
-int lastDisplayedMinute = -1;
+// Tracking (handled inside loop as statics)
 
 void setup() {
   Serial.begin(115200);
   delay(1000);
+  initLogSettings();
 
   setupNetwork();             // WiFiManager
   setupOTA();                 // OTA
   // setupTelnet();              // Telnet
+
+  if (MDNS.begin("wordclock")) {
+    logInfo("🌐 mDNS actief op http://wordclock.local");
+  } else {
+    logError("❌ mDNS start mislukt");
+  }
+
+  if (!SPIFFS.begin(true)) {
+    logError("SPIFFS mounten mislukt.");
+  } else {
+    logDebug("SPIFFS succesvol geladen.");
+  }
+
   setupWebRoutes();           // Dashboard-routes
   server.begin();
 
-  logln("Controleren op WiFi verbinding");
+  logInfo("Controleren op WiFi verbinding");
   int retry = 0;
   while (WiFi.status() != WL_CONNECTED && retry < 20) {
     delay(500);
-    logln(".");
+    logInfo(".");
     retry++;
   }
 
   if (WiFi.status() == WL_CONNECTED) {
-    logln("✅ Verbonden met WiFi. Start firmwarecheck...");
+    logInfo("✅ Verbonden met WiFi. Start firmwarecheck...");
     checkForFirmwareUpdate();
   } else {
-    logln("⚠️ Geen WiFi. Firmwarecheck overgeslagen.");
+    logInfo("⚠️ Geen WiFi. Firmwarecheck overgeslagen.");
   }
 
   // Synchronize time via NTP
   configTzTime(TZ_INFO, NTP_SERVER1, NTP_SERVER2);
-  logln("⌛ Wachten op NTP...");
+  logInfo("⌛ Wachten op NTP...");
   
   struct tm timeinfo;
   
   while (!getLocalTime(&timeinfo)) {
-    log(".");
+    logDebug(".");
     delay(500);
   }
-  logln("🕒 Tijd gesynchroniseerd: " +
+  logInfo("🕒 Tijd gesynchroniseerd: " +
     String(timeinfo.tm_mday) + "/" +
     String(timeinfo.tm_mon+1) + " " +
     String(timeinfo.tm_hour) + ":" +
     String(timeinfo.tm_min));
 
   ledState.begin();
+  displaySettings.begin();
+  uiAuth.begin(UI_DEFAULT_PASS);
   initWordMap();
   wordclock_setup();
+
+  startupSequence.start();
 }
 
 void loop() {
+  server.handleClient();
+  ArduinoOTA.handle();
+
+  // Startup animatie
+  if (startupSequence.isRunning()) {
+    startupSequence.update();
+    return;  // <-- Voorkomt dat klok al tijd toont
+  }
+
+  // Tijd- en animatie-update (wordclock_loop regelt zelf per-minuut/animatie)
   static unsigned long lastLoop = 0;
   unsigned long now = millis();
   if (now - lastLoop >= 50) {
     lastLoop = now;
+    wordclock_loop();
 
-    // Update only if the minute has changed
+    // Dagelijkse firmwarecheck om 02:00
     struct tm timeinfo;
     if (getLocalTime(&timeinfo)) {
-      if (timeinfo.tm_min != lastDisplayedMinute) {
-        char buf[20];  // enough space for emoji + " HH:MM\0"
-        snprintf(buf, sizeof(buf), "🔄 %02d:%02d", timeinfo.tm_hour, timeinfo.tm_min);
-        logln(String(buf));
-        wordclock_loop();
-        lastDisplayedMinute = timeinfo.tm_min;
-      }
-
-      // Daily firmware check at 02:00
       time_t nowEpoch = time(nullptr);
+      static time_t lastFirmwareCheck = 0;
       if (timeinfo.tm_hour == 2 && timeinfo.tm_min == 0 && nowEpoch - lastFirmwareCheck > 3600) {
-        logln("🛠️ Dagelijkse firmwarecheck gestart...");
+        logInfo("🛠️ Dagelijkse firmwarecheck gestart...");
         checkForFirmwareUpdate();
         lastFirmwareCheck = nowEpoch;
       }
     }
   }
-
-  // handleTelnet();
-  server.handleClient();
-  ArduinoOTA.handle();
-
-  // Non-blocking startup animation step
-  if (startupSequence.isRunning()) {
-    startupSequence.update();
-  }
-
 }

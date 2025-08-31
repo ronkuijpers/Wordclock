@@ -37,15 +37,23 @@ const int EXTRA_MINUTE_LEDS[4] = {
 
 // Mapping of words to their LED positions
 const WordPosition WORDS[WORDS_COUNT] = {
-  { "HET IS",      { 1, 2, 3, 5, 6 } },
-  { "UUR",         { 138, 137, 136 } },
-  { "VIJF OVER",   { 31, 32, 33, 34, 56, 55, 54, 53 } },
-  { "TIEN OVER",   { 25, 24, 23, 22, 56, 55, 54, 53 } },
-  { "KWART OVER",  { 37, 38, 39, 40, 41, 56, 55, 54, 53 } },
-  { "VIJF VOOR",   { 31, 32, 33, 34, 64, 65, 66, 67 } },
-  { "TIEN VOOR",   { 25, 24, 23, 22, 64, 65, 66, 67 } },
-  { "KWART VOOR",  { 37, 38, 39, 40, 41, 64, 65, 66, 67 } },
+  // Split HET and IS so they can animate separately
+  { "HET",         { 1, 2, 3 } },
+  { "IS",          { 5, 6 } },
+
+  // Minute words split into separate parts
+  { "VIJF_M",      { 31, 32, 33, 34 } },  // minutes "VIJF"
+  { "TIEN_M",      { 25, 24, 23, 22 } },  // minutes "TIEN"
+  { "OVER",        { 56, 55, 54, 53 } },
+  { "VOOR",        { 64, 65, 66, 67 } },
+  { "KWART",       { 37, 38, 39, 40, 41 } },
+
+
+  // Other existing words
   { "HALF",        { 18, 39, 48, 69 } },
+  { "UUR",         { 138, 137, 136 } },
+
+  // Hour words (note: these remain unchanged)
   { "EEN",         { 121, 122, 123 } },
   { "TWEE",        { 92, 115, 122, 145 } },
   { "DRIE",        { 86, 85, 84, 83 } },
