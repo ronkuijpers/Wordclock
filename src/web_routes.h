@@ -453,6 +453,24 @@ void setupWebRoutes() {
     server.send(200, "text/plain", "OK");
   });
 
+  // Word-by-word animation toggle
+  server.on("/getAnimate", []() {
+    if (!ensureUiAuth()) return;
+    server.send(200, "text/plain", displaySettings.getAnimateWords() ? "on" : "off");
+  });
+  server.on("/setAnimate", []() {
+    if (!ensureUiAuth()) return;
+    if (!server.hasArg("state")) {
+      server.send(400, "text/plain", "Missing state");
+      return;
+    }
+    String st = server.arg("state");
+    bool on = (st == "on" || st == "1" || st == "true");
+    displaySettings.setAnimateWords(on);
+    logInfo(String("🎞️ Animatie ") + (on ? "AAN" : "UIT"));
+    server.send(200, "text/plain", "OK");
+  });
+
   // Het Is duration (0..360 seconds; 0=never, 360=always)
   server.on("/getHetIsDuration", []() {
     if (!ensureUiAuth()) return;

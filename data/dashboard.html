@@ -78,6 +78,10 @@
     <section class="bg-white p-4 rounded-2xl shadow mb-4">
       <h2 class="text-xl font-semibold mb-2">Weergave</h2>
       <label class="inline-flex items-center space-x-2 mb-2">
+        <input type="checkbox" id="animateWords" class="form-checkbox">
+        <span>Woord-voor-woord animatie</span>
+      </label>
+      <label class="inline-flex items-center space-x-2 mb-2">
         <input type="checkbox" id="hetIsAlways2" class="form-checkbox">
         <span>'HET IS' altijd tonen</span>
       </label>
@@ -91,7 +95,7 @@
             <button id="hetIsDec" class="px-2 py-1 rounded bg-gray-200 hover:bg-gray-300">−5s</button>
             <button id="hetIsInc" class="px-2 py-1 rounded bg-gray-200 hover:bg-gray-300">+5s</button>
           </div>
-          <input type="range" min="0" max="360" value="30" id="hetIsDuration2" class="flex-1">
+          <input type="range" min="0" max="360" value="360" id="hetIsDuration2" class="flex-1">
         </div>
         <p class="text-xs text-gray-500 mt-1">0 = nooit, 360 = altijd</p>
       </div>
@@ -243,9 +247,18 @@
     const durSlider2 = document.getElementById('hetIsDuration2');
     const durValue2 = document.getElementById('hetIsDurationValue2');
     const alwaysCb2 = document.getElementById('hetIsAlways2');
+    const animateCb = document.getElementById('animateWords');
     const durInput = document.getElementById('hetIsDurationInput');
     const hetIsDec = document.getElementById('hetIsDec');
     const hetIsInc = document.getElementById('hetIsInc');
+    // Load animation toggle (default is OFF server-side)
+    fetch('/getAnimate')
+      .then(r => r.text())
+      .then(v => { animateCb.checked = (v.trim() === 'on'); })
+      .catch(() => { animateCb.checked = false; });
+    animateCb.addEventListener('change', () => {
+      fetch('/setAnimate?state=' + (animateCb.checked ? 'on' : 'off'));
+    });
     fetch('/getHetIsDuration')
       .then(r => r.text())
       .then(secStr => {

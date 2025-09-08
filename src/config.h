@@ -1,7 +1,7 @@
 #pragma once
 
-#define FIRMWARE_VERSION "0.4"
-#define UI_VERSION "0.4"
+#define FIRMWARE_VERSION "0.3"
+#define UI_VERSION "0.3"
 
 #define NUM_LEDS 161
 #define DATA_PIN 4

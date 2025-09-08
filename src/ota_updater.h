@@ -94,7 +94,7 @@ static void writeFsVersion(const String& v) {
   f.close();
 }
 
-static bool fetchManifest(DynamicJsonDocument& doc, WiFiClientSecure& client) {
+static bool fetchManifest(JsonDocument& doc, WiFiClientSecure& client) {
   HTTPClient http;
   http.begin(client, VERSION_URL);
   int code = http.GET();
@@ -133,7 +133,7 @@ void syncFilesFromManifest() {
   std::unique_ptr<WiFiClientSecure> client(new WiFiClientSecure());
   client->setInsecure();
 
-  DynamicJsonDocument doc(32*1024); // groot genoeg voor files-lijst
+  JsonDocument doc; // ArduinoJson v7: dynamic capacity
   if (!fetchManifest(doc, *client)) return;
 
   // Prefer ui_version when present, else fall back to top-level version.
@@ -148,7 +148,7 @@ void syncFilesFromManifest() {
   }
 
   std::vector<FileEntry> files;
-  if (doc.containsKey("files") && parseFiles(doc["files"], files) && !files.empty()) {
+  if (doc["files"].is<JsonArray>() && parseFiles(doc["files"], files) && !files.empty()) {
     bool ok = true;
     for (const auto& e : files) {
       if (!downloadToFs(e.url, e.path, *client)) { ok = false; }
@@ -168,7 +168,7 @@ void checkForFirmwareUpdate() {
   std::unique_ptr<WiFiClientSecure> client(new WiFiClientSecure());
   client->setInsecure();
 
-  DynamicJsonDocument doc(8*1024);
+  JsonDocument doc; // ArduinoJson v7
   if (!fetchManifest(doc, *client)) return;
 
   // Backward-compatible: firmware may be string or object

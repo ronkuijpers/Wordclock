@@ -64,19 +64,33 @@ void wordclock_loop() {
     if (g_forceAnim) {
       animTime = g_forcedTime;
     }
-    segments = get_word_segments_for_time(&animTime);
-    // Respect setting: if duration==0, skip HET/IS entirely (both animation and steady state)
-    uint16_t hisSec = displaySettings.getHetIsDurationSec();
-    if (hisSec == 0 && segments.size() >= 2) {
-      segments.erase(segments.begin(), segments.begin() + 2); // drop HET and IS
+    if (displaySettings.getAnimateWords()) {
+      segments = get_word_segments_for_time(&animTime);
+      // Respect setting: if duration==0, skip HET/IS entirely (both animation and steady state)
+      uint16_t hisSec = displaySettings.getHetIsDurationSec();
+      if (hisSec == 0 && segments.size() >= 2) {
+        segments.erase(segments.begin(), segments.begin() + 2); // drop HET and IS
+      }
+      cumulative.clear();
+      animStep = 0;
+      lastStepAt = millis();
+      animating = true;
+      hetIsVisibleUntil = 0; // reset; will be set when animation completes
+      logDebug("🎞️ Start animatie naar nieuwe tekst");
+      g_forceAnim = false;
+    } else {
+      // No animation: immediately consider the animation 'completed' for timer purposes
+      animating = false;
+      uint16_t hisSec = displaySettings.getHetIsDurationSec();
+      if (hisSec >= 360) {
+        hetIsVisibleUntil = 0; // always on
+      } else if (hisSec == 0) {
+        hetIsVisibleUntil = 1; // hidden immediately
+      } else {
+        hetIsVisibleUntil = millis() + (unsigned long)hisSec * 1000UL;
+      }
+      g_forceAnim = false;
     }
-    cumulative.clear();
-    animStep = 0;
-    lastStepAt = millis();
-    animating = true;
-    hetIsVisibleUntil = 0; // reset; will be set when animation completes
-    logDebug("🎞️ Start animatie naar nieuwe tekst");
-    g_forceAnim = false;
   }
 
   // During animation: add next word every 500ms
