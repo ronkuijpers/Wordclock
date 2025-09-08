@@ -1,13 +1,4 @@
 {
   "version": "0.3",
-  "released": "2025-09-08T20:00:00Z",
-  "firmware": "https://github.com/ronkuijpers/Wordclock/releases/download/v0.3/firmware.bin",
-  "files": [
-    { "path": "/admin.html",    "url": "https://raw.githubusercontent.com/ronkuijpers/Wordclock/v0.4/data/admin.html",    "sha256": "xxx" },
-    { "path": "/changepw.html", "url": "https://raw.githubusercontent.com/ronkuijpers/Wordclock/v0.4/data/changepw.html", "sha256": "xxx" },
-    { "path": "/dashboard.html","url": "https://raw.githubusercontent.com/ronkuijpers/Wordclock/v0.4/data/dashboard.html","sha256": "xxx" },
-    { "path": "/forgot.html",   "url": "https://raw.githubusercontent.com/ronkuijpers/Wordclock/v0.4/data/forgot.html",   "sha256": "xxx" },
-    { "path": "/login.html",    "url": "https://raw.githubusercontent.com/ronkuijpers/Wordclock/v0.4/data/login.html",    "sha256": "xxx" },
-    { "path": "/update.html",   "url": "https://raw.githubusercontent.com/ronkuijpers/Wordclock/v0.4/data/update.html",   "sha256": "xxx" }
-  ]
+  "firmware": "https://github.com/ronkuijpers/Wordclock/releases/download/v0.3/firmware.bin"
 }
