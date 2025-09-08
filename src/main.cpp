@@ -1,6 +1,6 @@
 #include <Arduino.h>
 #include <ESPmDNS.h>
-#include <SPIFFS.h>
+#include "fs_compat.h"
 #include <WiFi.h>
 #include <WiFiClient.h>
 #include <WiFiManager.h>
@@ -46,7 +46,7 @@ void setup() {
     logError("❌ mDNS start mislukt");
   }
 
-  if (!SPIFFS.begin(true)) {
+  if (!FS_IMPL.begin(true)) {
     logError("SPIFFS mounten mislukt.");
   } else {
     logDebug("SPIFFS succesvol geladen.");

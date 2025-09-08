@@ -1,6 +1,6 @@
 #pragma once
 #include <network.h>
-#include <SPIFFS.h>
+#include "fs_compat.h"
 #include <Update.h>
 #include <WebServer.h>
 #include "secrets.h"
@@ -71,7 +71,7 @@ void setupWebRoutes() {
   // Dashboard (protected)
   server.on("/dashboard.html", HTTP_GET, []() {
     if (!ensureUiAuth()) return;
-    File f = SPIFFS.open("/dashboard.html", "r");
+    File f = FS_IMPL.open("/dashboard.html", "r");
     if (!f) { server.send(404, "text/plain", "dashboard not found"); return; }
     server.streamFile(f, "text/html");
     f.close();
@@ -79,7 +79,7 @@ void setupWebRoutes() {
 
   // Forgot password page (public)
   server.on("/forgot.html", HTTP_GET, []() {
-    File f = SPIFFS.open("/forgot.html", "r");
+    File f = FS_IMPL.open("/forgot.html", "r");
     if (!f) { server.send(404, "text/plain", "forgot not found"); return; }
     server.streamFile(f, "text/html");
     f.close();
@@ -108,7 +108,7 @@ void setupWebRoutes() {
       server.requestAuthentication(BASIC_AUTH, "Wordclock UI");
       return;
     }
-    File f = SPIFFS.open("/changepw.html", "r");
+    File f = FS_IMPL.open("/changepw.html", "r");
     if (!f) { server.send(404, "text/plain", "changepw not found"); return; }
     server.streamFile(f, "text/html");
     f.close();
@@ -145,7 +145,7 @@ void setupWebRoutes() {
   // Protected admin page (Admin auth only)
   server.on("/admin.html", HTTP_GET, []() {
     if (!ensureAdminAuth()) return;
-    File f = SPIFFS.open("/admin.html", "r");
+    File f = FS_IMPL.open("/admin.html", "r");
     if (!f) {
       server.send(404, "text/plain", "admin.html not found");
       return;
@@ -156,7 +156,7 @@ void setupWebRoutes() {
 
   // Public landing page with links to Login (protected) and Forgot
   server.on("/", HTTP_GET, []() {
-    File f = SPIFFS.open("/login.html", "r");
+    File f = FS_IMPL.open("/login.html", "r");
     if (!f) {
       // Fallback: redirect to protected dashboard
       server.sendHeader("Location", "/dashboard.html", true);
@@ -170,7 +170,7 @@ void setupWebRoutes() {
   // Update page (protected)
   server.on("/update.html", HTTP_GET, []() {
     if (!ensureUiAuth()) return;
-    File f = SPIFFS.open("/update.html", "r");
+    File f = FS_IMPL.open("/update.html", "r");
     if (!f) { server.send(404, "text/plain", "update not found"); return; }
     server.streamFile(f, "text/html");
     f.close();
