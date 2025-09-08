@@ -1,7 +1,7 @@
 {
-  "version": "0.4",
+  "version": "0.3",
   "released": "2025-09-08T20:00:00Z",
-  "firmware": "https://github.com/ronkuijpers/Wordclock/releases/download/v0.4/wordclock-v0.4.bin",
+  "firmware": "https://github.com/ronkuijpers/Wordclock/releases/download/v0.3/firmware.bin",
   "files": [
     { "path": "/admin.html",    "url": "https://raw.githubusercontent.com/ronkuijpers/Wordclock/v0.4/data/admin.html",    "sha256": "xxx" },
     { "path": "/changepw.html", "url": "https://raw.githubusercontent.com/ronkuijpers/Wordclock/v0.4/data/changepw.html", "sha256": "xxx" },
