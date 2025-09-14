@@ -9,6 +9,4 @@
 
 void setupNetwork();
 void setupOTA();
-// void setupTelnet();
-// void handleTelnet();
 void resetWiFiSettings();

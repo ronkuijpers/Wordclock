@@ -5,17 +5,19 @@
 #include "log.h"
 #include "secrets.h"
 
-// Initialiseer WiFi-verbinding via WiFiManager
+// Initialize WiFi connection using WiFiManager
+// This function starts WiFi in station mode, shows a config portal if needed,
+// and ensures the device is connected to the network. On failure, the device will restart.
 inline void initNetwork() {
-    WiFi.mode(WIFI_STA);
+    WiFi.mode(WIFI_STA); // Set WiFi to station mode
     WiFiManager wm;
-    wm.setConfigPortalTimeout(180);  // Sluit AP na 3 minuten
-    logInfo("WiFiManager start verbinding...");
-    bool res = wm.autoConnect(AP_NAME, AP_PASSWORD);
+    wm.setConfigPortalTimeout(WIFI_CONFIG_PORTAL_TIMEOUT);  // Close AP after WIFI_CONFIG_PORTAL_TIMEOUT seconds
+    logInfo("WiFiManager starting connection...");
+    bool res = wm.autoConnect(AP_NAME, AP_PASSWORD); // Connect to WiFi or open portal
     if (!res) {
-        logError("❌ Geen WiFi-verbinding. Herstart...");
+    logError("❌ No WiFi connection. Restarting...");
         ESP.restart();
     }
-    logInfo("✅ WiFi verbonden met netwerk: " + String(WiFi.SSID()));
-    logInfo("📡 IP-adres: " + WiFi.localIP().toString());
+    logInfo("✅ WiFi connected to network: " + String(WiFi.SSID()));
+    logInfo("📡 IP address: " + WiFi.localIP().toString());
 }

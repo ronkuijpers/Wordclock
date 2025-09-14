@@ -4,9 +4,11 @@
 #include "web_routes.h"
 #include "log.h"
 
-// Initialiseer webserver en routes
+// Initialize webserver and routes
+// This function registers all webserver endpoints and starts the webserver.
+// Ensures the UI and API are accessible over the network.
 inline void initWebServer(WebServer& server) {
     setupWebRoutes();
     server.begin();
-    logInfo("🟢 Webserver gestart en routes geactiveerd");
+    logInfo("🟢 Webserver started and routes activated");
 }

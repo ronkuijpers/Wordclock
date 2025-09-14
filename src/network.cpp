@@ -11,18 +11,18 @@ void setupNetwork() {
   WiFi.mode(WIFI_STA);
   WiFiManager wm;
 
-  wm.setConfigPortalTimeout(180);  // optional: close AP after 3 minutes
+  wm.setConfigPortalTimeout(WIFI_CONFIG_PORTAL_TIMEOUT);  // optional: close AP after WIFI_CONFIG_PORTAL_TIMEOUT seconds
 
-  logInfo("WiFiManager start verbinding...");
+  logInfo("WiFiManager starting connection...");
   bool res = wm.autoConnect(AP_NAME, AP_PASSWORD);
 
   if (!res) {
-    logError("❌ Geen WiFi-verbinding. Herstart...");
+  logError("❌ No WiFi connection. Restarting...");
     ESP.restart();
   }
 
-  logInfo("✅ WiFi verbonden met netwerk: " + String(WiFi.SSID()));
-  logInfo("📡 IP-adres: " + WiFi.localIP().toString());
+  logInfo("✅ WiFi connected to network: " + String(WiFi.SSID()));
+  logInfo("📡 IP address: " + WiFi.localIP().toString());
 }
 
 
@@ -34,17 +34,17 @@ void setupOTA() {
 
   // 2) Callbacks for additional logging
   ArduinoOTA.onStart([]() {
-    logInfo("🔄 Start netwerk OTA-update");
+  logInfo("🔄 Starting network OTA update");
   });
   ArduinoOTA.onEnd([]() {
-    logInfo("✅ OTA-update voltooid, restart in 1s");
-    delay(1000);
+  logInfo("✅ OTA update complete, restarting in 1s");
+    delay(OTA_UPDATE_COMPLETE_DELAY_MS);
     ESP.restart();
   });
   ArduinoOTA.onProgress([](unsigned int progress, unsigned int total) {
     // percent = (progress/total)*100
     uint8_t pct = (progress * 100) / total;
-    logInfo("📶 OTA Progress: " + String(pct) + "%");
+  logInfo("📶 OTA Progress: " + String(pct) + "%");
   });
   ArduinoOTA.onError([](ota_error_t err) {
     String msg = "[OTA] Fout: ";
@@ -56,38 +56,19 @@ void setupOTA() {
       case OTA_END_ERROR:     msg += "Eind mislukt";        break;
       default:                msg += "Onbekend";            break;
     }
-    logError(msg);
+  logError(msg);
   });
 
   // 3) Start the service
   ArduinoOTA.begin();
-  logInfo("🟢 Netwerk OTA-service actief, wacht op upload");
+  logInfo("🟢 Network OTA service active, waiting for upload");
 }
 
-// void setupTelnet() {
-//   // Telnet
-//   telnetServer.begin();
-//   telnetServer.setNoDelay(true);
-//   logInfo("✅ Telnet-server gestart op poort 23");
-// }
-
-// void handleTelnet() {
-//   if (telnetServer.hasClient()) {
-//     if (!telnetClient || !telnetClient.connected()) {
-//       telnetClient = telnetServer.available();
-//       logInfo("🔌 Nieuwe Telnet-client verbonden op " + telnetClient.remoteIP().toString());
-//       telnetClient.println("✅ Verbonden met Wordclock Telnet log");
-//     } else {
-//       WiFiClient extraClient = telnetServer.available();
-//       extraClient.stop(); // Only one client at a time
-//     }
-//   }
-// }
 
 void resetWiFiSettings() {
-  logInfo("🔁 WiFiManager instellingen worden gewist...");
+  logInfo("🔁 WiFiManager settings are being cleared...");
   WiFiManager wm;
   wm.resetSettings();     // <-- important
-  delay(500);             // give the EEPROM some time
+  delay(EEPROM_WRITE_DELAY_MS); // give the EEPROM some time
   ESP.restart();
 }

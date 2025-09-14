@@ -50,7 +50,7 @@ void wordclock_loop() {
   }
   struct tm timeinfo = cachedTime;
 
-  // Debug: log elke minuut-overgang
+  // Debug: log every minute change
   static int lastLoggedMinute = -1;
   if (timeinfo.tm_min != lastLoggedMinute) {
     lastLoggedMinute = timeinfo.tm_min;
@@ -90,7 +90,7 @@ void wordclock_loop() {
       lastStepAt = millis();
       animating = true;
       hetIsVisibleUntil = 0; // reset; will be set when animation completes
-      logDebug("🎞️ Start animatie naar nieuwe tekst");
+  logDebug("🎞️ Start animation to new text");
       g_forceAnim = false;
     } else {
       // No animation: immediately consider the animation 'completed' for timer purposes
@@ -132,8 +132,7 @@ void wordclock_loop() {
       } else {
         hetIsVisibleUntil = millis() + (unsigned long)hisSec * 1000UL;
       }
-      logDebug(String("Animatie voltooid; segments=") + segments.size() + String(
-                   ", HET IS duur=") + (hisSec>=360?"altijd": (hisSec==0?"uit":String(hisSec)+"s")));
+  logDebug(String("Animation completed; segments=") + segments.size() + String(", HET IS duration=") + (hisSec>=360?"always": (hisSec==0?"off":String(hisSec)+"s")));
     }
     return;
   }
@@ -151,7 +150,7 @@ void wordclock_loop() {
   } // hisSec>=360 => always show
 
   if (hideHetIs && !lastHetIsHidden) {
-    logDebug("'HET IS' verborgen na ingestelde tijd");
+  logDebug("'HET IS' hidden after configured duration");
   }
   lastHetIsHidden = hideHetIs;
 

@@ -4,9 +4,11 @@
 #include "display_settings.h"
 #include "log.h"
 
-// Initialiseer LED en display instellingen
+// Initialize LED and display settings
+// This function initializes the LED state and display settings from persistent storage.
+// Ensures the clock starts up with correct color and brightness.
 inline void initDisplay() {
     ledState.begin();
     displaySettings.begin();
-    logInfo("🟢 LED en display instellingen geinitialiseerd");
+    logInfo("🟢 LED and display settings initialized");
 }

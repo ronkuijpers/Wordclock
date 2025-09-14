@@ -5,7 +5,6 @@
 #include "wordclock_main.h"
 #include "time_sync.h"
 #include "wordclock_system_init.h"
-// TODO: Overweeg dit bestand te splitsen in modules zoals netwerk, OTA, tijdsynchronisatie en hoofdlogica voor betere onderhoudbaarheid.
 
 // Wordclock hoofdprogramma
 // - Setup: initialiseert hardware, netwerk, OTA, filesystem en start services
@@ -47,35 +46,34 @@ WebServer server(80);
 
 // Setup: initialiseert hardware, netwerk, OTA, filesystem en start de hoofdservices
 void setup() {
-  Serial.begin(115200);
-  delay(1000);
+  Serial.begin(SERIAL_BAUDRATE);
+  delay(MDNS_START_DELAY_MS);
   initLogSettings();
 
   initNetwork();              // WiFiManager (WiFi-instellingen en verbinding)
   initOTA();                  // OTA (Over-the-air updates)
-  // setupTelnet();           // Telnet logging (optioneel)
 
   // Start mDNS voor lokale netwerknaam
-  if (MDNS.begin("wordclock")) {
-    logInfo("🌐 mDNS actief op http://wordclock.local");
+  if (MDNS.begin(MDNS_HOSTNAME)) {
+    logInfo("🌐 mDNS active at http://" MDNS_HOSTNAME ".local");
   } else {
-    logError("❌ mDNS start mislukt");
+    logError("❌ mDNS start failed");
   }
 
   // Mount SPIFFS filesystem
   if (!FS_IMPL.begin(true)) {
-    logError("SPIFFS mounten mislukt.");
+  logError("SPIFFS mount failed.");
   } else {
-    logDebug("SPIFFS succesvol geladen.");
+  logDebug("SPIFFS loaded successfully.");
   }
 
   initWebServer(server);      // Webserver en routes
 
   // Wacht op WiFi verbinding (max 20x proberen)
-  logInfo("Controleren op WiFi verbinding");
+  logInfo("Checking WiFi connection");
   int retry = 0;
-  while (WiFi.status() != WL_CONNECTED && retry < 20) {
-    delay(500);
+  while (WiFi.status() != WL_CONNECTED && retry < WIFI_CONNECT_MAX_RETRIES) {
+    delay(WIFI_CONNECT_RETRY_DELAY_MS);
     logInfo(".");
     retry++;
   }
@@ -83,13 +81,13 @@ void setup() {
   if (WiFi.status() == WL_CONNECTED) {
     initMqtt();
     if (displaySettings.getAutoUpdate()) {
-      logInfo("✅ Verbonden met WiFi. Start firmwarecheck...");
+  logInfo("✅ Connected to WiFi. Starting firmware check...");
       checkForFirmwareUpdate();
     } else {
-      logInfo("ℹ️ Automatische firmwareupdates uitgeschakeld. Sla check over.");
+  logInfo("ℹ️ Automatic firmware updates disabled. Skipping check.");
     }
   } else {
-    logInfo("⚠️ Geen WiFi. Firmwarecheck overgeslagen.");
+  logInfo("⚠️ No WiFi. Firmware check skipped.");
   }
 
   // Synchroniseer tijd via NTP
@@ -124,10 +122,10 @@ void loop() {
       static time_t lastFirmwareCheck = 0;
       if (timeinfo.tm_hour == 2 && timeinfo.tm_min == 0 && nowEpoch - lastFirmwareCheck > 3600) {
         if (displaySettings.getAutoUpdate()) {
-          logInfo("🛠️ Dagelijkse firmwarecheck gestart...");
+          logInfo("🛠️ Daily firmware check started...");
           checkForFirmwareUpdate();
         } else {
-          logInfo("ℹ️ Automatische firmwareupdates uitgeschakeld (02:00 check overgeslagen)");
+          logInfo("ℹ️ Automatic firmware updates disabled (02:00 check skipped)");
         }
         lastFirmwareCheck = nowEpoch;
       }

@@ -3,13 +3,16 @@
 #include "sequence_controller.h"
 #include "log.h"
 
-// Initialiseer en start de startup animatie
+// Initialize and start the startup animation
+// This function starts the clock's startup animation.
+// Called after setup so the clock only becomes active after the animation.
 inline void initStartupSequence(StartupSequence& startupSequence) {
     startupSequence.start();
-    logInfo("🟢 StartupSequence gestart");
+    logInfo("🟢 StartupSequence started");
 }
 
-// Update de startup animatie
+// Update the startup animation
+// This function updates the animation and indicates whether the clock can be shown yet.
 inline bool updateStartupSequence(StartupSequence& startupSequence) {
     if (startupSequence.isRunning()) {
         startupSequence.update();

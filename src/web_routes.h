@@ -196,7 +196,7 @@ void setupWebRoutes() {
     String st = server.arg("state");
     bool on = (st == "on" || st == "1" || st == "true");
     displaySettings.setAutoUpdate(on);
-    logInfo(String("🔁 Auto firmware updates ") + (on ? "AAN" : "UIT"));
+  logInfo(String("🔁 Auto firmware updates ") + (on ? "ON" : "OFF"));
     server.send(200, "text/plain", "OK");
   });
 
@@ -241,7 +241,7 @@ void setupWebRoutes() {
   // Device restart
   server.on("/restart", []() {
     if (!ensureUiAuth()) return;
-    logInfo("⚠️ Herstart via dashboard aangevraagd");
+  logInfo("⚠️ Restart requested via dashboard");
     server.send(200, "text/html", R"rawliteral(
       <html>
         <head>
@@ -259,7 +259,7 @@ void setupWebRoutes() {
 
   server.on("/resetwifi", []() {
     if (!ensureUiAuth()) return;
-    logInfo("⚠️ Reset WiFi via dashboard aangevraagd");
+  logInfo("⚠️ WiFi reset requested via dashboard");
     server.send(200, "text/html", R"rawliteral(
       <html>
         <head>
@@ -318,7 +318,7 @@ void setupWebRoutes() {
   
   server.on("/startSequence", []() {
     if (!ensureUiAuth()) return;
-    logInfo("✨ Startup sequence gestart via dashboard");
+  logInfo("✨ Startup sequence started via dashboard");
     extern StartupSequence startupSequence;
     startupSequence.start();
     server.send(200, "text/plain", "Startup sequence uitgevoerd");
@@ -340,24 +340,24 @@ void setupWebRoutes() {
       HTTPUpload& upload = server.upload();
 
       if (upload.status == UPLOAD_FILE_START) {
-        logInfo("📂 Start upload: " + upload.filename);
+        logInfo("📂 Upload started: " + upload.filename);
         if (!Update.begin(UPDATE_SIZE_UNKNOWN)) {
-          logError("❌ Update.begin() mislukt");
+          logError("❌ Update.begin() failed");
           Update.printError(Serial);
         }
       } else if (upload.status == UPLOAD_FILE_WRITE) {
         size_t written = Update.write(upload.buf, upload.currentSize);
         if (written != upload.currentSize) {
-          logError("❌ Fout bij schrijven chunk");
+          logError("❌ Error writing chunk");
           Update.printError(Serial);
         } else {
-          logDebug("✏️ Geschreven: " + String(written) + " bytes");
+          logDebug("✏️ Written: " + String(written) + " bytes");
         }
       } else if (upload.status == UPLOAD_FILE_END) {
-        logInfo("📥 Upload voltooid");
-        logDebug("Totaal " + String(Update.size()) + " bytes");
+        logInfo("📥 Upload completed");
+        logDebug("Total " + String(Update.size()) + " bytes");
         if (!Update.end(true)) {
-          logError("❌ Update.end() mislukt");
+          logError("❌ Update.end() failed");
           Update.printError(Serial);
         }
       }
@@ -380,24 +380,24 @@ void setupWebRoutes() {
       if (!ensureUiAuth()) return;
       HTTPUpload& upload = server.upload();
       if (upload.status == UPLOAD_FILE_START) {
-        logInfo("📂 Start SPIFFS upload: " + upload.filename);
+        logInfo("📂 SPIFFS upload started: " + upload.filename);
         if (!Update.begin(UPDATE_SIZE_UNKNOWN, U_SPIFFS)) {
-          logError("❌ Update.begin(U_SPIFFS) mislukt");
+          logError("❌ Update.begin(U_SPIFFS) failed");
           Update.printError(Serial);
         }
       } else if (upload.status == UPLOAD_FILE_WRITE) {
         size_t written = Update.write(upload.buf, upload.currentSize);
         if (written != upload.currentSize) {
-          logError("❌ Fout bij schrijven chunk (SPIFFS)");
+          logError("❌ Error writing chunk (SPIFFS)");
           Update.printError(Serial);
         } else {
-          logDebug("✏️ SPIFFS geschreven: " + String(written) + " bytes");
+          logDebug("✏️ SPIFFS written: " + String(written) + " bytes");
         }
       } else if (upload.status == UPLOAD_FILE_END) {
-        logInfo("📥 SPIFFS upload voltooid");
-        logDebug("SPIFFS totaal " + String(Update.size()) + " bytes");
+        logInfo("📥 SPIFFS upload completed");
+        logDebug("SPIFFS total " + String(Update.size()) + " bytes");
         if (!Update.end(true)) {
-          logError("❌ Update.end(U_SPIFFS) mislukt");
+          logError("❌ Update.end(U_SPIFFS) failed");
           Update.printError(Serial);
         }
       }
@@ -473,7 +473,7 @@ void setupWebRoutes() {
       if (!getLocalTime(&t)) { server.send(200, "text/plain", "OK"); return; }
     }
     wordclock_force_animation_for_time(&t);
-    logInfo(String("🛒 Verkooptijd ") + (on ? "AAN (10:47)" : "UIT"));
+  logInfo(String("🛒 Sell time ") + (on ? "ON (10:47)" : "OFF"));
     server.send(200, "text/plain", "OK");
   });
 
@@ -491,7 +491,7 @@ void setupWebRoutes() {
     String st = server.arg("state");
     bool on = (st == "on" || st == "1" || st == "true");
     displaySettings.setAnimateWords(on);
-    logInfo(String("🎞️ Animatie ") + (on ? "AAN" : "UIT"));
+  logInfo(String("🎞️ Animation ") + (on ? "ON" : "OFF"));
     server.send(200, "text/plain", "OK");
   });
 
@@ -510,7 +510,7 @@ void setupWebRoutes() {
     int val = server.arg("seconds").toInt();
     if (val < 0) val = 0; if (val > 360) val = 360;
     displaySettings.setHetIsDurationSec((uint16_t)val);
-    logInfo("⏱️ HET IS duur ingesteld op " + String(val) + "s");
+  logInfo("⏱️ HET IS duration set to " + String(val) + "s");
     server.send(200, "text/plain", "OK");
   });
 
@@ -535,7 +535,7 @@ void setupWebRoutes() {
 
 
     setLogLevel(level);
-    logInfo("🔧 Log level gewijzigd naar: " + levelStr);
+  logInfo("🔧 Log level changed to: " + levelStr);
     server.send(200, "text/plain", "OK");
   });
 

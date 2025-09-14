@@ -3,13 +3,15 @@
 #include "mqtt_client.h"
 #include "log.h"
 
-// Initialiseer MQTT
+// Initialize MQTT
+// This function starts the MQTT client and ensures connection to the broker.
 inline void initMqtt() {
     mqtt_begin();
-    logInfo("🟢 MQTT gestart");
+    logInfo("🟢 MQTT started");
 }
 
 // MQTT event loop
+// This function processes incoming and outgoing MQTT messages.
 inline void mqttEventLoop() {
     mqtt_loop();
 }

@@ -4,18 +4,20 @@
 #include "log.h"
 #include "secrets.h"
 
-// Initialiseer OTA (Over-the-air updates)
+// Initialize OTA (Over-the-air updates)
+// This function configures and starts the OTA service to allow firmware updates over the network.
+// Callback functions provide logging and proper handling of the update process.
 inline void initOTA() {
-    ArduinoOTA.setHostname(CLOCK_NAME);
-    ArduinoOTA.setPassword(OTA_PASSWORD);
-    ArduinoOTA.setPort(OTA_PORT);
+    ArduinoOTA.setHostname(CLOCK_NAME); // Set OTA hostname
+    ArduinoOTA.setPassword(OTA_PASSWORD); // Set OTA password
+    ArduinoOTA.setPort(OTA_PORT); // Set OTA port
 
     ArduinoOTA.onStart([]() {
-        logInfo("🔄 Start netwerk OTA-update");
+    logInfo("🔄 Starting network OTA update");
     });
     ArduinoOTA.onEnd([]() {
-        logInfo("✅ OTA-update voltooid, restart in 1s");
-        delay(1000);
+        logInfo("✅ OTA update complete, restarting in 1s");
+        delay(OTA_UPDATE_COMPLETE_DELAY_MS);
         ESP.restart();
     });
     ArduinoOTA.onProgress([](unsigned int progress, unsigned int total) {
@@ -35,5 +37,5 @@ inline void initOTA() {
         logError(msg);
     });
     ArduinoOTA.begin();
-    logInfo("🟢 Netwerk OTA-service actief, wacht op upload");
+    logInfo("🟢 Network OTA service active, waiting for upload");
 }

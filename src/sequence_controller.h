@@ -24,7 +24,7 @@ public:
     index = 0;
     step = 0;
     lastUpdate = millis();
-    logDebug("🔁 Startup: Sweep begint");
+  logDebug("🔁 Startup: Sweep started");
   }
 
   void update() {
@@ -38,12 +38,12 @@ public:
           lastUpdate = now;
           if (index >= NUM_LEDS) {
             state = IP_DIGITS;
-            logDebug("📡 Startup: IP-adres animatie");
+            logDebug("📡 Startup: IP address animation");
             prepareIPSequence();
             // Toon direct het eerste element van het IP-adres
             if (!ipSequence.empty()) {
               showLeds(ipSequence[0]);
-              logDebug(String("🔢 IP-deel getoond: ") + ipLabels[0]);
+              logDebug(String("🔢 IP part shown: ") + ipLabels[0]);
               step = 1;
             } else {
               step = 0;
@@ -56,7 +56,7 @@ public:
       case IP_DIGITS:
         if (now - lastUpdate >= IP_STEP_MS && step < ipSequence.size()) {
           showLeds(ipSequence[step]);
-          logDebug(String("🔢 IP-deel getoond: ") + ipLabels[step]);
+          logDebug(String("🔢 IP part shown: ") + ipLabels[step]);
           step++;
           lastUpdate = now;
           if (step >= ipSequence.size()) {
@@ -68,13 +68,13 @@ public:
         break;
 
       case IP_LAST_HOLD:
-        // Korte tussenstap: houd laatste getoonde cijfer/punt nog zichtbaar,
-        // en wis daarna voordat de pauze ingaat.
+        // Short intermediate step: keep last shown digit/dot visible,
+        // then clear before entering pause.
         if (now - lastUpdate >= IP_STEP_MS) {
           showLeds({});
           state = IP_PAUSE;
           lastUpdate = now;
-          logDebug("⏳ Startup: pauze na IP-weergave");
+          logDebug("⏳ Startup: pause after IP display");
         }
         break;
 
@@ -82,7 +82,7 @@ public:
         if (now - lastUpdate >= 2000) {
           state = DONE;
           showLeds({});
-          logInfo("✅ Startup voltooid");
+          logInfo("✅ Startup completed");
         }
         break;
 
@@ -101,10 +101,7 @@ private:
   int step;
   std::vector<std::vector<uint16_t>> ipSequence;
   std::vector<String> ipLabels;
-  static constexpr unsigned long SWEEP_STEP_MS = 20; // sneller maar nog zichtbaar
-  // 'O' op positie van woord "OVER" (row 4, col 1) uit de grid: index 56
-  static constexpr uint16_t IP_ZERO_O_LED_INDEX = 56;
-  static constexpr unsigned long IP_STEP_MS = 1000; // max 1 seconde per cijfer/punt
+  // Timing and LED indices from config.h are now used directly as global constexprs from config.h
 
   void prepareIPSequence() {
     IPAddress ip = WiFi.localIP();
