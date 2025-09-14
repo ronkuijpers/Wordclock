@@ -1,6 +1,5 @@
 // time_mapper.cpp
 #include <vector>
-#include <string>
 #include <time.h>
 #include "grid_layout.h"
 #include "log.h"
@@ -9,11 +8,10 @@
 
 std::vector<uint16_t> get_leds_for_word(const char* word) {
   std::vector<uint16_t> result;
-  auto it = wordMap.find(std::string(word));
-  if (it != wordMap.end()) {
-    const WordPosition* w = it->second;
+  const WordPosition* w = find_word(word);
+  if (w) {
     for (int i = 0; i < 20 && w->indices[i] != 0; ++i) {
-      result.push_back(w->indices[i]);
+      result.push_back(static_cast<uint16_t>(w->indices[i]));
     }
   }
   return result;

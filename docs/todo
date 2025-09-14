@@ -6,3 +6,4 @@ startup sweep niet 1 voor 1
 SKIP - Opstart sequence hij licht ook de ledjes op die niet mee doen
 DONE - 'het is' niet altijd tonen. Eerste x sec na wijziging?
 DONE - bij tijd overgang woorden 1 voor 1 erbij en daarna het is uit
+TODO - MQTT via UI in te stellen - elke klant heeft andere mqtt server draaien

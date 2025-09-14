@@ -1,19 +1,8 @@
 #include "grid_layout.h"
-#include <unordered_map>
-#include <string>
 #include <Arduino.h>
 
-
-std::unordered_map<std::string, const WordPosition*> wordMap;
-
-void initWordMap() {
-  for (int i = 0; i < WORDS_COUNT; ++i) {
-    wordMap[std::string(WORDS[i].word)] = &WORDS[i];
-  }
-}
-
 // The grid layout (for reference or debugging only)
-const char* LETTER_GRID[GRID_HEIGHT] = {
+const char* const LETTER_GRID[GRID_HEIGHT] = {
   "HETBISWYBRC", // 1..11
   "RTIENMMUHLC", // 26..16
   "VIJFCWKWART", // 31..41
@@ -28,11 +17,11 @@ const char* LETTER_GRID[GRID_HEIGHT] = {
 };
 
 // The indices of the four extra minute LEDs (after the main grid)
-const int EXTRA_MINUTE_LEDS[4] = {
-  LED_COUNT_GRID + 7,
-  LED_COUNT_GRID + 9,
-  LED_COUNT_GRID + 11,
-  LED_COUNT_GRID + 13
+const uint16_t EXTRA_MINUTE_LEDS[4] = {
+  static_cast<uint16_t>(LED_COUNT_GRID + 7),
+  static_cast<uint16_t>(LED_COUNT_GRID + 9),
+  static_cast<uint16_t>(LED_COUNT_GRID + 11),
+  static_cast<uint16_t>(LED_COUNT_GRID + 13)
 };
 
 // Mapping of words to their LED positions
@@ -67,3 +56,10 @@ const WordPosition WORDS[WORDS_COUNT] = {
   { "ELF",         { 79, 98, 109 } },
   { "TWAALF",      { 116, 115, 114, 113, 112, 111 } }
 };
+
+const WordPosition* find_word(const char* name) {
+  for (int i = 0; i < WORDS_COUNT; ++i) {
+    if (strcmp(WORDS[i].word, name) == 0) return &WORDS[i];
+  }
+  return nullptr;
+}

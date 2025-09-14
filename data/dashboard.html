@@ -58,13 +58,25 @@
         <button id="restartBtn" class="py-2 rounded bg-yellow-500 text-white hover:bg-yellow-600">🔁 Herstart</button>
         <button id="resetWifiBtn" class="py-2 rounded bg-blue-500 text-white hover:bg-blue-600">📶 Reset WiFi</button>
         <button id="startSequenceBtn" class="py-2 rounded bg-purple-500 text-white hover:bg-purple-600">✨ Start Sequence</button>
-        <button id="updateBtn" class="py-2 rounded bg-gray-700 text-white hover:bg-gray-800">⬆️ Update</button>
       </div>
-      <p id="updateStatus" class="text-xs text-gray-600 mt-2"></p>
+      
     </section>
 
     <section class="bg-white p-4 rounded-2xl shadow mb-4">
-      <h2 class="text-xl font-semibold mb-2">Firmware uploaden</h2>
+      <h2 class="text-xl font-semibold mb-2">Firmware updates</h2>
+      <h3 class="text-sm font-semibold text-gray-700 mt-1 mb-1">Automatisch</h3>
+      <div class="mb-3">
+        <label class="inline-flex items-center space-x-2">
+          <input type="checkbox" id="autoUpdate" class="form-checkbox">
+          <span>Automatische firmware updates</span>
+        </label>
+      </div>
+      <h3 class="text-sm font-semibold text-gray-700 mt-2 mb-1">Controleer op update</h3>
+      <div class="flex items-center gap-2 mb-3">
+        <button id="checkUpdateBtn" class="py-2 px-3 rounded bg-gray-700 text-white hover:bg-gray-800">🔎 Check for update</button>
+        <span id="updateStatus" class="text-xs text-gray-600"></span>
+      </div>
+      <h3 class="text-sm font-semibold text-gray-700 mt-2 mb-1">Handmatig uploaden</h3>
       <form action="/uploadFirmware" method="POST" enctype="multipart/form-data" class="space-y-2">
         <input type="file" name="firmwareFile" accept=".bin" required class="block w-full text-sm text-gray-700" />
         <button type="submit" class="py-2 px-3 rounded bg-gray-700 text-white hover:bg-gray-800">Upload</button>
@@ -189,21 +201,79 @@
       if (confirm('WiFi resetten?')) fetch('/resetwifi');
     };
     document.getElementById('startSequenceBtn').onclick = () => fetch('/startSequence');
-    /* update handled via update.html */
-/*
-      const r = await fetch('/checkForUpdate');
-      if (r.ok) {
-        const el = document.getElementById('updateStatus');
-        if (el) el.textContent = 'Update gestart. ESP herstart...';
-        setTimeout(() => location.reload(), 10000);
-      } else {
-        alert('Update mislukt');
-      }
-    */
+    const checkBtn = document.getElementById('checkUpdateBtn');
+    const updateStatusEl = document.getElementById('updateStatus');
+    if (checkBtn) {
+      checkBtn.addEventListener('click', async () => {
+        updateStatusEl.textContent = 'Controleren op updates...';
+        try {
+          const r = await fetch('/checkForUpdate');
+          if (r.ok) {
+            updateStatusEl.textContent = 'Update gestart (indien beschikbaar).';
+            setTimeout(() => location.reload(), 10000);
+          } else {
+            updateStatusEl.textContent = 'Update check mislukt';
+          }
+        } catch (e) {
+          updateStatusEl.textContent = 'Netwerkfout bij update check';
+        }
+      });
+    }
+
+    // Track last seen raw log line to append only new lines
+    let lastLogMarker = null;
 
     const loadLog = async () => {
       const res = await fetch('/log');
-      document.getElementById('logOutput').textContent = await res.text();
+      const text = await res.text();
+      const rawLines = text.split(/\r?\n/).filter(l => l.length > 0);
+      const esc = (s) => s
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;');
+      const cls = (lvl) => {
+        switch (lvl) {
+          case 'ERROR': return 'text-red-700 font-semibold';
+          case 'WARN':  return 'text-yellow-700 font-semibold';
+          case 'DEBUG': return 'text-gray-500';
+          case 'INFO':
+          default:      return 'text-gray-700';
+        }
+      };
+      const renderLine = (line) => {
+        const m = line.match(/\[(DEBUG|INFO|WARN|ERROR)\]/);
+        const level = m ? m[1] : 'INFO';
+        return `<span class="${cls(level)}">${esc(line)}</span>`;
+      };
+      const el = document.getElementById('logOutput');
+      if (el) {
+        const atBottom = (el.scrollTop + el.clientHeight) >= (el.scrollHeight - 4);
+        let appended = false;
+        if (lastLogMarker) {
+          const idx = rawLines.lastIndexOf(lastLogMarker);
+          if (idx >= 0 && idx < rawLines.length - 1) {
+            const additions = rawLines.slice(idx + 1);
+            const addHtml = additions.map(renderLine).join('\n');
+            if (el.innerHTML && addHtml) {
+              el.innerHTML += '\n' + addHtml;
+            } else {
+              el.innerHTML = addHtml;
+            }
+            appended = true;
+          }
+        }
+        if (!appended) {
+          const fullHtml = rawLines.map(renderLine).join('\n');
+          el.innerHTML = fullHtml;
+        }
+        if (rawLines.length > 0) {
+          lastLogMarker = rawLines[rawLines.length - 1];
+        }
+        // Auto-scroll to bottom if we were already at the bottom
+        if (atBottom) {
+          el.scrollTop = el.scrollHeight;
+        }
+      }
     };
 
     updateStatus();
@@ -251,6 +321,15 @@
     const durInput = document.getElementById('hetIsDurationInput');
     const hetIsDec = document.getElementById('hetIsDec');
     const hetIsInc = document.getElementById('hetIsInc');
+    // Auto update toggle
+    const autoUpdCb = document.getElementById('autoUpdate');
+    fetch('/getAutoUpdate')
+      .then(r => r.text())
+      .then(v => { autoUpdCb.checked = (v.trim() === 'on'); })
+      .catch(() => { autoUpdCb.checked = true; });
+    autoUpdCb.addEventListener('change', () => {
+      fetch('/setAutoUpdate?state=' + (autoUpdCb.checked ? 'on' : 'off'));
+    });
     // Load animation toggle (default is OFF server-side)
     fetch('/getAnimate')
       .then(r => r.text())

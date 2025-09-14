@@ -22,6 +22,25 @@ extern String logBuffer[];
 extern int logIndex;
 extern bool clockEnabled;
 
+// Serve file, preferring a .gz variant if client accepts gzip
+static void serveFile(const char* path, const char* mime) {
+  // Gzip temporarily disabled; always serve plain files
+  bool acceptGzip = false;
+  String gzPath = String(path) + ".gz";
+  if (acceptGzip) {
+    File gz = FS_IMPL.open(gzPath, "r");
+    if (gz) {
+      server.sendHeader("Content-Encoding", "gzip");
+      server.streamFile(gz, mime);
+      gz.close();
+      return;
+    }
+  }
+  File f = FS_IMPL.open(path, "r");
+  if (!f) { server.send(404, "text/plain", String(path) + " not found"); return; }
+  server.streamFile(f, mime);
+  f.close();
+}
 // Simple Basic-Auth guard for admin resources
 static bool ensureAdminAuth() {
   if (!server.authenticate(ADMIN_USER, ADMIN_PASS)) {
@@ -67,22 +86,21 @@ static void performFactoryReset() {
 
 // Function to register all routes
 void setupWebRoutes() {
+  // Capture Accept-Encoding so we can serve gzip if available
+  static const char* headerKeys[] = { "Accept-Encoding" };
+  server.collectHeaders(headerKeys, 1);
+
+  // Helper defined at file scope: serveFile()
   // Main pages
   // Dashboard (protected)
   server.on("/dashboard.html", HTTP_GET, []() {
     if (!ensureUiAuth()) return;
-    File f = FS_IMPL.open("/dashboard.html", "r");
-    if (!f) { server.send(404, "text/plain", "dashboard not found"); return; }
-    server.streamFile(f, "text/html");
-    f.close();
+    serveFile("/dashboard.html", "text/html");
   });
 
   // Forgot password page (public)
   server.on("/forgot.html", HTTP_GET, []() {
-    File f = FS_IMPL.open("/forgot.html", "r");
-    if (!f) { server.send(404, "text/plain", "forgot not found"); return; }
-    server.streamFile(f, "text/html");
-    f.close();
+    serveFile("/forgot.html", "text/html");
   });
 
   // Factory reset (public, requires POST). Resets preferences + WiFi and restarts.
@@ -108,10 +126,7 @@ void setupWebRoutes() {
       server.requestAuthentication(BASIC_AUTH, "Wordclock UI");
       return;
     }
-    File f = FS_IMPL.open("/changepw.html", "r");
-    if (!f) { server.send(404, "text/plain", "changepw not found"); return; }
-    server.streamFile(f, "text/html");
-    f.close();
+    serveFile("/changepw.html", "text/html");
   });
 
   // Logout endpoints: return 401 to clear Basic Auth in browser
@@ -145,13 +160,7 @@ void setupWebRoutes() {
   // Protected admin page (Admin auth only)
   server.on("/admin.html", HTTP_GET, []() {
     if (!ensureAdminAuth()) return;
-    File f = FS_IMPL.open("/admin.html", "r");
-    if (!f) {
-      server.send(404, "text/plain", "admin.html not found");
-      return;
-    }
-    server.streamFile(f, "text/html");
-    f.close();
+    serveFile("/admin.html", "text/html");
   });
 
   // Public landing page with links to Login (protected) and Forgot
@@ -163,17 +172,32 @@ void setupWebRoutes() {
       server.send(302, "text/plain", "");
       return;
     }
-    server.streamFile(f, "text/html");
     f.close();
+    serveFile("/login.html", "text/html");
   });
 
   // Update page (protected)
   server.on("/update.html", HTTP_GET, []() {
     if (!ensureUiAuth()) return;
-    File f = FS_IMPL.open("/update.html", "r");
-    if (!f) { server.send(404, "text/plain", "update not found"); return; }
-    server.streamFile(f, "text/html");
-    f.close();
+    serveFile("/update.html", "text/html");
+  });
+
+  // Auto update toggle
+  server.on("/getAutoUpdate", []() {
+    if (!ensureUiAuth()) return;
+    server.send(200, "text/plain", displaySettings.getAutoUpdate() ? "on" : "off");
+  });
+  server.on("/setAutoUpdate", []() {
+    if (!ensureUiAuth()) return;
+    if (!server.hasArg("state")) {
+      server.send(400, "text/plain", "Missing state");
+      return;
+    }
+    String st = server.arg("state");
+    bool on = (st == "on" || st == "1" || st == "true");
+    displaySettings.setAutoUpdate(on);
+    logInfo(String("🔁 Auto firmware updates ") + (on ? "AAN" : "UIT"));
+    server.send(200, "text/plain", "OK");
   });
 
   // Fetch log

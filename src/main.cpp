@@ -18,6 +18,7 @@
 #include "sequence_controller.h"
 #include "display_settings.h"
 #include "ui_auth.h"
+#include "mqtt_client.h"
 
 
 bool clockEnabled = true;
@@ -64,8 +65,13 @@ void setup() {
   }
 
   if (WiFi.status() == WL_CONNECTED) {
-    logInfo("✅ Verbonden met WiFi. Start firmwarecheck...");
-    checkForFirmwareUpdate();
+    mqtt_begin();
+    if (displaySettings.getAutoUpdate()) {
+      logInfo("✅ Verbonden met WiFi. Start firmwarecheck...");
+      checkForFirmwareUpdate();
+    } else {
+      logInfo("ℹ️ Automatische firmwareupdates uitgeschakeld. Sla check over.");
+    }
   } else {
     logInfo("⚠️ Geen WiFi. Firmwarecheck overgeslagen.");
   }
@@ -89,7 +95,7 @@ void setup() {
   ledState.begin();
   displaySettings.begin();
   uiAuth.begin(UI_DEFAULT_PASS);
-  initWordMap();
+  // initWordMap() no longer needed; static lookup is used
   wordclock_setup();
 
   startupSequence.start();
@@ -98,6 +104,7 @@ void setup() {
 void loop() {
   server.handleClient();
   ArduinoOTA.handle();
+  mqtt_loop();
 
   // Startup animatie
   if (startupSequence.isRunning()) {
@@ -118,8 +125,12 @@ void loop() {
       time_t nowEpoch = time(nullptr);
       static time_t lastFirmwareCheck = 0;
       if (timeinfo.tm_hour == 2 && timeinfo.tm_min == 0 && nowEpoch - lastFirmwareCheck > 3600) {
-        logInfo("🛠️ Dagelijkse firmwarecheck gestart...");
-        checkForFirmwareUpdate();
+        if (displaySettings.getAutoUpdate()) {
+          logInfo("🛠️ Dagelijkse firmwarecheck gestart...");
+          checkForFirmwareUpdate();
+        } else {
+          logInfo("ℹ️ Automatische firmwareupdates uitgeschakeld (02:00 check overgeslagen)");
+        }
         lastFirmwareCheck = nowEpoch;
       }
     }

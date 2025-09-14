@@ -23,6 +23,10 @@ void wordclock_loop() {
   static std::vector<std::vector<uint16_t>> segments;
   static std::vector<uint16_t> cumulative;
   static unsigned long hetIsVisibleUntil = 0; // millis timestamp when HET+IS should turn off
+  // Cache time to avoid calling getLocalTime() every 50ms
+  static struct tm cachedTime = {};
+  static bool haveTime = false;
+  static unsigned long lastTimeFetchMs = 0;
 
   if (!clockEnabled) {
     animating = false;
@@ -30,11 +34,21 @@ void wordclock_loop() {
     return;
   }
 
-  struct tm timeinfo;
-  if (!getLocalTime(&timeinfo)) {
-    logError("❌ Kon tijd niet ophalen");
-    return;
+  // Refresh cached time at most once per second
+  unsigned long nowMs = millis();
+  if (!haveTime || (nowMs - lastTimeFetchMs) >= 1000UL) {
+    struct tm t = {};
+    if (getLocalTime(&t)) {
+      cachedTime = t;
+      haveTime = true;
+      lastTimeFetchMs = nowMs;
+    } else if (!haveTime) {
+      // No cached time yet and failed to fetch; skip this cycle
+      logError("❌ Kon tijd niet ophalen");
+      return;
+    }
   }
+  struct tm timeinfo = cachedTime;
 
   // Debug: log elke minuut-overgang
   static int lastLoggedMinute = -1;

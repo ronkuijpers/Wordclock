@@ -1,7 +1,5 @@
 #pragma once
 
-#include <unordered_map>
-#include <string>
 #include <Arduino.h>
 #include "wordposition.h"
 
@@ -17,8 +15,8 @@ constexpr int WORDS_COUNT = 21;
 
 // External variables
 extern const WordPosition WORDS[WORDS_COUNT];
-extern const char* LETTER_GRID[GRID_HEIGHT];
-extern const int EXTRA_MINUTE_LEDS[4];
+extern const char* const LETTER_GRID[GRID_HEIGHT];
+extern const uint16_t EXTRA_MINUTE_LEDS[4];
 
-extern std::unordered_map<std::string, const WordPosition*> wordMap;
-void initWordMap();
+// Lightweight lookup instead of unordered_map
+const WordPosition* find_word(const char* name);
