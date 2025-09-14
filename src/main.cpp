@@ -1,3 +1,16 @@
+#include "webserver_init.h"
+#include "mqtt_init.h"
+#include "display_init.h"
+#include "startup_sequence_init.h"
+#include "wordclock_main.h"
+#include "time_sync.h"
+#include "wordclock_system_init.h"
+// TODO: Overweeg dit bestand te splitsen in modules zoals netwerk, OTA, tijdsynchronisatie en hoofdlogica voor betere onderhoudbaarheid.
+
+// Wordclock hoofdprogramma
+// - Setup: initialiseert hardware, netwerk, OTA, filesystem en start services
+// - Loop: verwerkt webrequests, OTA, MQTT en kloklogica
+
 #include <Arduino.h>
 #include <ESPmDNS.h>
 #include "fs_compat.h"
@@ -11,10 +24,10 @@
 #include "wordclock.h"
 #include "secrets.h"
 #include "web_routes.h"
-#include "network.h"
+#include "network_init.h"
 #include "log.h"
 #include "config.h"
-#include "ota_updater.h"
+#include "ota_init.h"
 #include "sequence_controller.h"
 #include "display_settings.h"
 #include "ui_auth.h"
@@ -32,30 +45,33 @@ WebServer server(80);
 
 // Tracking (handled inside loop as statics)
 
+// Setup: initialiseert hardware, netwerk, OTA, filesystem en start de hoofdservices
 void setup() {
   Serial.begin(115200);
   delay(1000);
   initLogSettings();
 
-  setupNetwork();             // WiFiManager
-  setupOTA();                 // OTA
-  // setupTelnet();              // Telnet
+  initNetwork();              // WiFiManager (WiFi-instellingen en verbinding)
+  initOTA();                  // OTA (Over-the-air updates)
+  // setupTelnet();           // Telnet logging (optioneel)
 
+  // Start mDNS voor lokale netwerknaam
   if (MDNS.begin("wordclock")) {
     logInfo("🌐 mDNS actief op http://wordclock.local");
   } else {
     logError("❌ mDNS start mislukt");
   }
 
+  // Mount SPIFFS filesystem
   if (!FS_IMPL.begin(true)) {
     logError("SPIFFS mounten mislukt.");
   } else {
     logDebug("SPIFFS succesvol geladen.");
   }
 
-  setupWebRoutes();           // Dashboard-routes
-  server.begin();
+  initWebServer(server);      // Webserver en routes
 
+  // Wacht op WiFi verbinding (max 20x proberen)
   logInfo("Controleren op WiFi verbinding");
   int retry = 0;
   while (WiFi.status() != WL_CONNECTED && retry < 20) {
@@ -65,7 +81,7 @@ void setup() {
   }
 
   if (WiFi.status() == WL_CONNECTED) {
-    mqtt_begin();
+    initMqtt();
     if (displaySettings.getAutoUpdate()) {
       logInfo("✅ Verbonden met WiFi. Start firmwarecheck...");
       checkForFirmwareUpdate();
@@ -76,40 +92,22 @@ void setup() {
     logInfo("⚠️ Geen WiFi. Firmwarecheck overgeslagen.");
   }
 
-  // Synchronize time via NTP
-  configTzTime(TZ_INFO, NTP_SERVER1, NTP_SERVER2);
-  logInfo("⌛ Wachten op NTP...");
-  
-  struct tm timeinfo;
-  
-  while (!getLocalTime(&timeinfo)) {
-    logDebug(".");
-    delay(500);
-  }
-  logInfo("🕒 Tijd gesynchroniseerd: " +
-    String(timeinfo.tm_mday) + "/" +
-    String(timeinfo.tm_mon+1) + " " +
-    String(timeinfo.tm_hour) + ":" +
-    String(timeinfo.tm_min));
-
-  ledState.begin();
-  displaySettings.begin();
-  uiAuth.begin(UI_DEFAULT_PASS);
-  // initWordMap() no longer needed; static lookup is used
-  wordclock_setup();
-
-  startupSequence.start();
+  // Synchroniseer tijd via NTP
+  initTimeSync(TZ_INFO, NTP_SERVER1, NTP_SERVER2);
+  initDisplay();
+  initWordclockSystem(uiAuth);
+  initStartupSequence(startupSequence);
 }
 
+// Loop: hoofdprogramma, verwerkt webrequests, OTA, MQTT en kloklogica
 void loop() {
   server.handleClient();
   ArduinoOTA.handle();
-  mqtt_loop();
+  mqttEventLoop();
 
-  // Startup animatie
-  if (startupSequence.isRunning()) {
-    startupSequence.update();
-    return;  // <-- Voorkomt dat klok al tijd toont
+  // Startup animatie: blokkeert klok tot animatie klaar is
+  if (updateStartupSequence(startupSequence)) {
+    return;  // Voorkomt dat klok al tijd toont
   }
 
   // Tijd- en animatie-update (wordclock_loop regelt zelf per-minuut/animatie)
@@ -117,7 +115,7 @@ void loop() {
   unsigned long now = millis();
   if (now - lastLoop >= 50) {
     lastLoop = now;
-    wordclock_loop();
+    runWordclockLoop();
 
     // Dagelijkse firmwarecheck om 02:00
     struct tm timeinfo;

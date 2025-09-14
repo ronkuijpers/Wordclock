@@ -1,26 +1,50 @@
+
 # Wordclock Firmware
 
-⚠️ **This project is currently under development and not yet ready for use.**
-
-This repository contains the firmware for a Wordclock based on the ESP32 microcontroller. The goal is to create a network-enabled word clock with OTA updates, a web interface, and pixel-based time display.
+Firmware voor een ESP32-gebaseerde Wordclock met OTA-updates, webinterface en pixel-LED tijdsweergave.
 
 ## Status
 
-> Development in progress.  
-> Functionality is incomplete and unstable.  
-> Use at your own risk.
+> Ontwikkeling in progress.  
+> Functionaliteit is incompleet en instabiel.  
+> Gebruik op eigen risico.
 
-## Planned Features
+## Features
 
 - WiFi setup via WiFiManager
 - OTA firmware updates
-- Web-based control and status dashboard
-- Telnet-based logging
-- NeoPixel LED word display
+- Web-based dashboard en admin interface
+- Telnet logging
+- NeoPixel LED woordklok
 
-## Getting Started
+## Installatie & Hardware
 
-A full setup guide will be added once the firmware reaches a usable state.
+Zie [docs/BuildInstruction.md](docs/BuildInstruction.md) voor hardware-aansluitingen en led-configuratie.
+
+Benodigdheden:
+- ESP32 microcontroller
+- NeoPixel LED strip/matrix
+- Voeding (VIN + GND)
+
+## Configuratie
+
+1. Kopieer `include/secrets_template.h` naar `include/secrets.h` en vul je WiFi-gegevens in.
+2. Pas indien nodig `upload_params_template.ini` aan en hernoem naar `upload_params.ini`.
+3. Compileer en upload de firmware via PlatformIO.
+
+## Gebruik
+
+Na installatie is de klok bereikbaar via het lokale netwerk. Gebruik het webdashboard voor instellingen, updates en status.
+
+## Documentatie
+
+- [BuildInstruction.md](docs/BuildInstruction.md): Hardware en led-opbouw
+- [QuickStart.md](docs/QuickStart.md): Snelstartgids
+- [todo](docs/todo): Openstaande en afgeronde taken
+
+## Todo's & Roadmap
+
+Zie [docs/todo](docs/todo) voor actuele en afgeronde taken.
 
 ## License
 

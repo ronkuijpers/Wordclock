@@ -1,3 +1,7 @@
+
+#ifndef LED_STATE_H
+#define LED_STATE_H
+
 #include <Preferences.h>
 
 class LedState {
@@ -45,3 +49,5 @@ private:
 };
 
 extern LedState ledState;
+
+#endif // LED_STATE_H
