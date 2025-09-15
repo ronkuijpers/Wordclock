@@ -1,6 +1,89 @@
 
 
 # Openstaande taken
+Here’s a focused review with concrete optimizations and functional improvement ideas. I’ve grouped them by area and pointed to exact files/lines for context.
+Security
+* Basic Auth over HTTP: credentials expose on LAN.
+    * Option A (recommended): terminate TLS on a local reverse proxy (Caddy/Nginx) and keep device HTTP-only.
+    * Option B (device TLS): heavy RAM/flash cost and self-signed UX friction; only consider if absolutely required.
+* OTA integrity verification is stubbed.
+    * File integrity: implement SHA-256 verification instead of returning true.
+        * src/ota_updater.cpp:33 and src/ota_updater.cpp:61
+    * TLS verification: you’re using setInsecure(). Pin the GitHub CA or the specific cert fingerprint.
+        * src/ota_updater.cpp:19, src/ota_updater.cpp:80
+* Add CSRF protection and method tightening.
+    * Convert state-changing GET endpoints to POST (e.g., /toggle, /setColor, etc.) and add a CSRF token header checked server-side.
+        * src/web_routes.h:214, src/web_routes.h:337
+Reliability
+* MQTT reconnection backoff: add exponential backoff/jitter to avoid tight loops during outages.
+    * src/mqtt_client.cpp:289, src/mqtt_client.cpp:310
+* Guard unconfigured MQTT at boot is good; also emit a clear log when skipping connect.
+    * src/mqtt_client.cpp:277
+* Time acquisition loops block.
+    * Add a max wait or timeout path in NTP init to avoid indefinite wait if NTP unreachable.
+        * src/time_sync.h:10
+* Heap fragmentation via ArduinoJson default allocations.
+    * Use StaticJsonDocument with fixed capacity in hot paths (light state/discovery).
+        * src/mqtt_client.cpp:120, src/mqtt_client.cpp:140, src/mqtt_client.cpp:201, src/mqtt_client.cpp:213
+* SPIFFS choice: LittleFS is more robust for wear-leveling.
+    * Consider switching to LittleFS when stable.
+        * src/fs_compat.h:6
+Performance
+* Reuse JSON buffers and avoid repeated heap allocs.
+    * Create one StaticJsonDocument per scope and reuse it for multiple publishes in mqtt_client.
+* Gzip static assets already prepared; enable serving them.
+    * Respect Accept-Encoding: gzip and serve .gz files to reduce transfer and render time.
+        * src/web_routes.h:26 (set acceptGzip true on header presence and stream .gz variant)
+Maintainability
+* English log/UI consistency: remaining Dutch logs can be normalized.
+    * src/wordclock.cpp:34, src/web_routes.h:376
+* Group config constants and defaults.
+    * src/config.h has many tunables; add short comments with rationale and acceptable ranges.
+Functional Enhancements
+* MQTT
+    * Add will message payload and last-will retained “offline” (you already set LWT string via connect — good). Consider publishing birth info (boot reason, timestamp).
+        * src/mqtt_client.cpp:311 (expand retained availability + birth)
+    * Publish more metrics: free heap, WiFi channel, boot reason, reset count.
+        * src/mqtt_client.cpp:220 (extend sensor section)
+* Updates
+    * Add manual “Sync UI files” button invoking syncFilesFromManifest(); show results.
+        * src/web_routes.h add /syncUI protected endpoint
+* Logging
+    * Add log download endpoint and daily rotation in Preferences or FS.
+        * New endpoint /log/download serving a text snapshot.
+Correctness / Edge Cases
+* Boot timestamp math is solid but handle NTP time jumps.
+    * Freeze boot time when first valid; you already do this — good. Log when time becomes valid.
+        * src/mqtt_client.cpp:247
+* Brightness and color endpoints accept GET and lack bounds/auth in some places; auth exists — good, bounds checked — good.
+    * For /setColor, strip invalid hex characters proactively.
+        * src/web_routes.h:334
+* WiFiManager portal password is static; make it configurable via UI or derive a unique default based on MAC for first boot.
+    * include/secrets.h:5
+DX/Build
+* Enable gzip serving to match tools/gzip_data.py workflow.
+    * src/web_routes.h:26
+* Add a “build info” endpoint to capture PlatformIO env, compile time, git short SHA to help debugging.
+    * New endpoint /buildinfo.
+Proposed concrete changes (minimal diffs)
+* Enable gzip response
+    * src/web_routes.h:26: detect Accept-Encoding and serve *.gz when present.
+* Implement SHA-256 verification
+    * src/ota_updater.cpp:33: compute digest with mbedTLS or ArduinoHash; compare to manifest sha256.
+* Switch JSON to static docs in hot paths
+    * Replace JsonDocument doc; with StaticJsonDocument<768> doc; (adjust size per payload) in:
+        * src/mqtt_client.cpp:120, src/mqtt_client.cpp:140, src/mqtt_client.cpp:201, src/mqtt_client.cpp:213
+* Add MQTT status endpoint
+    * src/web_routes.h new GET /api/mqtt/status returning {"connected":true/false}; track last error in mqtt_client.cpp.
+* Backoff on reconnect
+    * In src/mqtt_client.cpp:289, replace fixed 2s with exponential min/max and random jitter.
+If you’d like, I can implement a first slice now:
+* Gzip serving toggle
+* MQTT reconnect backoff with jitter
+* MQTT status endpoint
+* StaticJsonDocument in hot paths
+* OTA SHA-256 verification
+Interested in me patching these in?
 
 
 
@@ -14,6 +97,10 @@
 - 'het is' niet altijd tonen. Eerste x sec na wijziging?
 - bij tijd overgang woorden 1 voor 1 erbij en daarna het is uit
 - MQTT via UI in te stellen - elke klant heeft andere mqtt server draaien
+* Web UI
+    * Add a status card for MQTT connect state and last error (readable via a simple internal flag).
+        * Expose /api/mqtt/status returning {connected, last_error}.
+    * Add “Test connection” button on MQTT page to verify broker reachability without saving.
 
 # Overgeslagen
 

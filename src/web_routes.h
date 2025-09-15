@@ -3,6 +3,8 @@
 #include "fs_compat.h"
 #include <Update.h>
 #include <WebServer.h>
+#include <esp_system.h>
+#include <PubSubClient.h>
 #include "secrets.h"
 #include "sequence_controller.h"
 #include "led_state.h"
@@ -86,6 +88,19 @@ static void performFactoryReset() {
   }
 }
 
+// Token for allowing factory reset from Forgot Password page
+static String g_factoryToken;
+static unsigned long g_factoryTokenExp = 0; // millis deadline
+
+static String generateFactoryToken(unsigned long ttl_ms = 60000) {
+  char buf[24];
+  uint32_t r = esp_random();
+  snprintf(buf, sizeof(buf), "%08X%08lX", (unsigned)r, (unsigned long)millis());
+  g_factoryToken = String(buf);
+  g_factoryTokenExp = millis() + ttl_ms;
+  return g_factoryToken;
+}
+
 // Function to register all routes
 void setupWebRoutes() {
   // Capture Accept-Encoding so we can serve gzip if available
@@ -105,8 +120,40 @@ void setupWebRoutes() {
     serveFile("/forgot.html", "text/html");
   });
 
-  // Factory reset (public, requires POST). Resets preferences + WiFi and restarts.
+  // Factory reset token endpoint (public): returns a short-lived token for reset
+  server.on("/factorytoken", HTTP_GET, []() {
+    // Issue new token valid for 60s
+    String tok = generateFactoryToken(60000);
+    server.send(200, "text/plain", tok);
+  });
+
+  // Factory reset (admin or valid token, requires POST). Resets preferences + WiFi and restarts.
   server.on("/factoryreset", HTTP_POST, []() {
+    bool allowed = false;
+    // Admin credentials allow reset unconditionally
+    if (server.authenticate(ADMIN_USER, ADMIN_PASS)) {
+      allowed = true;
+    } else {
+      // Check for valid short-lived token
+      if (server.hasArg("token")) {
+        String tok = server.arg("token");
+        if (tok.length() > 0 && tok == g_factoryToken) {
+          unsigned long now = millis();
+          if (g_factoryTokenExp != 0 && (long)(g_factoryTokenExp - now) > 0) {
+            allowed = true;
+          }
+        }
+      }
+    }
+    if (!allowed) {
+      // Prefer admin auth prompt for browsers; otherwise 403 if token supplied but invalid
+      if (!server.hasArg("token")) {
+        server.requestAuthentication(BASIC_AUTH, ADMIN_REALM);
+      } else {
+        server.send(403, "text/plain", "Forbidden");
+      }
+      return;
+    }
     server.send(200, "text/html", R"rawliteral(
       <html>
         <head><meta http-equiv='refresh' content='8;url=/' /></head>
@@ -230,6 +277,54 @@ void setupWebRoutes() {
     }
 
     mqtt_apply_settings(next);
+    server.send(200, "text/plain", "OK");
+  });
+
+  // MQTT runtime status
+  server.on("/api/mqtt/status", HTTP_GET, []() {
+    if (!ensureUiAuth()) return;
+    bool c = mqtt_is_connected();
+    String json = String("{\"connected\":") + (c ? "true" : "false") + 
+                  ",\"last_error\":\"" + mqtt_last_error() + "\"}";
+    server.send(200, "application/json", json);
+  });
+
+  // MQTT connection test (does not save). Accepts form-encoded: host, port, user?, pass?
+  server.on("/api/mqtt/test", HTTP_POST, []() {
+    if (!ensureUiAuth()) return;
+    if (!server.hasArg("host") || !server.hasArg("port")) {
+      server.send(400, "text/plain", "host/port required");
+      return;
+    }
+    String host = server.arg("host");
+    uint16_t port = (uint16_t) server.arg("port").toInt();
+    String user = server.arg("user");
+    String pass = server.arg("pass");
+
+    // Quick TCP reachability test
+    WiFiClient testClient;
+    testClient.setTimeout(3000);
+    if (!testClient.connect(host.c_str(), port)) {
+      server.send(502, "text/plain", "TCP connect failed");
+      return;
+    }
+    testClient.stop();
+
+    // Optional MQTT handshake if user provided
+    if (user.length() > 0 || pass.length() > 0) {
+      WiFiClient mc;
+      PubSubClient tmp(mc);
+      tmp.setServer(host.c_str(), port);
+      String cid = String("wordclock_test_") + String(millis());
+      bool ok = tmp.connect(cid.c_str(), user.c_str(), pass.c_str());
+      if (!ok) {
+        int st = tmp.state();
+        server.send(401, "text/plain", String("MQTT auth failed (state ") + st + ")");
+        return;
+      }
+      tmp.disconnect();
+    }
+
     server.send(200, "text/plain", "OK");
   });
 

@@ -23,6 +23,8 @@ static String uniqId;
 static MqttSettings g_mqttCfg;
 static String base;         // e.g., MQTT_BASE_TOPIC
 static String availTopic;   // base + "/availability"
+static bool g_connected = false;
+static String g_lastErr;
 
 // Topics
 static String tLightState, tLightSet;
@@ -332,7 +334,12 @@ static bool mqtt_connect() {
   } else {
     ok = mqtt.connect(clientId.c_str());
   }
-  if (!ok) return false;
+  if (!ok) {
+    int st = mqtt.state();
+    g_connected = false;
+    g_lastErr = String("connect failed (state ") + st + ")";
+    return false;
+  }
 
   publishAvailability("online");
   publishDiscovery();
@@ -350,6 +357,8 @@ static bool mqtt_connect() {
   mqtt.subscribe(tUpdateCmd.c_str());
 
   mqtt_publish_state(true);
+  g_connected = true;
+  g_lastErr = "";
   return true;
 }
 
@@ -365,12 +374,22 @@ void mqtt_loop() {
     unsigned long now = millis();
     if (now - lastReconnectAttempt > 2000) {
       lastReconnectAttempt = now;
-      mqtt_connect();
+      if (!mqtt_connect()) {
+        g_connected = false;
+      }
     }
     return;
   }
   mqtt.loop();
   mqtt_publish_state(false);
+}
+
+bool mqtt_is_connected() {
+  return g_connected && mqtt.connected();
+}
+
+const String& mqtt_last_error() {
+  return g_lastErr;
 }
 
 void mqtt_apply_settings(const MqttSettings& s) {

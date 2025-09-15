@@ -25,14 +25,14 @@ inline void initOTA() {
         logInfo("📶 OTA Progress: " + String(pct) + "%");
     });
     ArduinoOTA.onError([](ota_error_t err) {
-        String msg = "[OTA] Fout: ";
+        String msg = "[OTA] Error: ";
         switch (err) {
-            case OTA_AUTH_ERROR:    msg += "Authenticatie mislukt"; break;
-            case OTA_BEGIN_ERROR:   msg += "Begin mislukt";       break;
-            case OTA_CONNECT_ERROR: msg += "Connectie mislukt";   break;
-            case OTA_RECEIVE_ERROR: msg += "Ontvang mislukt";     break;
-            case OTA_END_ERROR:     msg += "Eind mislukt";        break;
-            default:                msg += "Onbekend";            break;
+            case OTA_AUTH_ERROR:    msg += "Authentication failed"; break;
+            case OTA_BEGIN_ERROR:   msg += "Begin failed";         break;
+            case OTA_CONNECT_ERROR: msg += "Connection failed";     break;
+            case OTA_RECEIVE_ERROR: msg += "Receive failed";        break;
+            case OTA_END_ERROR:     msg += "End failed";            break;
+            default:                msg += "Unknown";               break;
         }
         logError(msg);
     });

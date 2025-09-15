@@ -22,13 +22,25 @@
   <script>
     document.getElementById('resetBtn').onclick = async () => {
       if (!confirm('Are you sure you want to perform a factory reset?')) return;
-      const r = await fetch('/factoryreset', { method: 'POST' });
       const s = document.getElementById('status');
-      if (r.ok) {
-        s.textContent = 'Factory reset started. The device will restart shortly...';
-        setTimeout(() => location.href = '/', 10000);
-      } else {
-        s.textContent = 'Failed to start factory reset';
+      try {
+        // Request a short-lived reset token, then use it to trigger reset
+        const tokRes = await fetch('/factorytoken');
+        if (!tokRes.ok) { s.textContent = 'Could not get reset token'; return; }
+        const token = await tokRes.text();
+        // Send token as query parameter to ensure the server sees it regardless of Content-Type handling
+        const r = await fetch(`/factoryreset?token=${encodeURIComponent(token)}`, { method: 'POST' });
+        if (r.ok) {
+          s.textContent = 'Factory reset started. The device will restart shortly...';
+          setTimeout(() => location.href = '/', 10000);
+        } else if (r.status === 401) {
+          s.textContent = 'Admin authentication required to reset';
+        } else {
+          const t = await r.text();
+          s.textContent = 'Failed to start factory reset: ' + (t || r.status);
+        }
+      } catch (e) {
+        s.textContent = 'Network error';
       }
     };
   </script>

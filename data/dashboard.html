@@ -117,7 +117,7 @@
     <section class="bg-white p-4 rounded-2xl shadow">
       <h2 class="text-xl font-semibold mb-2">Logboek</h2>
       <div class="flex items-center gap-3 mb-2">
-        <label for="logLevel" class="text-sm">Logniveau</label>
+        <label for="logLevel" class="text-sm">Log level</label>
         <select id="logLevel" class="flex-1 rounded-md border-gray-300 shadow-sm">
           <option value="ERROR">ERROR</option>
           <option value="WARN">WARN</option>
@@ -155,12 +155,20 @@
     const brightnessInput = document.getElementById('brightnessInput');
     const brightnessDec = document.getElementById('brightnessDec');
     const brightnessInc = document.getElementById('brightnessInc');
+    let brightnessTimer = null;
+    const sendBrightnessDebounced = (val) => {
+      if (brightnessTimer) clearTimeout(brightnessTimer);
+      brightnessTimer = setTimeout(() => {
+        fetch(`/setBrightness?level=${val}`);
+        brightnessTimer = null;
+      }, 200);
+    };
     brightnessSlider.oninput = (e) => {
       const v = e.target.value;
       const lbl = document.getElementById('brightnessValue2');
       if (lbl) lbl.textContent = v;
       if (brightnessInput) brightnessInput.value = v;
-      fetch(`/setBrightness?level=${v}`);
+      sendBrightnessDebounced(v);
     };
     if (brightnessInput) {
       brightnessInput.addEventListener('change', () => {
@@ -170,7 +178,7 @@
         brightnessSlider.value = v;
         const lbl = document.getElementById('brightnessValue2');
         if (lbl) lbl.textContent = v;
-        fetch(`/setBrightness?level=${v}`);
+        sendBrightnessDebounced(v);
       });
     }
     if (brightnessDec) {
@@ -181,7 +189,7 @@
         if (brightnessInput) brightnessInput.value = v;
         const lbl = document.getElementById('brightnessValue2');
         if (lbl) lbl.textContent = v;
-        fetch(`/setBrightness?level=${v}`);
+        sendBrightnessDebounced(v);
       });
     }
     if (brightnessInc) {
@@ -192,7 +200,7 @@
         if (brightnessInput) brightnessInput.value = v;
         const lbl = document.getElementById('brightnessValue2');
         if (lbl) lbl.textContent = v;
-        fetch(`/setBrightness?level=${v}`);
+        sendBrightnessDebounced(v);
       });
     }
     document.getElementById('restartBtn').onclick = () => {
@@ -370,7 +378,7 @@
         if (durInput) { durInput.disabled = true; durInput.value = 360; }
         fetch('/setHetIsDuration?seconds=360');
       } else {
-        // Zet terug naar standaard 30 seconden en maak invoer actief
+        // Reset to default 30 seconds and enable input
         durSlider2.disabled = false;
         if (durInput) durInput.disabled = false;
         durSlider2.value = 30;

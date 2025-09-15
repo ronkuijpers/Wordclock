@@ -21,7 +21,6 @@
 #include <ArduinoOTA.h>
 #include <WebServer.h>
 #include "wordclock.h"
-#include "secrets.h"
 #include "web_routes.h"
 #include "network_init.h"
 #include "log.h"

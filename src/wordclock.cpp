@@ -44,7 +44,7 @@ void wordclock_loop() {
       lastTimeFetchMs = nowMs;
     } else if (!haveTime) {
       // No cached time yet and failed to fetch; skip this cycle
-      logError("❌ Kon tijd niet ophalen");
+      logError("❌ Failed to get time");
       return;
     }
   }
