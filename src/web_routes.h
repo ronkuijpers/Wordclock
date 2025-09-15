@@ -14,6 +14,8 @@
 #include "display_settings.h"
 #include "ui_auth.h"
 #include "wordclock.h"
+#include "mqtt_settings.h"
+#include "mqtt_client.h"
 
 
 // References to global variables
@@ -180,6 +182,55 @@ void setupWebRoutes() {
   server.on("/update.html", HTTP_GET, []() {
     if (!ensureUiAuth()) return;
     serveFile("/update.html", "text/html");
+  });
+
+  // MQTT settings page (protected)
+  server.on("/mqtt.html", HTTP_GET, []() {
+    if (!ensureUiAuth()) return;
+    serveFile("/mqtt.html", "text/html");
+  });
+
+  // MQTT config API
+  server.on("/api/mqtt/config", HTTP_GET, []() {
+    if (!ensureUiAuth()) return;
+    MqttSettings cfg;
+    mqtt_settings_load(cfg);
+    // Do not expose password; indicate if set
+    String json = "{";
+    json += "\"host\":\"" + cfg.host + "\",";
+    json += "\"port\":" + String(cfg.port) + ",";
+    json += "\"user\":\"" + cfg.user + "\",";
+    json += "\"has_pass\":" + String(cfg.pass.length() > 0 ? "true" : "false") + ",";
+    json += "\"discovery\":\"" + cfg.discoveryPrefix + "\",";
+    json += "\"base\":\"" + cfg.baseTopic + "\"";
+    json += "}";
+    server.send(200, "application/json", json);
+  });
+
+  server.on("/api/mqtt/config", HTTP_POST, []() {
+    if (!ensureUiAuth()) return;
+    MqttSettings current;
+    mqtt_settings_load(current);
+    MqttSettings next = current;
+
+    if (server.hasArg("host")) next.host = server.arg("host");
+    if (server.hasArg("port")) next.port = (uint16_t) server.arg("port").toInt();
+    if (server.hasArg("user")) next.user = server.arg("user");
+    if (server.hasArg("pass")) {
+      String p = server.arg("pass");
+      if (p.length() > 0) next.pass = p; // empty means keep existing
+    }
+    if (server.hasArg("discovery")) next.discoveryPrefix = server.arg("discovery");
+    if (server.hasArg("base")) next.baseTopic = server.arg("base");
+
+    // Basic validation
+    if (next.host.length() == 0 || next.port == 0) {
+      server.send(400, "text/plain", "host/port required");
+      return;
+    }
+
+    mqtt_apply_settings(next);
+    server.send(200, "text/plain", "OK");
   });
 
   // Auto update toggle

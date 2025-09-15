@@ -15,11 +15,5 @@
 #define UI_DEFAULT_PASS "changeme"
 #endif
 
-// MQTT broker configuration
-#define MQTT_HOST   "192.168.1.10"
-#define MQTT_PORT   1883
-#define MQTT_USER   "mqtt_user"
-#define MQTT_PASS   "mqtt_pass"
-// Home Assistant discovery prefix and base topic for this device
-#define MQTT_DISCOVERY_PREFIX "homeassistant"
-#define MQTT_BASE_TOPIC       "wordclock"
+// MQTT configuration is now set via the UI (stored in Preferences).
+// No MQTT_* macros are required here anymore.

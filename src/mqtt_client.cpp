@@ -2,7 +2,6 @@
 #include <WiFi.h>
 #include <PubSubClient.h>
 #include <ArduinoJson.h>
-#include "secrets.h"
 #include "config.h"
 #include "display_settings.h"
 #include "led_state.h"
@@ -11,6 +10,7 @@
 #include "wordclock.h"
 #include "time_mapper.h"
 #include "sequence_controller.h"
+#include "mqtt_settings.h"
 
 extern DisplaySettings displaySettings;
 extern bool clockEnabled;
@@ -20,6 +20,7 @@ static WiFiClient espClient;
 static PubSubClient mqtt(espClient);
 
 static String uniqId;
+static MqttSettings g_mqttCfg;
 static String base;         // e.g., MQTT_BASE_TOPIC
 static String availTopic;   // base + "/availability"
 
@@ -39,7 +40,7 @@ static unsigned long lastStateAt = 0;
 static const unsigned long STATE_INTERVAL_MS = 30000; // 30s
 
 static void buildTopics() {
-  base = MQTT_BASE_TOPIC;
+  base = g_mqttCfg.baseTopic;
   availTopic = base + "/availability";
   tLightState   = base + "/light/state";
   tLightSet     = base + "/light/set";
@@ -62,7 +63,7 @@ static void buildTopics() {
   tUiVersion    = base + "/uiversion";
   tIp           = base + "/ip";
   tRssi         = base + "/rssi";
-  tUptime       = base + "/uptime";
+  tUptime       = base + "/laststartup";
 }
 
 static void publishDiscovery() {
@@ -72,7 +73,7 @@ static void publishDiscovery() {
   String devIds = String("{\"ids\":[\"") + nodeId + "\"]}";
 
   auto pubCfg = [&](const String& comp, const String& objId, JsonDocument& cfg){
-    String topic = String(MQTT_DISCOVERY_PREFIX) + "/" + comp + "/" + objId + "/config";
+    String topic = String(g_mqttCfg.discoveryPrefix) + "/" + comp + "/" + objId + "/config";
     String out; serializeJson(cfg, out);
     mqtt.publish(topic.c_str(), out.c_str(), true);
   };
@@ -160,7 +161,7 @@ static void publishDiscovery() {
   publishButton("Start sequence", tSeqCmd, nodeId + String("_sequence"));
   publishButton("Check for update", tUpdateCmd, nodeId + String("_update"));
 
-  // Sensors: version, ui version, ip, rssi, uptime
+  // Sensors: version, ui version, ip, rssi, startup time
   auto publishSensor = [&](const char* name, const String& st, const String& id){
     JsonDocument cfg;
     cfg["name"] = name;
@@ -176,7 +177,7 @@ static void publishDiscovery() {
   publishSensor("UI Version", tUiVersion, nodeId + String("_uiversion"));
   publishSensor("IP Address", tIp, nodeId + String("_ip"));
   publishSensor("WiFi RSSI", tRssi, nodeId + String("_rssi"));
-  publishSensor("Uptime", tUptime, nodeId + String("_uptime"));
+  publishSensor("Last Startup", tUptime, nodeId + String("_uptime"));
 }
 
 static void publishAvailability(const char* st) {
@@ -215,6 +216,10 @@ static void publishSelect(const String& topic) {
   mqtt.publish(topic.c_str(), s, true);
 }
 
+// Cache computed boot time string once NTP is synced
+static String g_bootTimeStr;
+static bool g_bootTimeSet = false;
+
 void mqtt_publish_state(bool force) {
   unsigned long now = millis();
   if (!force && (now - lastStateAt) < STATE_INTERVAL_MS) return;
@@ -232,7 +237,20 @@ void mqtt_publish_state(bool force) {
   mqtt.publish(tUiVersion.c_str(), UI_VERSION, true);
   mqtt.publish(tIp.c_str(), WiFi.localIP().toString().c_str(), true);
   char rssi[16]; snprintf(rssi, sizeof(rssi), "%d", WiFi.RSSI()); mqtt.publish(tRssi.c_str(), rssi, true);
-  char up[24]; snprintf(up, sizeof(up), "%lu", millis()/1000UL); mqtt.publish(tUptime.c_str(), up, true);
+
+  // Publish last startup timestamp (local time) once NTP is synced
+  time_t nowEpoch = time(nullptr);
+  if (!g_bootTimeSet && nowEpoch >= 1640995200) { // 2022-01-01 as "time is valid" threshold
+    time_t boot = nowEpoch - (time_t)(millis() / 1000UL);
+    struct tm lt = {};
+    localtime_r(&boot, &lt);
+    char buf[32];
+    strftime(buf, sizeof(buf), "%Y-%m-%d %H:%M:%S", &lt);
+    g_bootTimeStr = String(buf);
+    g_bootTimeSet = true;
+  }
+  const char* bootOut = g_bootTimeSet ? g_bootTimeStr.c_str() : "unknown";
+  mqtt.publish(tUptime.c_str(), bootOut, true);
 }
 
 static void handleMessage(char* topic, byte* payload, unsigned int length) {
@@ -297,6 +315,7 @@ static void handleMessage(char* topic, byte* payload, unsigned int length) {
 static bool mqtt_connect() {
   if (mqtt.connected()) return true;
   if (WiFi.status() != WL_CONNECTED) return false;
+  if (g_mqttCfg.host.length() == 0 || g_mqttCfg.port == 0) return false; // not configured yet
 
   // Compute unique id based on MAC
   if (uniqId.isEmpty()) {
@@ -308,11 +327,11 @@ static bool mqtt_connect() {
 
   String clientId = uniqId;
   bool ok;
-#ifdef MQTT_USER
-  ok = mqtt.connect(clientId.c_str(), MQTT_USER, MQTT_PASS, availTopic.c_str(), 1, true, "offline");
-#else
-  ok = mqtt.connect(clientId.c_str());
-#endif
+  if (g_mqttCfg.user.length() > 0) {
+    ok = mqtt.connect(clientId.c_str(), g_mqttCfg.user.c_str(), g_mqttCfg.pass.c_str(), availTopic.c_str(), 1, true, "offline");
+  } else {
+    ok = mqtt.connect(clientId.c_str());
+  }
   if (!ok) return false;
 
   publishAvailability("online");
@@ -335,7 +354,9 @@ static bool mqtt_connect() {
 }
 
 void mqtt_begin() {
-  mqtt.setServer(MQTT_HOST, MQTT_PORT);
+  // Load saved settings or fall back to compile-time defaults
+  mqtt_settings_load(g_mqttCfg);
+  mqtt.setServer(g_mqttCfg.host.c_str(), g_mqttCfg.port);
   mqtt.setCallback(handleMessage);
 }
 
@@ -350,4 +371,23 @@ void mqtt_loop() {
   }
   mqtt.loop();
   mqtt_publish_state(false);
+}
+
+void mqtt_apply_settings(const MqttSettings& s) {
+  // Persist, then apply live
+  MqttSettings toSave = s;
+  if (!mqtt_settings_save(toSave)) {
+    logError("❌ Failed to save MQTT settings");
+    return;
+  }
+  // Update current config
+  g_mqttCfg = toSave;
+
+  // Disconnect and reconfigure server and topics
+  if (mqtt.connected()) mqtt.disconnect();
+  mqtt.setServer(g_mqttCfg.host.c_str(), g_mqttCfg.port);
+
+  // Recompute topics based on new base/discovery
+  buildTopics();
+  lastReconnectAttempt = 0; // trigger immediate reconnect in loop
 }
