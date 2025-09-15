@@ -2,8 +2,8 @@
 
 # Openstaande taken
 
-- startup sweep niet 1 voor 1
-- TODO - MQTT via UI in te stellen - elke klant heeft andere mqtt server draaien
+
+
 
 # Afgerond / Gearchiveerd
 
@@ -13,15 +13,9 @@
 - Sequence IP 3 sec naar korter
 - 'het is' niet altijd tonen. Eerste x sec na wijziging?
 - bij tijd overgang woorden 1 voor 1 erbij en daarna het is uit
-
-# Afgerond / Gearchiveerd
-
-- Aan/uit direct werken ipv per minuut
-- De nul in het IP adres
-- Sequence IP 3 sec naar korter
-- 'het is' niet altijd tonen. Eerste x sec na wijziging?
-- bij tijd overgang woorden 1 voor 1 erbij en daarna het is uit
+- MQTT via UI in te stellen - elke klant heeft andere mqtt server draaien
 
 # Overgeslagen
 
 - Opstart sequence hij licht ook de ledjes op die niet mee doen
+- startup sweep niet 1 voor 1
