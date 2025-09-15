@@ -1,68 +1,66 @@
-
 # Wordclock Firmware
 
-Firmware voor een ESP32-gebaseerde Wordclock met OTA-updates, webinterface en pixel-LED tijdsweergave.
+Firmware for an ESP32-based Wordclock with OTA updates, a web interface, and pixel-LED time display.
 
 ## Status
 
-> Ontwikkeling in progress.  
-> Functionaliteit is incompleet en instabiel.  
-> Gebruik op eigen risico.
+> Development in progress.  
+> Functionality is incomplete and unstable.  
+> Use at your own risk.
 
 ## Features
 
 - WiFi setup via WiFiManager
 - OTA firmware updates
-- Web-based dashboard en admin interface
+- Web-based dashboard and admin interface
 - Telnet logging
-- NeoPixel LED woordklok
+- NeoPixel LED word clock
 
-## Installatie & Hardware
+## Installation & Hardware
 
-Zie [docs/BuildInstruction.md](docs/BuildInstruction.md) voor hardware-aansluitingen en led-configuratie.
+See [docs/BuildInstruction.md](docs/BuildInstruction.md) for hardware connections and LED configuration.
 
-Benodigdheden:
+Requirements:
 - ESP32 microcontroller
 - NeoPixel LED strip/matrix
-- Voeding (VIN + GND)
+- Power supply (VIN + GND)
 
-## Configuratie
+## Configuration
 
-1. Kopieer `include/secrets_template.h` naar `include/secrets.h` en vul je WiFi-gegevens in.
-2. Pas indien nodig `upload_params_template.ini` aan en hernoem naar `upload_params.ini`.
-3. Compileer en upload de firmware via PlatformIO.
+1. Copy `include/secrets_template.h` to `include/secrets.h` and fill in your WiFi credentials.
+2. Modify `upload_params_template.ini` if necessary and rename it to `upload_params.ini`.
+3. Compile and upload the firmware using PlatformIO.
 
-## Gebruik
+## Usage
 
-Na installatie is de klok bereikbaar via het lokale netwerk. Gebruik het webdashboard voor instellingen, updates en status.
+After installation, the clock is accessible via the local network. Use the web dashboard for settings, updates, and status.
 
+## Project Structure & Modules
 
-## Projectstructuur & Modules
+The firmware is modularly built. Main modules include:
 
-De firmware is modulair opgebouwd. Belangrijkste modules:
-
-- `main.cpp`: Centrale setup en loop, roept alle modules aan.
-- `network_init.h`: WiFi-initialisatie via WiFiManager.
+- `main.cpp`: Central setup and loop, invokes all modules.
+- `network_init.h`: WiFi initialization via WiFiManager.
 - `ota_init.h`: Over-the-air updates (OTA).
-- `time_sync.h`: Tijdsynchronisatie via NTP.
-- `webserver_init.h`: Webserver en route-initialisatie.
-- `mqtt_init.h`: MQTT-initialisatie en event loop.
-- `display_init.h`: LED- en display-instellingen.
-- `startup_sequence_init.h`: Opstartanimatie.
-- `wordclock_main.h`: Hoofdlogica van de klok.
-- `wordclock_system_init.h`: UI-authenticatie en wordclock setup.
+- `time_sync.h`: Time synchronization via NTP.
+- `webserver_init.h`: Web server and route initialization.
+- `mqtt_init.h`: MQTT initialization and event loop.
+- `display_init.h`: LED and display settings.
+- `startup_sequence_init.h`: Startup animation.
+- `wordclock_main.h`: Main logic of the clock.
+- `wordclock_system_init.h`: UI authentication and word clock setup.
 
-Zie de comments in elk modulebestand voor uitleg over functionaliteit en gebruik.
+Refer to the comments in each module file for explanations of functionality and usage.
 
-## Documentatie
+## Documentation
 
-- [BuildInstruction.md](docs/BuildInstruction.md): Hardware en led-opbouw
-- [QuickStart.md](docs/QuickStart.md): Snelstartgids
-- [todo](docs/todo): Openstaande en afgeronde taken
+- [BuildInstruction.md](docs/BuildInstruction.md): Hardware and LED setup
+- [QuickStart.md](docs/QuickStart.md): Quick Start Guide
+- [todo](docs/todo): Pending and completed tasks
 
 ## Todo's & Roadmap
 
-Zie [docs/todo](docs/todo) voor actuele en afgeronde taken.
+See [docs/todo](docs/todo) for current and completed tasks.
 
 ## License
 
