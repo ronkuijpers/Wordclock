@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="nl">
+<html lang="en">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -12,10 +12,10 @@
     <header class="flex items-center justify-between mb-6">
       <div>
         <h1 class="text-3xl font-bold">📡 MQTT</h1>
-        <p class="text-sm text-gray-600">Configureer MQTT-verbinding en topics</p>
+        <p class="text-sm text-gray-600">Configure MQTT connection and topics</p>
       </div>
       <div class="flex items-center gap-4">
-        <a href="/dashboard.html" class="text-sm text-blue-600 hover:underline">Terug</a>
+        <a href="/dashboard.html" class="text-sm text-blue-600 hover:underline">Back</a>
         <a href="/logout" class="text-sm text-gray-600 hover:underline">Logout</a>
       </div>
     </header>
@@ -24,21 +24,21 @@
       <h2 class="text-xl font-semibold mb-3">Broker</h2>
       <div class="space-y-3">
         <div>
-          <label class="block text-sm font-medium mb-1" for="host">Hostnaam of IP</label>
-          <input id="host" type="text" placeholder="bijv. 192.168.1.10 of mqtt.local" class="w-full border rounded p-2" />
-          <p class="help">Vul de broker in waar de klok op moet verbinden.</p>
+          <label class="block text-sm font-medium mb-1" for="host">Hostname or IP</label>
+          <input id="host" type="text" placeholder="e.g. 192.168.1.10 or mqtt.local" class="w-full border rounded p-2" />
+          <p class="help">Enter the broker the clock should connect to.</p>
         </div>
         <div>
-          <label class="block text-sm font-medium mb-1" for="port">Poort</label>
+          <label class="block text-sm font-medium mb-1" for="port">Port</label>
           <input id="port" type="number" min="1" max="65535" placeholder="1883" class="w-full border rounded p-2" />
         </div>
         <div class="grid grid-cols-2 gap-3">
           <div>
-            <label class="block text-sm font-medium mb-1" for="user">Gebruiker (optioneel)</label>
+            <label class="block text-sm font-medium mb-1" for="user">User (optional)</label>
             <input id="user" type="text" placeholder="mqtt_user" class="w-full border rounded p-2" />
           </div>
           <div>
-            <label class="block text-sm font-medium mb-1" for="pass">Wachtwoord (optioneel)</label>
+            <label class="block text-sm font-medium mb-1" for="pass">Password (optional)</label>
             <input id="pass" type="password" placeholder="••••••••" class="w-full border rounded p-2" />
           </div>
         </div>
@@ -51,23 +51,23 @@
         <div>
           <label class="block text-sm font-medium mb-1" for="discovery">Discovery prefix</label>
           <input id="discovery" type="text" placeholder="homeassistant" class="w-full border rounded p-2" />
-          <p class="help">Meestal <code>homeassistant</code>.</p>
+          <p class="help">Usually <code>homeassistant</code>.</p>
         </div>
         <div>
-          <label class="block text-sm font-medium mb-1" for="basetopic">Basis topic (device)</label>
+          <label class="block text-sm font-medium mb-1" for="basetopic">Base topic (device)</label>
           <input id="basetopic" type="text" placeholder="wordclock" class="w-full border rounded p-2" />
-          <p class="help">Wordt gebruikt als prefix voor alle statussen/commando's.</p>
+          <p class="help">Used as prefix for all states/commands.</p>
         </div>
       </div>
     </section>
 
     <section class="bg-white p-4 rounded-2xl shadow">
-      <h2 class="text-xl font-semibold mb-3">Opslaan</h2>
-      <p class="text-sm text-gray-600 mb-3">Wijzig de instellingen en sla op. De klok probeert direct opnieuw te verbinden.</p>
+      <h2 class="text-xl font-semibold mb-3">Save</h2>
+      <p class="text-sm text-gray-600 mb-3">Change settings and save. The clock will try to reconnect immediately.</p>
       <div class="flex gap-2 items-center">
-        <button id="saveBtn" class="py-2 px-3 rounded bg-blue-600 text-white hover:bg-blue-700">Opslaan</button>
+        <button id="saveBtn" class="py-2 px-3 rounded bg-blue-600 text-white hover:bg-blue-700">Save</button>
         <span id="saveMsg" class="text-sm text-gray-600"></span>
-        <a href="/dashboard.html" class="ml-auto py-2 px-3 rounded bg-white border hover:bg-gray-50">Annuleren</a>
+        <a href="/dashboard.html" class="ml-auto py-2 px-3 rounded bg-white border hover:bg-gray-50">Cancel</a>
       </div>
     </section>
   </div>
@@ -81,7 +81,7 @@
         qs('host').value = j.host || '';
         qs('port').value = j.port || 1883;
         qs('user').value = j.user || '';
-        // password niet tonen; laat leeg
+        // do not show password; leave it empty
         qs('discovery').value = j.discovery || 'homeassistant';
         qs('basetopic').value = j.base || 'wordclock';
       } catch (e) {
@@ -90,27 +90,27 @@
     }
     async function saveCfg() {
       const msg = qs('saveMsg');
-      msg.textContent = 'Opslaan...';
+      msg.textContent = 'Saving...';
       const form = new URLSearchParams();
       form.set('host', qs('host').value.trim());
       form.set('port', qs('port').value.trim());
       form.set('user', qs('user').value.trim());
-      const pw = qs('pass').value; // leeg = wachtwoord ongewijzigd laten
+      const pw = qs('pass').value; // empty = keep password unchanged
       if (pw) form.set('pass', pw);
       form.set('discovery', qs('discovery').value.trim());
       form.set('base', qs('basetopic').value.trim());
       try {
         const r = await fetch('/api/mqtt/config', { method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded'}, body:String(form) });
         if (r.ok) {
-          msg.textContent = 'Opgeslagen. Verbinden wordt herstart...';
+          msg.textContent = 'Saved. Reconnecting...';
           qs('pass').value = '';
           setTimeout(() => msg.textContent = '', 5000);
         } else {
           const t = await r.text();
-          msg.textContent = 'Mislukt: ' + t;
+          msg.textContent = 'Failed: ' + t;
         }
       } catch (e) {
-        msg.textContent = 'Netwerkfout';
+        msg.textContent = 'Network error';
       }
     }
     qs('saveBtn').addEventListener('click', saveCfg);

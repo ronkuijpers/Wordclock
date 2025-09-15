@@ -111,8 +111,8 @@ void setupWebRoutes() {
       <html>
         <head><meta http-equiv='refresh' content='8;url=/' /></head>
         <body>
-          <h1>Factory reset gestart...</h1>
-          <p>Het apparaat wordt teruggezet naar fabrieksinstellingen en herstart zo.</p>
+          <h1>Factory reset started...</h1>
+          <p>The device will reset to factory defaults and reboot shortly.</p>
         </body>
       </html>
     )rawliteral");
@@ -134,11 +134,11 @@ void setupWebRoutes() {
   // Logout endpoints: return 401 to clear Basic Auth in browser
   server.on("/logout", HTTP_GET, []() {
     server.sendHeader("WWW-Authenticate", "Basic realm=\"Wordclock UI\"");
-    server.send(401, "text/plain", "Uitgelogd. Sluit het tabblad of log opnieuw in.");
+    server.send(401, "text/plain", "Logged out. Close the tab or log in again.");
   });
   server.on("/adminlogout", HTTP_GET, []() {
     server.sendHeader("WWW-Authenticate", String("Basic realm=\"") + ADMIN_REALM + "\"");
-    server.send(401, "text/plain", "Admin uitgelogd. Sluit het tabblad of log opnieuw in.");
+    server.send(401, "text/plain", "Admin logged out. Close the tab or log in again.");
   });
 
   // Handle password change
@@ -153,9 +153,9 @@ void setupWebRoutes() {
     }
     String n = server.arg("new");
     String c = server.arg("confirm");
-    if (n != c) { server.send(400, "text/plain", "Wachtwoorden komen niet overeen"); return; }
-    if (n.length() < 6) { server.send(400, "text/plain", "Minimaal 6 tekens"); return; }
-    if (!uiAuth.setPassword(n)) { server.send(500, "text/plain", "Opslaan mislukt"); return; }
+    if (n != c) { server.send(400, "text/plain", "Passwords do not match"); return; }
+    if (n.length() < 6) { server.send(400, "text/plain", "Minimum 6 characters"); return; }
+    if (!uiAuth.setPassword(n)) { server.send(500, "text/plain", "Save failed"); return; }
     server.send(200, "text/plain", "OK");
   });
 
@@ -299,8 +299,8 @@ void setupWebRoutes() {
           <meta http-equiv='refresh' content='5;url=/' />
         </head>
         <body>
-          <h1>Wordclock wordt herstart...</h1>
-          <p>Je wordt over 5 seconden automatisch teruggestuurd naar het dashboard.</p>
+          <h1>Wordclock is restarting...</h1>
+          <p>You will be redirected to the dashboard in 5 seconds.</p>
         </body>
       </html>
     )rawliteral");
@@ -317,8 +317,8 @@ void setupWebRoutes() {
           <meta http-equiv='refresh' content='10;url=/' />
         </head>
         <body>
-          <h1>WiFi wordt gereset...</h1>
-          <p>WiFi-instellingen worden gewist. Mogelijk moet je opnieuw verbinding maken met het access point 'Wordclock'.</p>
+          <h1>Resetting WiFi...</h1>
+          <p>WiFi settings will be cleared. You may need to reconnect to the 'Wordclock' access point.</p>
         </body>
       </html>
     )rawliteral");
@@ -372,7 +372,7 @@ void setupWebRoutes() {
   logInfo("✨ Startup sequence started via dashboard");
     extern StartupSequence startupSequence;
     startupSequence.start();
-    server.send(200, "text/plain", "Startup sequence uitgevoerd");
+    server.send(200, "text/plain", "Startup sequence executed");
   });
   
   server.on(
@@ -457,8 +457,8 @@ void setupWebRoutes() {
 
   server.on("/checkForUpdate", HTTP_ANY, []() {
     if (!ensureUiAuth()) return;
-    logInfo("Firmware update handmatig gestart via UI");
-    server.send(200, "text/plain", "Firmware update gestart");
+    logInfo("Firmware update manually started via UI");
+    server.send(200, "text/plain", "Firmware update started");
     delay(100);
     checkForFirmwareUpdate();
   });

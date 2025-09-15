@@ -14,6 +14,3 @@
 #ifndef UI_DEFAULT_PASS
 #define UI_DEFAULT_PASS "changeme"
 #endif
-
-// MQTT configuration is now set via the UI (stored in Preferences).
-// No MQTT_* macros are required here anymore.
