@@ -11,6 +11,8 @@
 #include "time_mapper.h"
 #include "sequence_controller.h"
 #include "mqtt_settings.h"
+#include <esp_system.h>
+#include <Preferences.h>
 
 extern DisplaySettings displaySettings;
 extern bool clockEnabled;
@@ -23,6 +25,7 @@ static String uniqId;
 static MqttSettings g_mqttCfg;
 static String base;         // e.g., MQTT_BASE_TOPIC
 static String availTopic;   // base + "/availability"
+static String tBirth;
 static bool g_connected = false;
 static String g_lastErr;
 
@@ -36,6 +39,7 @@ static String tHetIsState, tHetIsSet;
 static String tLogLvlState, tLogLvlSet;
 static String tRestartCmd, tSeqCmd, tUpdateCmd;
 static String tVersion, tUiVersion, tIp, tRssi, tUptime;
+static String tHeap, tWifiChan, tBootReason, tResetCount;
 
 static unsigned long lastReconnectAttempt = 0;
 static unsigned long lastStateAt = 0;
@@ -44,6 +48,7 @@ static const unsigned long STATE_INTERVAL_MS = 30000; // 30s
 static void buildTopics() {
   base = g_mqttCfg.baseTopic;
   availTopic = base + "/availability";
+  tBirth        = base + "/birth";
   tLightState   = base + "/light/state";
   tLightSet     = base + "/light/set";
   tClockState   = base + "/clock/state";
@@ -66,6 +71,10 @@ static void buildTopics() {
   tIp           = base + "/ip";
   tRssi         = base + "/rssi";
   tUptime       = base + "/laststartup";
+  tHeap         = base + "/heap";
+  tWifiChan     = base + "/wifi_channel";
+  tBootReason   = base + "/boot_reason";
+  tResetCount   = base + "/reset_count";
 }
 
 static void publishDiscovery() {
@@ -180,6 +189,10 @@ static void publishDiscovery() {
   publishSensor("IP Address", tIp, nodeId + String("_ip"));
   publishSensor("WiFi RSSI", tRssi, nodeId + String("_rssi"));
   publishSensor("Last Startup", tUptime, nodeId + String("_uptime"));
+  publishSensor("Free Heap (bytes)", tHeap, nodeId + String("_heap"));
+  publishSensor("WiFi Channel", tWifiChan, nodeId + String("_wifichan"));
+  publishSensor("Boot Reason", tBootReason, nodeId + String("_bootreason"));
+  publishSensor("Reset Count", tResetCount, nodeId + String("_resetcount"));
 }
 
 static void publishAvailability(const char* st) {
@@ -221,6 +234,24 @@ static void publishSelect(const String& topic) {
 // Cache computed boot time string once NTP is synced
 static String g_bootTimeStr;
 static bool g_bootTimeSet = false;
+static String g_bootReasonStr;
+static uint32_t g_resetCount = 0;
+
+static const char* reset_reason_to_str(esp_reset_reason_t r) {
+  switch (r) {
+    case ESP_RST_POWERON:   return "POWERON";
+    case ESP_RST_EXT:       return "EXTERNAL";
+    case ESP_RST_SW:        return "SOFTWARE";
+    case ESP_RST_PANIC:     return "PANIC";
+    case ESP_RST_INT_WDT:   return "INT_WDT";
+    case ESP_RST_TASK_WDT:  return "TASK_WDT";
+    case ESP_RST_WDT:       return "WDT";
+    case ESP_RST_DEEPSLEEP: return "DEEPSLEEP";
+    case ESP_RST_BROWNOUT:  return "BROWNOUT";
+    case ESP_RST_SDIO:      return "SDIO";
+    default:                return "UNKNOWN";
+  }
+}
 
 void mqtt_publish_state(bool force) {
   unsigned long now = millis();
@@ -239,6 +270,13 @@ void mqtt_publish_state(bool force) {
   mqtt.publish(tUiVersion.c_str(), UI_VERSION, true);
   mqtt.publish(tIp.c_str(), WiFi.localIP().toString().c_str(), true);
   char rssi[16]; snprintf(rssi, sizeof(rssi), "%d", WiFi.RSSI()); mqtt.publish(tRssi.c_str(), rssi, true);
+  char heap[24]; snprintf(heap, sizeof(heap), "%u", (unsigned)esp_get_free_heap_size()); mqtt.publish(tHeap.c_str(), heap, true);
+  char ch[8]; snprintf(ch, sizeof(ch), "%d", WiFi.channel()); mqtt.publish(tWifiChan.c_str(), ch, true);
+  if (g_bootReasonStr.length() == 0) {
+    g_bootReasonStr = reset_reason_to_str(esp_reset_reason());
+  }
+  mqtt.publish(tBootReason.c_str(), g_bootReasonStr.c_str(), true);
+  char rc[16]; snprintf(rc, sizeof(rc), "%lu", (unsigned long)g_resetCount); mqtt.publish(tResetCount.c_str(), rc, true);
 
   // Publish last startup timestamp (local time) once NTP is synced
   time_t nowEpoch = time(nullptr);
@@ -253,6 +291,14 @@ void mqtt_publish_state(bool force) {
   }
   const char* bootOut = g_bootTimeSet ? g_bootTimeStr.c_str() : "unknown";
   mqtt.publish(tUptime.c_str(), bootOut, true);
+}
+
+static void publishBirth() {
+  // Publish a small JSON birth message with time and reason
+  if (!mqtt.connected()) return;
+  String out = String("{\"time\":\"") + (g_bootTimeSet ? g_bootTimeStr : String("unknown")) +
+               "\",\"reason\":\"" + (g_bootReasonStr.length() ? g_bootReasonStr : String(reset_reason_to_str(esp_reset_reason()))) + "\"}";
+  mqtt.publish(tBirth.c_str(), out.c_str(), true);
 }
 
 static void handleMessage(char* topic, byte* payload, unsigned int length) {
@@ -342,6 +388,7 @@ static bool mqtt_connect() {
   }
 
   publishAvailability("online");
+  publishBirth();
   publishDiscovery();
 
   // Subscriptions
@@ -367,6 +414,16 @@ void mqtt_begin() {
   mqtt_settings_load(g_mqttCfg);
   mqtt.setServer(g_mqttCfg.host.c_str(), g_mqttCfg.port);
   mqtt.setCallback(handleMessage);
+  // Bump reset counter (persisted), and cache boot reason string
+  g_bootReasonStr = reset_reason_to_str(esp_reset_reason());
+  Preferences p;
+  if (p.begin("sys", false)) {
+    uint32_t cnt = p.getULong("resets", 0);
+    cnt += 1;
+    p.putULong("resets", cnt);
+    p.end();
+    g_resetCount = cnt;
+  }
 }
 
 void mqtt_loop() {

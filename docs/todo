@@ -40,11 +40,6 @@ Maintainability
 * Group config constants and defaults.
     * src/config.h has many tunables; add short comments with rationale and acceptable ranges.
 Functional Enhancements
-* MQTT
-    * Add will message payload and last-will retained “offline” (you already set LWT string via connect — good). Consider publishing birth info (boot reason, timestamp).
-        * src/mqtt_client.cpp:311 (expand retained availability + birth)
-    * Publish more metrics: free heap, WiFi channel, boot reason, reset count.
-        * src/mqtt_client.cpp:220 (extend sensor section)
 * Updates
     * Add manual “Sync UI files” button invoking syncFilesFromManifest(); show results.
         * src/web_routes.h add /syncUI protected endpoint
