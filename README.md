@@ -49,6 +49,7 @@ The firmware is modularly built. Main modules include:
 - `startup_sequence_init.h`: Startup animation.
 - `wordclock_main.h`: Main logic of the clock.
 - `wordclock_system_init.h`: UI authentication and word clock setup.
+- `grid_layout.cpp`: Grid layout definitions (multiple variants) and lookup helpers.
 
 Refer to the comments in each module file for explanations of functionality and usage.
 
@@ -57,6 +58,13 @@ Refer to the comments in each module file for explanations of functionality and 
 - [BuildInstruction.md](docs/BuildInstruction.md): Hardware and LED setup
 - [QuickStart.md](docs/QuickStart.md): Quick Start Guide
 - [todo](docs/todo): Pending and completed tasks
+
+## Grid Variants
+
+The firmware supports multiple LED-letter layouts. Each variant is defined in `src/grid_layout.cpp`.
+To add or adjust a layout, duplicate one of the placeholder blocks in that file and update the
+letter rows, word positions, and minute LED indices. The active variant is stored in NVS and can
+be selected via the admin UI (`/admin`) or programmatically with `displaySettings.setGridVariant(...)`.
 
 ## Todo's & Roadmap
 

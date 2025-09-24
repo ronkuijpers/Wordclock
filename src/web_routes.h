@@ -5,6 +5,7 @@
 #include <WebServer.h>
 #include <esp_system.h>
 #include <PubSubClient.h>
+#include <ArduinoJson.h>
 #include "secrets.h"
 #include "sequence_controller.h"
 #include "led_state.h"
@@ -344,6 +345,86 @@ void setupWebRoutes() {
     displaySettings.setAutoUpdate(on);
   logInfo(String("🔁 Auto firmware updates ") + (on ? "ON" : "OFF"));
     server.send(200, "text/plain", "OK");
+  });
+
+  // Grid variant endpoints
+  server.on("/getGridVariant", []() {
+    if (!ensureUiAuth()) return;
+    StaticJsonDocument<128> doc;
+    GridVariant variant = displaySettings.getGridVariant();
+    doc["id"] = gridVariantToId(variant);
+    const GridVariantInfo* info = getGridVariantInfo(variant);
+    if (info) {
+      doc["key"] = info->key;
+      doc["label"] = info->label;
+    }
+    String out;
+    serializeJson(doc, out);
+    server.send(200, "application/json", out);
+  });
+
+  server.on("/listGridVariants", []() {
+    if (!ensureUiAuth()) return;
+    size_t count = 0;
+    const GridVariantInfo* infos = getGridVariantInfos(count);
+    StaticJsonDocument<512> doc;
+    JsonArray arr = doc.to<JsonArray>();
+    GridVariant active = displaySettings.getGridVariant();
+    for (size_t i = 0; i < count; ++i) {
+      JsonObject o = arr.createNestedObject();
+      o["id"] = gridVariantToId(infos[i].variant);
+      o["key"] = infos[i].key;
+      o["label"] = infos[i].label;
+      o["active"] = (infos[i].variant == active);
+    }
+    String out;
+    serializeJson(doc, out);
+    server.send(200, "application/json", out);
+  });
+
+  server.on("/setGridVariant", []() {
+    if (!ensureUiAuth()) return;
+    bool updated = false;
+
+    if (server.hasArg("id")) {
+      uint8_t id = static_cast<uint8_t>(server.arg("id").toInt());
+      size_t count = 0;
+      getGridVariantInfos(count);
+      if (id < count) {
+        GridVariant variant = gridVariantFromId(id);
+        displaySettings.setGridVariant(variant);
+        updated = true;
+      }
+    } else if (server.hasArg("key")) {
+      String key = server.arg("key");
+      GridVariant variant = gridVariantFromKey(key.c_str());
+      const GridVariantInfo* info = getGridVariantInfo(variant);
+      if (info && key == info->key) {
+        displaySettings.setGridVariant(variant);
+        updated = true;
+      }
+    }
+
+    if (!updated) {
+      server.send(400, "text/plain", "Invalid grid variant");
+      return;
+    }
+
+    if (const GridVariantInfo* info = getGridVariantInfo(displaySettings.getGridVariant())) {
+      logInfo(String("🧩 Grid variant updated to ") + info->label + " (" + info->key + ")");
+    }
+
+    StaticJsonDocument<128> doc;
+    GridVariant variant = displaySettings.getGridVariant();
+    doc["id"] = gridVariantToId(variant);
+    const GridVariantInfo* info = getGridVariantInfo(variant);
+    if (info) {
+      doc["key"] = info->key;
+      doc["label"] = info->label;
+    }
+    String out;
+    serializeJson(doc, out);
+    server.send(200, "application/json", out);
   });
 
   // Fetch log

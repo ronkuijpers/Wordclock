@@ -85,6 +85,7 @@
       <p class="mt-2 text-sm">
         <strong>Firmware version:</strong> <span id="version">-</span>
         <span class="ml-4"><strong>UI version:</strong> <span id="uiVersion">-</span></span>
+        <span class="ml-4"><strong>Grid:</strong> <span id="gridVariantLabel">-</span></span>
       </p>
     </section>
 
@@ -311,6 +312,16 @@
       const el = document.getElementById('uiVersion');
       if (el) el.textContent = v;
     });
+    fetch('/getGridVariant')
+      .then(r => r.json())
+      .then(v => {
+        const el = document.getElementById('gridVariantLabel');
+        if (el) el.textContent = v.label || v.key || ('ID ' + v.id);
+      })
+      .catch(() => {
+        const el = document.getElementById('gridVariantLabel');
+        if (el) el.textContent = 'n.v.t.';
+      });
 
     // Init color picker to current color
     fetch('/getColor')

@@ -1,6 +1,8 @@
 #pragma once
 #include <Preferences.h>
 
+#include "grid_layout.h"
+
 class DisplaySettings {
 public:
   void begin() {
@@ -9,14 +11,23 @@ public:
     if (hetIsDurationSec > 360) hetIsDurationSec = 360;
     sellMode = prefs.getBool("sell_on", false);
     animateWords = prefs.getBool("anim_on", false); // default OFF unless enabled via UI
-    autoUpdate = prefs.getBool("auto_upd", true);   // default ON to keep current behavior
+    autoUpdate = prefs.getBool("auto_upd", true);
+    uint8_t storedVariant = prefs.getUChar("grid_id", gridVariantToId(GridVariant::Classic));
     prefs.end();
+
+    gridVariant = gridVariantFromId(storedVariant);
+    if (!setActiveGridVariant(gridVariant)) {
+      gridVariant = GridVariant::Classic;
+      setActiveGridVariant(gridVariant);
+    }
   }
 
   uint16_t getHetIsDurationSec() const { return hetIsDurationSec; }
   bool isSellMode() const { return sellMode; }
   bool getAnimateWords() const { return animateWords; }
   bool getAutoUpdate() const { return autoUpdate; }
+  GridVariant getGridVariant() const { return gridVariant; }
+  uint8_t getGridVariantId() const { return gridVariantToId(gridVariant); }
 
   void setHetIsDurationSec(uint16_t s) {
     if (s > 360) s = 360;
@@ -46,11 +57,31 @@ public:
     prefs.end();
   }
 
+  void setGridVariant(GridVariant variant) {
+    if (!setActiveGridVariant(variant)) {
+      return;
+    }
+    gridVariant = variant;
+    prefs.begin("display", false);
+    prefs.putUChar("grid_id", gridVariantToId(gridVariant));
+    prefs.end();
+  }
+
+  void setGridVariantById(uint8_t id) {
+    size_t count = 0;
+    getGridVariantInfos(count);
+    if (id >= count) {
+      return;
+    }
+    setGridVariant(gridVariantFromId(id));
+  }
+
 private:
   uint16_t hetIsDurationSec = 360; // default ALWAYS
   bool sellMode = false;
   bool animateWords = false; // default OFF
-  bool autoUpdate = true;    // default ON
+  bool autoUpdate = true;    // default ON to keep current behavior
+  GridVariant gridVariant = GridVariant::Classic;
   Preferences prefs;
 };
 
