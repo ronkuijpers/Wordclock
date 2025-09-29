@@ -12,13 +12,22 @@ public:
     sellMode = prefs.getBool("sell_on", false);
     animateWords = prefs.getBool("anim_on", false); // default OFF unless enabled via UI
     autoUpdate = prefs.getBool("auto_upd", true);
-    uint8_t storedVariant = prefs.getUChar("grid_id", gridVariantToId(GridVariant::NL_V1));
+    const uint8_t defaultVariantId = gridVariantToId(GridVariant::NL_V1);
+    const bool hasGridKey = prefs.isKey("grid_id");
+    uint8_t storedVariant = prefs.getUChar("grid_id", defaultVariantId);
+    if (!hasGridKey) {
+      prefs.putUChar("grid_id", defaultVariantId);
+      storedVariant = defaultVariantId;
+    }
     prefs.end();
 
     gridVariant = gridVariantFromId(storedVariant);
     if (!setActiveGridVariant(gridVariant)) {
       gridVariant = GridVariant::NL_V1;
       setActiveGridVariant(gridVariant);
+      prefs.begin("display", false);
+      prefs.putUChar("grid_id", defaultVariantId);
+      prefs.end();
     }
   }
 
