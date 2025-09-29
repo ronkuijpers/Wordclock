@@ -61,10 +61,11 @@ Refer to the comments in each module file for explanations of functionality and 
 
 ## Grid Variants
 
-The firmware supports multiple LED-letter layouts. Each variant is defined in `src/grid_layout.cpp`.
-To add or adjust a layout, duplicate one of the placeholder blocks in that file and update the
-letter rows, word positions, and minute LED indices. The active variant is stored in NVS and can
-be selected via the admin UI (`/admin`) or programmatically with `displaySettings.setGridVariant(...)`.
+The firmware supports multiple LED-letter layouts. Each variant is defined in `src/grid_layout.cpp`
+and uses a language/version code such as `NL_V1` or `EN_V1`. To add or adjust a layout, provide the
+letter rows, word positions, and minute LED indices for the relevant variant. The active variant is
+stored in NVS and can be selected via the admin UI (`/admin`) or programmatically with
+`displaySettings.setGridVariant(...)`.
 
 ## Todo's & Roadmap
 

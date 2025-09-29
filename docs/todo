@@ -1,6 +1,8 @@
 
 
 # Openstaande taken
+* Initiele (factory) helderheid 25%
+
 Here’s a focused review with concrete optimizations and functional improvement ideas. I’ve grouped them by area and pointed to exact files/lines for context.
 Security
 * Basic Auth over HTTP: credentials expose on LAN.
@@ -53,8 +55,6 @@ Correctness / Edge Cases
 * Brightness and color endpoints accept GET and lack bounds/auth in some places; auth exists — good, bounds checked — good.
     * For /setColor, strip invalid hex characters proactively.
         * src/web_routes.h:334
-* WiFiManager portal password is static; make it configurable via UI or derive a unique default based on MAC for first boot.
-    * include/secrets.h:5
 DX/Build
 * Enable gzip serving to match tools/gzip_data.py workflow.
     * src/web_routes.h:26
@@ -78,7 +78,6 @@ If you’d like, I can implement a first slice now:
 * MQTT status endpoint
 * StaticJsonDocument in hot paths
 * OTA SHA-256 verification
-Interested in me patching these in?
 
 
 

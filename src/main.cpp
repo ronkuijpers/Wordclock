@@ -59,6 +59,9 @@ void setup() {
     logError("❌ mDNS start failed");
   }
 
+  // Load persisted display settings (e.g. auto-update preference) before running dependent flows
+  displaySettings.begin();
+
   // Mount SPIFFS filesystem
   if (!FS_IMPL.begin(true)) {
   logError("SPIFFS mount failed.");

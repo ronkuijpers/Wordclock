@@ -12,12 +12,12 @@ public:
     sellMode = prefs.getBool("sell_on", false);
     animateWords = prefs.getBool("anim_on", false); // default OFF unless enabled via UI
     autoUpdate = prefs.getBool("auto_upd", true);
-    uint8_t storedVariant = prefs.getUChar("grid_id", gridVariantToId(GridVariant::Classic));
+    uint8_t storedVariant = prefs.getUChar("grid_id", gridVariantToId(GridVariant::NL_V1));
     prefs.end();
 
     gridVariant = gridVariantFromId(storedVariant);
     if (!setActiveGridVariant(gridVariant)) {
-      gridVariant = GridVariant::Classic;
+      gridVariant = GridVariant::NL_V1;
       setActiveGridVariant(gridVariant);
     }
   }
@@ -81,7 +81,7 @@ private:
   bool sellMode = false;
   bool animateWords = false; // default OFF
   bool autoUpdate = true;    // default ON to keep current behavior
-  GridVariant gridVariant = GridVariant::Classic;
+  GridVariant gridVariant = GridVariant::NL_V1;
   Preferences prefs;
 };
 

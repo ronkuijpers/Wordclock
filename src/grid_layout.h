@@ -6,21 +6,21 @@
 // Dimensions of the letter grid
 const int GRID_WIDTH = 11;
 const int GRID_HEIGHT = 11;
-const int LED_COUNT_GRID = 146;
-const int LED_COUNT_EXTRA = 15;  // minute LEDs
-const int LED_COUNT_TOTAL = LED_COUNT_GRID + LED_COUNT_EXTRA;
 
 enum class GridVariant : uint8_t {
-  Classic = 0,
-  VariantB,
-  VariantC,
-  VariantD,
+  NL_V1 = 0,
+  NL_V2,
+  NL_V3,
+  NL_V4,
+  EN_V1,
 };
 
 struct GridVariantInfo {
   GridVariant variant;
-  const char* key;   // short identifier, e.g. "classic"
-  const char* label; // human-readable name for UI
+  const char* key;       // identifier like "NL_V1"
+  const char* label;     // human-readable name for UI
+  const char* language;  // ISO language code, e.g. "nl"
+  const char* version;   // version string, e.g. "v1"
 };
 
 // Active layout data
@@ -43,3 +43,8 @@ const GridVariantInfo* getGridVariantInfo(GridVariant variant);
 
 // Lightweight lookup instead of unordered_map
 const WordPosition* find_word(const char* name);
+
+// Active LED counts per variant
+uint16_t getActiveLedCountGrid();
+uint16_t getActiveLedCountExtra();
+uint16_t getActiveLedCountTotal();

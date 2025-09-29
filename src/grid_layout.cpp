@@ -3,14 +3,24 @@
 #include <Arduino.h>
 #include <string.h>
 
+#include "grid_variants/en_v1.h"
+#include "grid_variants/nl_v1.h"
+#include "grid_variants/nl_v2.h"
+#include "grid_variants/nl_v3.h"
+#include "grid_variants/nl_v4.h"
+
 namespace {
 
 struct GridVariantData {
   GridVariant variant;
   const char* key;
   const char* label;
+  const char* language;
+  const char* version;
+  uint16_t ledCountGrid;
+  uint16_t ledCountExtra;
+  uint16_t ledCountTotal;
   const char* const* letterGrid;
-  size_t letterRows;
   const WordPosition* words;
   size_t wordCount;
   const uint16_t* minuteLeds;
@@ -21,199 +31,12 @@ struct GridVariantData {
 template <typename T, size_t N>
 constexpr size_t countof(const T (&)[N]) { return N; }
 
-// --- Grid data definitions -------------------------------------------------
-// Add new variants by duplicating one of the blocks below and adjusting the
-// letter grid and word positions. Each variant must keep the same vocabulary
-// (word names) so existing time mapping logic continues to work.
-
-// Classic layout (current production grid)
-static const char* const LETTER_GRID_CLASSIC[GRID_HEIGHT] = {
-  "HETBISWYBRC",
-  "RTIENMMUHLC",
-  "VIJFCWKWART",
-  "OVERXTTXLVB",
-  "QKEVOORTFIG",
-  "DRIEKBZEVEN",
-  "VTTIENELNRC",
-  "TWAALFSFRSF",
-  "EENEGENACHT",
-  "XEVIJFJXUUR",
-  "..-.-.-.-.."
-};
-
-static const uint16_t EXTRA_MINUTES_CLASSIC[] = {
-  static_cast<uint16_t>(LED_COUNT_GRID + 7),
-  static_cast<uint16_t>(LED_COUNT_GRID + 9),
-  static_cast<uint16_t>(LED_COUNT_GRID + 11),
-  static_cast<uint16_t>(LED_COUNT_GRID + 13)
-};
-
-static const WordPosition WORDS_CLASSIC[] = {
-  { "HET",         { 1, 2, 3 } },
-  { "IS",          { 5, 6 } },
-  { "VIJF_M",      { 31, 32, 33, 34 } },
-  { "TIEN_M",      { 25, 24, 23, 22 } },
-  { "OVER",        { 56, 55, 54, 53 } },
-  { "VOOR",        { 64, 65, 66, 67 } },
-  { "KWART",       { 37, 38, 39, 40, 41 } },
-  { "HALF",        { 18, 39, 48, 69 } },
-  { "UUR",         { 138, 137, 136 } },
-  { "EEN",         { 121, 122, 123 } },
-  { "TWEE",        { 92, 115, 122, 145 } },
-  { "DRIE",        { 86, 85, 84, 83 } },
-  { "VIER",        { 47, 70, 77, 100 } },
-  { "VIJF",        { 144, 143, 142, 141 } },
-  { "ZES",         { 80, 97, 110 } },
-  { "ZEVEN",       { 80, 79, 78, 77, 76 } },
-  { "ACHT",        { 128, 129, 130, 131 } },
-  { "NEGEN",       { 123, 124, 125, 126, 127 } },
-  { "TIEN",        { 93, 94, 95, 96 } },
-  { "ELF",         { 79, 98, 109 } },
-  { "TWAALF",      { 116, 115, 114, 113, 112, 111 } }
-};
-
-// Placeholder variants (copy of classic). Replace LETTER_GRID_*,
-// EXTRA_MINUTES_* and WORDS_* with the correct mappings for each clock type.
-static const char* const LETTER_GRID_VARIANT_B[GRID_HEIGHT] = {
-  "HETBISWYBRC",
-  "RTIENMMUHLC",
-  "VIJFCWKWART",
-  "OVERXTTXLVB",
-  "QKEVOORTFIG",
-  "DRIEKBZEVEN",
-  "VTTIENELNRC",
-  "TWAALFSFRSF",
-  "EENEGENACHT",
-  "XEVIJFJXUUR",
-  "..-.-.-.-.."
-};
-
-static const uint16_t EXTRA_MINUTES_VARIANT_B[] = {
-  static_cast<uint16_t>(LED_COUNT_GRID + 7),
-  static_cast<uint16_t>(LED_COUNT_GRID + 9),
-  static_cast<uint16_t>(LED_COUNT_GRID + 11),
-  static_cast<uint16_t>(LED_COUNT_GRID + 13)
-};
-
-static const WordPosition WORDS_VARIANT_B[] = {
-  { "HET",         { 1, 2, 3 } },
-  { "IS",          { 5, 6 } },
-  { "VIJF_M",      { 31, 32, 33, 34 } },
-  { "TIEN_M",      { 25, 24, 23, 22 } },
-  { "OVER",        { 56, 55, 54, 53 } },
-  { "VOOR",        { 64, 65, 66, 67 } },
-  { "KWART",       { 37, 38, 39, 40, 41 } },
-  { "HALF",        { 18, 39, 48, 69 } },
-  { "UUR",         { 138, 137, 136 } },
-  { "EEN",         { 121, 122, 123 } },
-  { "TWEE",        { 92, 115, 122, 145 } },
-  { "DRIE",        { 86, 85, 84, 83 } },
-  { "VIER",        { 47, 70, 77, 100 } },
-  { "VIJF",        { 144, 143, 142, 141 } },
-  { "ZES",         { 80, 97, 110 } },
-  { "ZEVEN",       { 80, 79, 78, 77, 76 } },
-  { "ACHT",        { 128, 129, 130, 131 } },
-  { "NEGEN",       { 123, 124, 125, 126, 127 } },
-  { "TIEN",        { 93, 94, 95, 96 } },
-  { "ELF",         { 79, 98, 109 } },
-  { "TWAALF",      { 116, 115, 114, 113, 112, 111 } }
-};
-
-static const char* const LETTER_GRID_VARIANT_C[GRID_HEIGHT] = {
-  "HETBISWYBRC",
-  "RTIENMMUHLC",
-  "VIJFCWKWART",
-  "OVERXTTXLVB",
-  "QKEVOORTFIG",
-  "DRIEKBZEVEN",
-  "VTTIENELNRC",
-  "TWAALFSFRSF",
-  "EENEGENACHT",
-  "XEVIJFJXUUR",
-  "..-.-.-.-.."
-};
-
-static const uint16_t EXTRA_MINUTES_VARIANT_C[] = {
-  static_cast<uint16_t>(LED_COUNT_GRID + 7),
-  static_cast<uint16_t>(LED_COUNT_GRID + 9),
-  static_cast<uint16_t>(LED_COUNT_GRID + 11),
-  static_cast<uint16_t>(LED_COUNT_GRID + 13)
-};
-
-static const WordPosition WORDS_VARIANT_C[] = {
-  { "HET",         { 1, 2, 3 } },
-  { "IS",          { 5, 6 } },
-  { "VIJF_M",      { 31, 32, 33, 34 } },
-  { "TIEN_M",      { 25, 24, 23, 22 } },
-  { "OVER",        { 56, 55, 54, 53 } },
-  { "VOOR",        { 64, 65, 66, 67 } },
-  { "KWART",       { 37, 38, 39, 40, 41 } },
-  { "HALF",        { 18, 39, 48, 69 } },
-  { "UUR",         { 138, 137, 136 } },
-  { "EEN",         { 121, 122, 123 } },
-  { "TWEE",        { 92, 115, 122, 145 } },
-  { "DRIE",        { 86, 85, 84, 83 } },
-  { "VIER",        { 47, 70, 77, 100 } },
-  { "VIJF",        { 144, 143, 142, 141 } },
-  { "ZES",         { 80, 97, 110 } },
-  { "ZEVEN",       { 80, 79, 78, 77, 76 } },
-  { "ACHT",        { 128, 129, 130, 131 } },
-  { "NEGEN",       { 123, 124, 125, 126, 127 } },
-  { "TIEN",        { 93, 94, 95, 96 } },
-  { "ELF",         { 79, 98, 109 } },
-  { "TWAALF",      { 116, 115, 114, 113, 112, 111 } }
-};
-
-static const char* const LETTER_GRID_VARIANT_D[GRID_HEIGHT] = {
-  "HETBISWYBRC",
-  "RTIENMMUHLC",
-  "VIJFCWKWART",
-  "OVERXTTXLVB",
-  "QKEVOORTFIG",
-  "DRIEKBZEVEN",
-  "VTTIENELNRC",
-  "TWAALFSFRSF",
-  "EENEGENACHT",
-  "XEVIJFJXUUR",
-  "..-.-.-.-.."
-};
-
-static const uint16_t EXTRA_MINUTES_VARIANT_D[] = {
-  static_cast<uint16_t>(LED_COUNT_GRID + 7),
-  static_cast<uint16_t>(LED_COUNT_GRID + 9),
-  static_cast<uint16_t>(LED_COUNT_GRID + 11),
-  static_cast<uint16_t>(LED_COUNT_GRID + 13)
-};
-
-static const WordPosition WORDS_VARIANT_D[] = {
-  { "HET",         { 1, 2, 3 } },
-  { "IS",          { 5, 6 } },
-  { "VIJF_M",      { 31, 32, 33, 34 } },
-  { "TIEN_M",      { 25, 24, 23, 22 } },
-  { "OVER",        { 56, 55, 54, 53 } },
-  { "VOOR",        { 64, 65, 66, 67 } },
-  { "KWART",       { 37, 38, 39, 40, 41 } },
-  { "HALF",        { 18, 39, 48, 69 } },
-  { "UUR",         { 138, 137, 136 } },
-  { "EEN",         { 121, 122, 123 } },
-  { "TWEE",        { 92, 115, 122, 145 } },
-  { "DRIE",        { 86, 85, 84, 83 } },
-  { "VIER",        { 47, 70, 77, 100 } },
-  { "VIJF",        { 144, 143, 142, 141 } },
-  { "ZES",         { 80, 97, 110 } },
-  { "ZEVEN",       { 80, 79, 78, 77, 76 } },
-  { "ACHT",        { 128, 129, 130, 131 } },
-  { "NEGEN",       { 123, 124, 125, 126, 127 } },
-  { "TIEN",        { 93, 94, 95, 96 } },
-  { "ELF",         { 79, 98, 109 } },
-  { "TWAALF",      { 116, 115, 114, 113, 112, 111 } }
-};
-
 static const GridVariantData GRID_VARIANTS[] = {
-  { GridVariant::Classic, "classic", "Standaard grid", LETTER_GRID_CLASSIC, countof(LETTER_GRID_CLASSIC), WORDS_CLASSIC, countof(WORDS_CLASSIC), EXTRA_MINUTES_CLASSIC, countof(EXTRA_MINUTES_CLASSIC) },
-  { GridVariant::VariantB, "variant-b", "Variant B", LETTER_GRID_VARIANT_B, countof(LETTER_GRID_VARIANT_B), WORDS_VARIANT_B, countof(WORDS_VARIANT_B), EXTRA_MINUTES_VARIANT_B, countof(EXTRA_MINUTES_VARIANT_B) },
-  { GridVariant::VariantC, "variant-c", "Variant C", LETTER_GRID_VARIANT_C, countof(LETTER_GRID_VARIANT_C), WORDS_VARIANT_C, countof(WORDS_VARIANT_C), EXTRA_MINUTES_VARIANT_C, countof(EXTRA_MINUTES_VARIANT_C) },
-  { GridVariant::VariantD, "variant-d", "Variant D", LETTER_GRID_VARIANT_D, countof(LETTER_GRID_VARIANT_D), WORDS_VARIANT_D, countof(WORDS_VARIANT_D), EXTRA_MINUTES_VARIANT_D, countof(EXTRA_MINUTES_VARIANT_D) }
+  { GridVariant::NL_V1, "NL_V1", "Nederlands V1 (Standaard)", "nl", "v1", LED_COUNT_GRID_NL_V1, LED_COUNT_EXTRA_NL_V1, LED_COUNT_TOTAL_NL_V1, LETTER_GRID_NL_V1, WORDS_NL_V1, WORDS_NL_V1_COUNT, EXTRA_MINUTES_NL_V1, EXTRA_MINUTES_NL_V1_COUNT },
+  { GridVariant::NL_V2, "NL_V2", "Nederlands V2", "nl", "v2", LED_COUNT_GRID_NL_V2, LED_COUNT_EXTRA_NL_V2, LED_COUNT_TOTAL_NL_V2, LETTER_GRID_NL_V2, WORDS_NL_V2, WORDS_NL_V2_COUNT, EXTRA_MINUTES_NL_V2, EXTRA_MINUTES_NL_V2_COUNT },
+  { GridVariant::NL_V3, "NL_V3", "Nederlands V3", "nl", "v3", LED_COUNT_GRID_NL_V3, LED_COUNT_EXTRA_NL_V3, LED_COUNT_TOTAL_NL_V3, LETTER_GRID_NL_V3, WORDS_NL_V3, WORDS_NL_V3_COUNT, EXTRA_MINUTES_NL_V3, EXTRA_MINUTES_NL_V3_COUNT },
+  { GridVariant::NL_V4, "NL_V4", "Nederlands V4", "nl", "v4", LED_COUNT_GRID_NL_V4, LED_COUNT_EXTRA_NL_V4, LED_COUNT_TOTAL_NL_V4, LETTER_GRID_NL_V4, WORDS_NL_V4, WORDS_NL_V4_COUNT, EXTRA_MINUTES_NL_V4, EXTRA_MINUTES_NL_V4_COUNT },
+  { GridVariant::EN_V1, "EN_V1", "English V1", "en", "v1", LED_COUNT_GRID_EN_V1, LED_COUNT_EXTRA_EN_V1, LED_COUNT_TOTAL_EN_V1, LETTER_GRID_EN_V1, WORDS_EN_V1, WORDS_EN_V1_COUNT, EXTRA_MINUTES_EN_V1, EXTRA_MINUTES_EN_V1_COUNT }
 };
 
 static const GridVariantData* activeVariant = &GRID_VARIANTS[0];
@@ -249,11 +72,11 @@ const GridVariantData* findVariantByKey(const char* key) {
 } // namespace
 
 // Public state
-const char* const* LETTER_GRID = LETTER_GRID_CLASSIC;
-const WordPosition* ACTIVE_WORDS = WORDS_CLASSIC;
-size_t ACTIVE_WORD_COUNT = countof(WORDS_CLASSIC);
-const uint16_t* EXTRA_MINUTE_LEDS = EXTRA_MINUTES_CLASSIC;
-size_t EXTRA_MINUTE_LED_COUNT = countof(EXTRA_MINUTES_CLASSIC);
+const char* const* LETTER_GRID = LETTER_GRID_NL_V1;
+const WordPosition* ACTIVE_WORDS = WORDS_NL_V1;
+size_t ACTIVE_WORD_COUNT = WORDS_NL_V1_COUNT;
+const uint16_t* EXTRA_MINUTE_LEDS = EXTRA_MINUTES_NL_V1;
+size_t EXTRA_MINUTE_LED_COUNT = EXTRA_MINUTES_NL_V1_COUNT;
 
 GridVariant getActiveGridVariant() {
   return activeVariant->variant;
@@ -302,12 +125,26 @@ uint8_t gridVariantToId(GridVariant variant) {
   return 0;
 }
 
+uint16_t getActiveLedCountGrid() {
+  return activeVariant->ledCountGrid;
+}
+
+uint16_t getActiveLedCountExtra() {
+  return activeVariant->ledCountExtra;
+}
+
+uint16_t getActiveLedCountTotal() {
+  return activeVariant->ledCountTotal;
+}
+
 const GridVariantInfo* getGridVariantInfos(size_t& count) {
   static GridVariantInfo infos[countof(GRID_VARIANTS)];
   for (size_t i = 0; i < countof(GRID_VARIANTS); ++i) {
     infos[i].variant = GRID_VARIANTS[i].variant;
     infos[i].key = GRID_VARIANTS[i].key;
     infos[i].label = GRID_VARIANTS[i].label;
+    infos[i].language = GRID_VARIANTS[i].language;
+    infos[i].version = GRID_VARIANTS[i].version;
   }
   count = countof(GRID_VARIANTS);
   return infos;
@@ -320,6 +157,8 @@ const GridVariantInfo* getGridVariantInfo(GridVariant variant) {
       info.variant = GRID_VARIANTS[i].variant;
       info.key = GRID_VARIANTS[i].key;
       info.label = GRID_VARIANTS[i].label;
+      info.language = GRID_VARIANTS[i].language;
+      info.version = GRID_VARIANTS[i].version;
       return &info;
     }
   }

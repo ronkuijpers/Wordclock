@@ -350,13 +350,15 @@ void setupWebRoutes() {
   // Grid variant endpoints
   server.on("/getGridVariant", []() {
     if (!ensureUiAuth()) return;
-    StaticJsonDocument<128> doc;
+    JsonDocument doc;
     GridVariant variant = displaySettings.getGridVariant();
     doc["id"] = gridVariantToId(variant);
     const GridVariantInfo* info = getGridVariantInfo(variant);
     if (info) {
       doc["key"] = info->key;
       doc["label"] = info->label;
+      doc["language"] = info->language;
+      doc["version"] = info->version;
     }
     String out;
     serializeJson(doc, out);
@@ -367,14 +369,16 @@ void setupWebRoutes() {
     if (!ensureUiAuth()) return;
     size_t count = 0;
     const GridVariantInfo* infos = getGridVariantInfos(count);
-    StaticJsonDocument<512> doc;
+    JsonDocument doc;
     JsonArray arr = doc.to<JsonArray>();
     GridVariant active = displaySettings.getGridVariant();
     for (size_t i = 0; i < count; ++i) {
-      JsonObject o = arr.createNestedObject();
+      JsonObject o = arr.add<JsonObject>();
       o["id"] = gridVariantToId(infos[i].variant);
       o["key"] = infos[i].key;
       o["label"] = infos[i].label;
+      o["language"] = infos[i].language;
+      o["version"] = infos[i].version;
       o["active"] = (infos[i].variant == active);
     }
     String out;
@@ -414,13 +418,15 @@ void setupWebRoutes() {
       logInfo(String("🧩 Grid variant updated to ") + info->label + " (" + info->key + ")");
     }
 
-    StaticJsonDocument<128> doc;
+    JsonDocument doc;
     GridVariant variant = displaySettings.getGridVariant();
     doc["id"] = gridVariantToId(variant);
     const GridVariantInfo* info = getGridVariantInfo(variant);
     if (info) {
       doc["key"] = info->key;
       doc["label"] = info->label;
+      doc["language"] = info->language;
+      doc["version"] = info->version;
     }
     String out;
     serializeJson(doc, out);
