@@ -44,6 +44,10 @@ static String tHeap, tWifiChan, tBootReason, tResetCount;
 static unsigned long lastReconnectAttempt = 0;
 static unsigned long lastStateAt = 0;
 static const unsigned long STATE_INTERVAL_MS = 30000; // 30s
+static const unsigned long RECONNECT_DELAY_MIN_MS = 2000;
+static const unsigned long RECONNECT_DELAY_MAX_MS = 60000;
+static unsigned long reconnectDelayMs = RECONNECT_DELAY_MIN_MS;
+static uint8_t reconnectAttempts = 0;
 
 static void buildTopics() {
   base = g_mqttCfg.baseTopic;
@@ -362,8 +366,15 @@ static void handleMessage(char* topic, byte* payload, unsigned int length) {
 
 static bool mqtt_connect() {
   if (mqtt.connected()) return true;
-  if (WiFi.status() != WL_CONNECTED) return false;
-  if (g_mqttCfg.host.length() == 0 || g_mqttCfg.port == 0) return false; // not configured yet
+  if (WiFi.status() != WL_CONNECTED) {
+    g_lastErr = "WiFi not connected";
+    return false;
+  }
+  if (g_mqttCfg.host.length() == 0 || g_mqttCfg.port == 0) {
+    g_lastErr = "MQTT not configured";
+    logInfo("MQTT connect skipped: no broker configured");
+    return false; // not configured yet
+  }
 
   // Compute unique id based on MAC
   if (uniqId.isEmpty()) {
@@ -406,6 +417,8 @@ static bool mqtt_connect() {
   mqtt_publish_state(true);
   g_connected = true;
   g_lastErr = "";
+  reconnectAttempts = 0;
+  reconnectDelayMs = RECONNECT_DELAY_MIN_MS;
   return true;
 }
 
@@ -414,6 +427,9 @@ void mqtt_begin() {
   mqtt_settings_load(g_mqttCfg);
   mqtt.setServer(g_mqttCfg.host.c_str(), g_mqttCfg.port);
   mqtt.setCallback(handleMessage);
+  reconnectDelayMs = RECONNECT_DELAY_MIN_MS;
+  reconnectAttempts = 0;
+  lastReconnectAttempt = 0;
   // Bump reset counter (persisted), and cache boot reason string
   g_bootReasonStr = reset_reason_to_str(esp_reset_reason());
   Preferences p;
@@ -429,10 +445,21 @@ void mqtt_begin() {
 void mqtt_loop() {
   if (!mqtt.connected()) {
     unsigned long now = millis();
-    if (now - lastReconnectAttempt > 2000) {
+    if (now - lastReconnectAttempt >= reconnectDelayMs) {
       lastReconnectAttempt = now;
       if (!mqtt_connect()) {
         g_connected = false;
+        if (reconnectDelayMs < RECONNECT_DELAY_MIN_MS) reconnectDelayMs = RECONNECT_DELAY_MIN_MS;
+        if (reconnectAttempts < 255) reconnectAttempts++;
+        unsigned long nextDelay = reconnectDelayMs * 2;
+        if (nextDelay > RECONNECT_DELAY_MAX_MS) nextDelay = RECONNECT_DELAY_MAX_MS;
+        uint32_t jitter = esp_random() % RECONNECT_DELAY_MIN_MS;
+        unsigned long jittered = nextDelay + jitter;
+        if (jittered > RECONNECT_DELAY_MAX_MS) jittered = RECONNECT_DELAY_MAX_MS;
+        reconnectDelayMs = jittered;
+        String warnMsg = String("MQTT reconnect failed (") + (g_lastErr.length() ? g_lastErr : String("unknown")) +
+                         "); retry in " + reconnectDelayMs + " ms";
+        logWarn(warnMsg);
       }
     }
     return;
@@ -465,5 +492,7 @@ void mqtt_apply_settings(const MqttSettings& s) {
 
   // Recompute topics based on new base/discovery
   buildTopics();
+  reconnectDelayMs = RECONNECT_DELAY_MIN_MS;
+  reconnectAttempts = 0;
   lastReconnectAttempt = 0; // trigger immediate reconnect in loop
 }

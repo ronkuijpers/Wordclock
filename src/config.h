@@ -3,8 +3,8 @@
 #define LOG_BUFFER_SIZE 150
 #pragma once
 
-#define FIRMWARE_VERSION "0.7"
-#define UI_VERSION "0.7"
+#define FIRMWARE_VERSION "0.8"
+#define UI_VERSION "0.8"
 
 #define NUM_LEDS 161
 #define DATA_PIN 4

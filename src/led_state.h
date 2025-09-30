@@ -12,7 +12,7 @@ public:
     green = prefs.getUChar("g", 0);
     blue  = prefs.getUChar("b", 0);
     white = prefs.getUChar("w", 255);
-    brightness = prefs.getUChar("br", 128);
+    brightness = prefs.getUChar("br", 64);
     prefs.end();
   }
 
@@ -44,7 +44,7 @@ public:
 
 private:
   uint8_t red = 0, green = 0, blue = 0, white = 255;
-  uint8_t brightness = 128;
+  uint8_t brightness = 64;
   Preferences prefs;
 };
 

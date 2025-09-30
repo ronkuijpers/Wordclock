@@ -4,6 +4,7 @@
 #include <Update.h>
 #include <WebServer.h>
 #include <esp_system.h>
+#include <ctype.h>
 #include <PubSubClient.h>
 #include <ArduinoJson.h>
 #include "secrets.h"
@@ -515,12 +516,20 @@ void setupWebRoutes() {
       return;
     }
     String hex = server.arg("color");  // "RRGGBB"
-    if (hex.length() != 6) {
+    String filtered;
+    filtered.reserve(hex.length());
+    for (size_t i = 0; i < hex.length(); ++i) {
+      char c = hex.charAt(i);
+      if (isxdigit(static_cast<unsigned char>(c))) {
+        filtered += static_cast<char>(toupper(static_cast<unsigned char>(c)));
+      }
+    }
+    if (filtered.length() != 6) {
       server.send(400, "text/plain", "Invalid color");
       return;
     }
-  
-    long val = strtol(hex.c_str(), nullptr, 16);
+
+    long val = strtol(filtered.c_str(), nullptr, 16);
     uint8_t r = (val >> 16) & 0xFF;
     uint8_t g = (val >> 8) & 0xFF;
     uint8_t b =  val       & 0xFF;

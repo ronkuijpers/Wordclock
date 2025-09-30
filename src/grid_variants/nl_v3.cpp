@@ -22,10 +22,10 @@ const char* const LETTER_GRID_NL_V3[] = {
 };
 
 const uint16_t EXTRA_MINUTES_NL_V3[] = {
-  static_cast<uint16_t>(LED_COUNT_GRID_NL_V3 + 7),
-  static_cast<uint16_t>(LED_COUNT_GRID_NL_V3 + 9),
+  static_cast<uint16_t>(LED_COUNT_GRID_NL_V3 + 13),
   static_cast<uint16_t>(LED_COUNT_GRID_NL_V3 + 11),
-  static_cast<uint16_t>(LED_COUNT_GRID_NL_V3 + 13)
+  static_cast<uint16_t>(LED_COUNT_GRID_NL_V3 + 9),
+  static_cast<uint16_t>(LED_COUNT_GRID_NL_V3 + 7)
 };
 
 const WordPosition WORDS_NL_V3[] = {

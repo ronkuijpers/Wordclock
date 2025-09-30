@@ -1,14 +1,14 @@
 {
-  "version": "0.7",
-  "released": "2025-09-16T20:00:00Z",
-  "firmware": "https://github.com/ronkuijpers/Wordclock/releases/download/v0.7/wordclock-v0.7.bin",
+  "version": "0.8",
+  "released": "2025-09-30T20:00:00Z",
+  "firmware": "https://github.com/ronkuijpers/Wordclock/releases/download/v0.8/wordclock-v0.8.bin",
   "files": [
-    { "path": "/admin.html",    "url": "https://raw.githubusercontent.com/ronkuijpers/Wordclock/v0.7/data/admin.html",    "sha256": "xxx" },
-    { "path": "/changepw.html", "url": "https://raw.githubusercontent.com/ronkuijpers/Wordclock/v0.7/data/changepw.html", "sha256": "xxx" },
-    { "path": "/dashboard.html","url": "https://raw.githubusercontent.com/ronkuijpers/Wordclock/v0.7/data/dashboard.html","sha256": "xxx" },
-    { "path": "/forgot.html",   "url": "https://raw.githubusercontent.com/ronkuijpers/Wordclock/v0.7/data/forgot.html",   "sha256": "xxx" },
-    { "path": "/login.html",    "url": "https://raw.githubusercontent.com/ronkuijpers/Wordclock/v0.7/data/login.html",    "sha256": "xxx" },
-    { "path": "/mqtt.html",    "url": "https://raw.githubusercontent.com/ronkuijpers/Wordclock/v0.7/data/mqtt.html",    "sha256": "xxx" },
-    { "path": "/update.html",   "url": "https://raw.githubusercontent.com/ronkuijpers/Wordclock/v0.7/data/update.html",   "sha256": "xxx" }
+    { "path": "/admin.html",    "url": "https://raw.githubusercontent.com/ronkuijpers/Wordclock/v0.8/data/admin.html",    "sha256": "xxx" },
+    { "path": "/changepw.html", "url": "https://raw.githubusercontent.com/ronkuijpers/Wordclock/v0.8/data/changepw.html", "sha256": "xxx" },
+    { "path": "/dashboard.html","url": "https://raw.githubusercontent.com/ronkuijpers/Wordclock/v0.8/data/dashboard.html","sha256": "xxx" },
+    { "path": "/forgot.html",   "url": "https://raw.githubusercontent.com/ronkuijpers/Wordclock/v0.8/data/forgot.html",   "sha256": "xxx" },
+    { "path": "/login.html",    "url": "https://raw.githubusercontent.com/ronkuijpers/Wordclock/v0.8/data/login.html",    "sha256": "xxx" },
+    { "path": "/mqtt.html",    "url": "https://raw.githubusercontent.com/ronkuijpers/Wordclock/v0.8/data/mqtt.html",    "sha256": "xxx" },
+    { "path": "/update.html",   "url": "https://raw.githubusercontent.com/ronkuijpers/Wordclock/v0.8/data/update.html",   "sha256": "xxx" }
   ]
 }

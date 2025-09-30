@@ -3,6 +3,8 @@
 
 #include "grid_layout.h"
 
+constexpr GridVariant FIRMWARE_DEFAULT_GRID_VARIANT = GridVariant::NL_V4;
+
 class DisplaySettings {
 public:
   void begin() {
@@ -12,7 +14,7 @@ public:
     sellMode = prefs.getBool("sell_on", false);
     animateWords = prefs.getBool("anim_on", false); // default OFF unless enabled via UI
     autoUpdate = prefs.getBool("auto_upd", true);
-    const uint8_t defaultVariantId = gridVariantToId(GridVariant::NL_V1);
+    const uint8_t defaultVariantId = gridVariantToId(FIRMWARE_DEFAULT_GRID_VARIANT);
     const bool hasGridKey = prefs.isKey("grid_id");
     uint8_t storedVariant = prefs.getUChar("grid_id", defaultVariantId);
     if (!hasGridKey) {
@@ -23,7 +25,7 @@ public:
 
     gridVariant = gridVariantFromId(storedVariant);
     if (!setActiveGridVariant(gridVariant)) {
-      gridVariant = GridVariant::NL_V1;
+      gridVariant = FIRMWARE_DEFAULT_GRID_VARIANT;
       setActiveGridVariant(gridVariant);
       prefs.begin("display", false);
       prefs.putUChar("grid_id", defaultVariantId);
@@ -90,7 +92,7 @@ private:
   bool sellMode = false;
   bool animateWords = false; // default OFF
   bool autoUpdate = true;    // default ON to keep current behavior
-  GridVariant gridVariant = GridVariant::NL_V1;
+  GridVariant gridVariant = FIRMWARE_DEFAULT_GRID_VARIANT;
   Preferences prefs;
 };
 

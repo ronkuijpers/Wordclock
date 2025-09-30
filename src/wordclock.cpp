@@ -3,11 +3,42 @@
 #include "led_state.h"
 #include "grid_layout.h"
 #include "display_settings.h"
+#include "time_sync.h"
 
 
 
 static bool g_forceAnim = false;
 static struct tm g_forcedTime = {};
+static unsigned long g_noTimeIndicatorStart = 0;
+static std::vector<uint16_t> g_noTimeIndicatorLeds;
+static bool g_loggedInitialTimeFailure = false;
+
+static void ensureNoTimeIndicatorLeds() {
+  if (!g_noTimeIndicatorLeds.empty()) return;
+  size_t count = EXTRA_MINUTE_LED_COUNT >= 4 ? 4 : EXTRA_MINUTE_LED_COUNT;
+  for (size_t i = 0; i < count; ++i) {
+    g_noTimeIndicatorLeds.push_back(EXTRA_MINUTE_LEDS[i]);
+  }
+}
+
+static void showNoTimeIndicator(unsigned long nowMs) {
+  ensureNoTimeIndicatorLeds();
+  if (g_noTimeIndicatorStart == 0) {
+    g_noTimeIndicatorStart = nowMs;
+  }
+  const unsigned long elapsed = nowMs - g_noTimeIndicatorStart;
+  const unsigned long phase = elapsed % 5000UL; // 5 second cycle
+  if (phase < 500UL) {
+    showLeds(g_noTimeIndicatorLeds);
+  } else {
+    showLeds({});
+  }
+}
+
+static void resetNoTimeIndicator() {
+  g_noTimeIndicatorStart = 0;
+  g_noTimeIndicatorLeds.clear();
+}
 
 void wordclock_setup() {
   // ledState.begin() is initialized in main
@@ -31,6 +62,7 @@ void wordclock_loop() {
   if (!clockEnabled) {
     animating = false;
     showLeds({});
+    resetNoTimeIndicator();
     return;
   }
 
@@ -42,11 +74,21 @@ void wordclock_loop() {
       cachedTime = t;
       haveTime = true;
       lastTimeFetchMs = nowMs;
+      g_initialTimeSyncSucceeded = true;
+      g_loggedInitialTimeFailure = false;
+      resetNoTimeIndicator();
     } else if (!haveTime) {
-      // No cached time yet and failed to fetch; skip this cycle
-      logError("❌ Failed to get time");
+      if (!g_loggedInitialTimeFailure) {
+        logWarn("❗ Unable to fetch time; showing no-time indicator");
+        g_loggedInitialTimeFailure = true;
+      }
+      showNoTimeIndicator(nowMs);
       return;
     }
+  }
+  if (!haveTime) {
+    showNoTimeIndicator(nowMs);
+    return;
   }
   struct tm timeinfo = cachedTime;
 
