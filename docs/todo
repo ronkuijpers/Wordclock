@@ -1,102 +1,41 @@
-
-
 # Openstaande taken
-* Initiele (factory) helderheid 25%
 
-Here’s a focused review with concrete optimizations and functional improvement ideas. I’ve grouped them by area and pointed to exact files/lines for context.
-Security
-* Basic Auth over HTTP: credentials expose on LAN.
-    * Option A (recommended): terminate TLS on a local reverse proxy (Caddy/Nginx) and keep device HTTP-only.
-    * Option B (device TLS): heavy RAM/flash cost and self-signed UX friction; only consider if absolutely required.
-* OTA integrity verification is stubbed.
-    * File integrity: implement SHA-256 verification instead of returning true.
-        * src/ota_updater.cpp:33 and src/ota_updater.cpp:61
-    * TLS verification: you’re using setInsecure(). Pin the GitHub CA or the specific cert fingerprint.
-        * src/ota_updater.cpp:19, src/ota_updater.cpp:80
-* Add CSRF protection and method tightening.
-    * Convert state-changing GET endpoints to POST (e.g., /toggle, /setColor, etc.) and add a CSRF token header checked server-side.
-        * src/web_routes.h:214, src/web_routes.h:337
-Reliability
-* MQTT reconnection backoff: add exponential backoff/jitter to avoid tight loops during outages.
-    * src/mqtt_client.cpp:289, src/mqtt_client.cpp:310
-* Guard unconfigured MQTT at boot is good; also emit a clear log when skipping connect.
-    * src/mqtt_client.cpp:277
-* Time acquisition loops block.
-    * Add a max wait or timeout path in NTP init to avoid indefinite wait if NTP unreachable.
-        * src/time_sync.h:10
-* Heap fragmentation via ArduinoJson default allocations.
-    * Use StaticJsonDocument with fixed capacity in hot paths (light state/discovery).
-        * src/mqtt_client.cpp:120, src/mqtt_client.cpp:140, src/mqtt_client.cpp:201, src/mqtt_client.cpp:213
-* SPIFFS choice: LittleFS is more robust for wear-leveling.
-    * Consider switching to LittleFS when stable.
-        * src/fs_compat.h:6
-Performance
-* Reuse JSON buffers and avoid repeated heap allocs.
-    * Create one StaticJsonDocument per scope and reuse it for multiple publishes in mqtt_client.
-* Gzip static assets already prepared; enable serving them.
-    * Respect Accept-Encoding: gzip and serve .gz files to reduce transfer and render time.
-        * src/web_routes.h:26 (set acceptGzip true on header presence and stream .gz variant)
-Maintainability
-* English log/UI consistency: remaining Dutch logs can be normalized.
-    * src/wordclock.cpp:34, src/web_routes.h:376
-* Group config constants and defaults.
-    * src/config.h has many tunables; add short comments with rationale and acceptable ranges.
-Functional Enhancements
-* Updates
-    * Add manual “Sync UI files” button invoking syncFilesFromManifest(); show results.
-        * src/web_routes.h add /syncUI protected endpoint
-* Logging
-    * Add log download endpoint and daily rotation in Preferences or FS.
-        * New endpoint /log/download serving a text snapshot.
-Correctness / Edge Cases
-* Boot timestamp math is solid but handle NTP time jumps.
-    * Freeze boot time when first valid; you already do this — good. Log when time becomes valid.
-        * src/mqtt_client.cpp:247
-* Brightness and color endpoints accept GET and lack bounds/auth in some places; auth exists — good, bounds checked — good.
-    * For /setColor, strip invalid hex characters proactively.
-        * src/web_routes.h:334
-DX/Build
-* Enable gzip serving to match tools/gzip_data.py workflow.
-    * src/web_routes.h:26
-* Add a “build info” endpoint to capture PlatformIO env, compile time, git short SHA to help debugging.
-    * New endpoint /buildinfo.
-Proposed concrete changes (minimal diffs)
-* Enable gzip response
-    * src/web_routes.h:26: detect Accept-Encoding and serve *.gz when present.
-* Implement SHA-256 verification
-    * src/ota_updater.cpp:33: compute digest with mbedTLS or ArduinoHash; compare to manifest sha256.
-* Switch JSON to static docs in hot paths
-    * Replace JsonDocument doc; with StaticJsonDocument<768> doc; (adjust size per payload) in:
-        * src/mqtt_client.cpp:120, src/mqtt_client.cpp:140, src/mqtt_client.cpp:201, src/mqtt_client.cpp:213
-* Add MQTT status endpoint
-    * src/web_routes.h new GET /api/mqtt/status returning {"connected":true/false}; track last error in mqtt_client.cpp.
-* Backoff on reconnect
-    * In src/mqtt_client.cpp:289, replace fixed 2s with exponential min/max and random jitter.
-If you’d like, I can implement a first slice now:
-* Gzip serving toggle
-* MQTT reconnect backoff with jitter
-* MQTT status endpoint
-* StaticJsonDocument in hot paths
-* OTA SHA-256 verification
+## Security
+- Basis-auth draait nog over HTTP; omzeil dit via een reverse proxy met TLS of implementeer device-side certificaten.
+- OTA: implementeer SHA-256 controle en pin een vertrouwd certificaat in `src/ota_updater.cpp`.
+- UI-endpoints die state wijzigen omzetten naar POST + CSRF-token (`src/web_routes.h`).
 
+## Reliability
+- ArduinoJson heapdruk beperken: vervang dynamische `JsonDocument` door `StaticJsonDocument` in MQTT hot paths (`src/mqtt_client.cpp`).
+- Overweeg migratie van SPIFFS naar LittleFS voor wear-levelling (`src/fs_compat.h`).
 
+## Performance & Flash footprint
+- Serveer UI-bestanden gecomprimeerd: detecteer `Accept-Encoding: gzip` en stream `.gz` varianten (`src/web_routes.h`).
+- Minimaliseer web-assets in SPIFFS (dubbele / niet-gebruikte bestanden verwijderen, waar mogelijk minified versies bewaren).
+- Activeer Link Time Optimization en controleer build-flags om firmwaregrootte te reduceren (PlatformIO `platformio.ini`).
 
+## Maintainability
+- Normaliseer resterende Nederlandstalige logregels / UI-strings naar Engels (`src/wordclock.cpp`, `src/web_routes.h`).
+- Documenteer kernconfiguratie en ranges in `src/config.h` (korte comments bij defines).
 
-# Afgerond / Gearchiveerd
+## Functional enhancements
+- Voeg een beveiligde `/syncUI` endpoint toe dat `syncFilesFromManifest()` triggert.
+- Voorzie een log-download endpoint (`/log/download`) en roteer logs dagelijks.
+- Publiceer een `/buildinfo` JSON met git SHA, buildtijd en PlatformIO environment.
+- Exposeer MQTT status via `/api/mqtt/status` met laatste foutmelding (`src/web_routes.h`, `src/mqtt_client.cpp`).
 
-- Verkooptijd knop (10.47) het is kwart voor elf en 2 min
-- Aan/uit direct werken ipv per minuut
-- De nul in het IP adres
-- Sequence IP 3 sec naar korter
-- 'het is' niet altijd tonen. Eerste x sec na wijziging?
-- bij tijd overgang woorden 1 voor 1 erbij en daarna het is uit
-- MQTT via UI in te stellen - elke klant heeft andere mqtt server draaien
-* Web UI
-    * Add a status card for MQTT connect state and last error (readable via a simple internal flag).
-        * Expose /api/mqtt/status returning {connected, last_error}.
-    * Add “Test connection” button on MQTT page to verify broker reachability without saving.
+# Afgerond / gearchiveerd
+- Verkooptijd-knop 10:47
+- Directe aan/uit bediening
+- IP-adres nul-fix
+- Verkorte IP-sequentie
+- Optioneel tonen van "HET IS"
+- Gefaseerde woordanimatie
+- MQTT-config via UI
+- MQTT reconnect backoff + logging
+- Kleurinvoer valideren voor `/setColor`
+- NTP timeout + indicator bij ontbrekende tijd
 
 # Overgeslagen
-
-- Opstart sequence hij licht ook de ledjes op die niet mee doen
-- startup sweep niet 1 voor 1
+- Opstartsequence licht ook niet-gebruikte LEDs op
+- Startup sweep niet per LED
