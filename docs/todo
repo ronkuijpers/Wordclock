@@ -17,6 +17,7 @@
 ## Maintainability
 - Normaliseer resterende Nederlandstalige logregels / UI-strings naar Engels (`src/wordclock.cpp`, `src/web_routes.h`).
 - Documenteer kernconfiguratie en ranges in `src/config.h` (korte comments bij defines).
+- UI Files worden elke nacht en restart gepulld. Werkt version check niet?
 
 ## Functional enhancements
 - Voeg een beveiligde `/syncUI` endpoint toe dat `syncFilesFromManifest()` triggert.
