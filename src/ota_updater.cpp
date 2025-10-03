@@ -136,8 +136,8 @@ void syncFilesFromManifest() {
                           : (doc["version"].is<const char*>() ? String(doc["version"].as<const char*>()) : String(""));
   const String currentFsVer = readFsVersion();
 
-  if (manifestVersion.length() && manifestVersion == currentFsVer && doc["files"].isNull()) {
-    logInfo("FS up-to-date (no files list).");
+  if (manifestVersion.length() && manifestVersion == currentFsVer) {
+    logInfo("UI up-to-date (version match).");
     return;
   }
 
@@ -150,7 +150,7 @@ void syncFilesFromManifest() {
     if (ok && manifestVersion.length()) writeFsVersion(manifestVersion);
     logInfo(ok ? "✅ UI files synced." : "⚠️ Some UI files failed.");
   } else {
-    logInfo("No file list in manifest; skipping FS sync.");
+    logInfo("No file list in manifest; skipping UI sync.");
   }
 }
 
@@ -229,4 +229,3 @@ void checkForFirmwareUpdate() {
     logError("❌ Update not finished");
   }
 }
-
