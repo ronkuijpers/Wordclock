@@ -25,6 +25,7 @@
 - Publiceer een `/buildinfo` JSON met git SHA, buildtijd en PlatformIO environment.
 - Exposeer MQTT status via `/api/mqtt/status` met laatste foutmelding (`src/web_routes.h`, `src/mqtt_client.cpp`).
 - Instelbaar via dashboard dat leds tussen bepaalde tijd uit gaat of lagere helderheid
+- Elke ncht tijd weer syncen met NTP
 
 # Afgerond / gearchiveerd
 - Verkooptijd-knop 10:47
