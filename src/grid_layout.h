@@ -12,6 +12,7 @@ enum class GridVariant : uint8_t {
   NL_V2,
   NL_V3,
   NL_V4,
+  NL_20x20_V1,
   EN_V1,
 };
 

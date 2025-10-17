@@ -1,13 +1,11 @@
-#include "grid_variants/nl_v1.h"
+#include "grid_variants/nl_20x20_v1.h"
 
-// Original grid - 4 leds on side to make the turns
+// Placeholder: NL_V4 currently reuses the NL_V1 grid until a dedicated layout is supplied.
+const uint16_t LED_COUNT_GRID_NL_20x20_V1 = 146;
+const uint16_t LED_COUNT_EXTRA_NL_20x20_V1 = 15;
+const uint16_t LED_COUNT_TOTAL_NL_20x20_V1 = LED_COUNT_GRID_NL_20x20_V1 + LED_COUNT_EXTRA_NL_20x20_V1;
 
-
-const uint16_t LED_COUNT_GRID_NL_V1 = 146;
-const uint16_t LED_COUNT_EXTRA_NL_V1 = 15;
-const uint16_t LED_COUNT_TOTAL_NL_V1 = LED_COUNT_GRID_NL_V1 + LED_COUNT_EXTRA_NL_V1;
-
-const char* const LETTER_GRID_NL_V1[] = {
+const char* const LETTER_GRID_NL_20x20_V1[] = {
   "HETBISWYBRC",
   "RTIENMMUHLC",
   "VIJFCWKWART",
@@ -21,14 +19,14 @@ const char* const LETTER_GRID_NL_V1[] = {
   "..-.-.-.-.."
 };
 
-const uint16_t EXTRA_MINUTES_NL_V1[] = {
-  static_cast<uint16_t>(LED_COUNT_GRID_NL_V1 + 7),
-  static_cast<uint16_t>(LED_COUNT_GRID_NL_V1 + 9),
-  static_cast<uint16_t>(LED_COUNT_GRID_NL_V1 + 11),
-  static_cast<uint16_t>(LED_COUNT_GRID_NL_V1 + 13)
+const uint16_t EXTRA_MINUTES_NL_20x20_V1[] = {
+  static_cast<uint16_t>(LED_COUNT_GRID_NL_20x20_V1 + 7),
+  static_cast<uint16_t>(LED_COUNT_GRID_NL_20x20_V1 + 9),
+  static_cast<uint16_t>(LED_COUNT_GRID_NL_20x20_V1 + 11),
+  static_cast<uint16_t>(LED_COUNT_GRID_NL_20x20_V1 + 13)
 };
 
-const WordPosition WORDS_NL_V1[] = {
+const WordPosition WORDS_NL_20x20_V1[] = {
   { "HET",         { 1, 2, 3 } },
   { "IS",          { 5, 6 } },
   { "VIJF_M",      { 31, 32, 33, 34 } },
@@ -52,5 +50,5 @@ const WordPosition WORDS_NL_V1[] = {
   { "TWAALF",      { 116, 115, 114, 113, 112, 111 } }
 };
 
-const size_t WORDS_NL_V1_COUNT = sizeof(WORDS_NL_V1) / sizeof(WORDS_NL_V1[0]);
-const size_t EXTRA_MINUTES_NL_V1_COUNT = sizeof(EXTRA_MINUTES_NL_V1) / sizeof(EXTRA_MINUTES_NL_V1[0]);
+const size_t WORDS_NL_20x20_V1_COUNT = sizeof(WORDS_NL_20x20_V1) / sizeof(WORDS_NL_20x20_V1[0]);
+const size_t EXTRA_MINUTES_NL_20x20_V1_COUNT = sizeof(EXTRA_MINUTES_NL_20x20_V1) / sizeof(EXTRA_MINUTES_NL_20x20_V1[0]);
