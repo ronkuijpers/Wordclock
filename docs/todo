@@ -20,12 +20,6 @@
 - UI Files worden elke nacht en restart gepulld. Werkt version check niet?
 
 ## Functional enhancements
-- [x] (In progress) Voeg een beveiligde `/syncUI` endpoint toe dat `syncFilesFromManifest()` triggert.
-- Voorzie een log-download endpoint (`/log/download`) en roteer logs dagelijks.
-- [x] Publiceer een `/buildinfo` JSON met git SHA, buildtijd en PlatformIO environment.
-- [x] Implementeer een automatische cleanup van log files na 30 dagen
-- [x] Exposeer MQTT status via `/api/mqtt/status` met laatste foutmelding (`src/web_routes.h`, `src/mqtt_client.cpp`).
-
 
 # Afgerond / gearchiveerd
 - Verkooptijd-knop 10:47
@@ -38,6 +32,11 @@
 - Kleurinvoer valideren voor `/setColor`
 - NTP timeout + indicator bij ontbrekende tijd
 - Instelbaar via dashboard dat leds tussen bepaalde tijd uit gaat of lagere helderheid
+- [x] (In progress) Voeg een beveiligde `/syncUI` endpoint toe dat `syncFilesFromManifest()` triggert.
+- [x] Voorzie een log-download endpoint (`/log/download`) en roteer logs dagelijks.
+- [x] Publiceer een `/buildinfo` JSON met git SHA, buildtijd en PlatformIO environment.
+- [x] Implementeer een automatische cleanup van log files na 30 dagen
+- [x] Exposeer MQTT status via `/api/mqtt/status` met laatste foutmelding (`src/web_routes.h`, `src/mqtt_client.cpp`).
 
 # Overgeslagen
 - Opstartsequence licht ook niet-gebruikte LEDs op
