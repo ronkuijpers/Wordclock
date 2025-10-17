@@ -69,6 +69,7 @@ void setup() {
   logError("SPIFFS mount failed.");
   } else {
   logDebug("SPIFFS loaded successfully.");
+  logEnableFileSink();
   }
 
   initWebServer(server);      // Webserver en routes

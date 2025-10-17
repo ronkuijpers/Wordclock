@@ -23,3 +23,6 @@ void logln(String msg, int level = LOG_LEVEL_INFO);
 
 void setLogLevel(LogLevel level);
 void initLogSettings();
+void logEnableFileSink();
+void logFlushFile();
+String logLatestFilePath();

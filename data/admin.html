@@ -26,7 +26,19 @@
         <a class="py-2 rounded bg-yellow-500 text-white text-center hover:bg-yellow-600" href="/restart">🔁 Restart</a>
         <a class="py-2 rounded bg-blue-500 text-white text-center hover:bg-blue-600" href="/resetwifi">📶 Reset WiFi</a>
         <a class="py-2 rounded bg-purple-500 text-white text-center hover:bg-purple-600" href="/startSequence">✨ Start Sequence</a>
-        <a class="py-2 rounded bg-gray-700 text-white text-center hover:bg-gray-800" href="#" id="updateBtnAdm">⬆️ Update</a>
+        <button class="py-2 rounded bg-gray-700 text-white text-center hover:bg-gray-800 relative" id="updateBtnAdm">
+          <span id="updateBtnLabel">⬆️ Update</span>
+          <span id="updateBtnMsg" class="block text-xs text-gray-200 mt-1"></span>
+        </button>
+      </div>
+
+      <div class="mt-4">
+        <button id="syncUiBtn" class="py-2 px-3 rounded bg-indigo-600 text-white hover:bg-indigo-700">🗂️ Sync UI files</button>
+        <p id="syncUiMsg" class="text-xs text-gray-600 mt-2"></p>
+      </div>
+
+      <div class="mt-2">
+        <a href="/logs.html" class="inline-block py-2 px-3 rounded bg-gray-200 text-gray-700 hover:bg-gray-300 text-sm">📁 View logs</a>
       </div>
 
       <div class="mt-4">
@@ -55,6 +67,23 @@
         <button type="submit" class="py-2 px-3 rounded bg-gray-700 text-white hover:bg-gray-800">Upload</button>
       </form>
       <p id="updateStatus" class="text-xs text-gray-600 mt-2"></p>
+
+      <div class="mt-6 bg-gray-50 border border-gray-200 rounded-xl p-4">
+        <h2 class="text-xl font-semibold mb-2">Build info</h2>
+        <dl class="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
+          <dt class="text-gray-500">Firmware</dt>
+          <dd id="buildFirmware" class="text-gray-800">-</dd>
+          <dt class="text-gray-500">UI</dt>
+          <dd id="buildUi" class="text-gray-800">-</dd>
+          <dt class="text-gray-500">Git SHA</dt>
+          <dd id="buildSha" class="text-gray-800">-</dd>
+          <dt class="text-gray-500">Build time (UTC)</dt>
+          <dd id="buildTime" class="text-gray-800">-</dd>
+          <dt class="text-gray-500">Environment</dt>
+          <dd id="buildEnv" class="text-gray-800">-</dd>
+        </dl>
+        <p id="buildInfoStatus" class="text-xs text-gray-500 mt-2"></p>
+      </div>
     </section>
   </div>
 
@@ -69,18 +98,32 @@
     };
 
     // Update via OTA
-    document.getElementById('updateBtnAdm').onclick = async (e) => {
-      e.preventDefault();
-      const r = await fetch('/checkForUpdate');
-      const el = document.getElementById('updateStatus');
-      if (r.ok) {
-        if (el) el.textContent = 'Update started. Device will reboot...';
-        setTimeout(() => location.reload(), 10000);
-      } else {
-        if (el) el.textContent = 'Update failed';
-        alert('Update failed');
-      }
-    };
+    const updateBtn = document.getElementById('updateBtnAdm');
+    const updateStatusEl = document.getElementById('updateStatus');
+    const updateBtnMsg = document.getElementById('updateBtnMsg');
+    if (updateBtn) {
+      updateBtn.addEventListener('click', async (e) => {
+        e.preventDefault();
+        if (!confirm('Check for firmware updates and start OTA?')) return;
+        if (updateStatusEl) updateStatusEl.textContent = 'Checking for updates…';
+        if (updateBtnMsg) updateBtnMsg.textContent = 'Checking…';
+        try {
+          const r = await fetch('/checkForUpdate');
+          if (r.ok) {
+            if (updateStatusEl) updateStatusEl.textContent = 'Update started. Device will reboot shortly…';
+            if (updateBtnMsg) updateBtnMsg.textContent = 'Running…';
+            setTimeout(() => location.reload(), 10000);
+          } else {
+            const msg = 'Update failed (HTTP ' + r.status + ')';
+            if (updateStatusEl) updateStatusEl.textContent = msg;
+            if (updateBtnMsg) updateBtnMsg.textContent = msg;
+          }
+        } catch (err) {
+          if (updateStatusEl) updateStatusEl.textContent = 'Update request failed';
+          if (updateBtnMsg) updateBtnMsg.textContent = 'Request failed';
+        }
+      });
+    }
 
     // Init verkooptijd toggle
     const sell = document.getElementById('sellMode');
@@ -135,6 +178,25 @@
       });
     }
 
+    const syncBtn = document.getElementById('syncUiBtn');
+    const syncMsg = document.getElementById('syncUiMsg');
+    if (syncBtn) {
+      syncBtn.addEventListener('click', async () => {
+        if (!confirm('Sync UI files from manifest? This may take a moment.')) return;
+        if (syncMsg) syncMsg.textContent = 'Sync in progress…';
+        try {
+          const res = await fetch('/syncUI', { method: 'POST' });
+          if (res.ok) {
+            if (syncMsg) syncMsg.textContent = 'UI sync triggered. Check logs for progress.';
+          } else {
+            if (syncMsg) syncMsg.textContent = 'UI sync failed (HTTP ' + res.status + ')';
+          }
+        } catch (err) {
+          if (syncMsg) syncMsg.textContent = 'UI sync request failed';
+        }
+      });
+    }
+
     // Init admin color picker
     const acp = document.getElementById('adminColorPicker');
     if (acp) {
@@ -162,6 +224,28 @@
         }
       });
     }
+
+    const buildStatus = document.getElementById('buildInfoStatus');
+    async function loadBuildInfo() {
+      try {
+        const res = await fetch('/buildinfo');
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        const info = await res.json();
+        const set = (id, val) => {
+          const el = document.getElementById(id);
+          if (el) el.textContent = val || '-';
+        };
+        set('buildFirmware', info.firmware);
+        set('buildUi', info.ui);
+        set('buildSha', info.git_sha);
+        set('buildTime', info.build_time_utc);
+        set('buildEnv', info.environment);
+        if (buildStatus) buildStatus.textContent = 'Last updated just now.';
+      } catch (err) {
+        if (buildStatus) buildStatus.textContent = 'Failed to load build info (' + err.message + ')';
+      }
+    }
+    loadBuildInfo();
   </script>
 </body>
 </html>

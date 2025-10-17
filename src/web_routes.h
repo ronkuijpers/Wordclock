@@ -7,6 +7,8 @@
 #include <ctype.h>
 #include <PubSubClient.h>
 #include <ArduinoJson.h>
+#include <vector>
+#include <algorithm>
 #include "secrets.h"
 #include "sequence_controller.h"
 #include "led_state.h"
@@ -21,6 +23,7 @@
 #include "mqtt_settings.h"
 #include "mqtt_client.h"
 #include "night_mode.h"
+#include "build_info.h"
 
 
 // References to global variables
@@ -44,7 +47,17 @@ static void serveFile(const char* path, const char* mime) {
     }
   }
   File f = FS_IMPL.open(path, "r");
-  if (!f) { server.send(404, "text/plain", String(path) + " not found"); return; }
+  if (!f) {
+    File gz = FS_IMPL.open(gzPath, "r");
+    if (gz) {
+      server.sendHeader("Content-Encoding", "gzip");
+      server.streamFile(gz, mime);
+      gz.close();
+      return;
+    }
+    server.send(404, "text/plain", String(path) + " not found");
+    return;
+  }
   server.streamFile(f, mime);
   f.close();
 }
@@ -244,6 +257,10 @@ void setupWebRoutes() {
   server.on("/admin.html", HTTP_GET, []() {
     if (!ensureAdminAuth()) return;
     serveFile("/admin.html", "text/html");
+  });
+  server.on("/logs.html", HTTP_GET, []() {
+    if (!ensureAdminAuth()) return;
+    serveFile("/logs.html", "text/html");
   });
 
   // Public landing page with links to Login (protected) and Forgot
@@ -479,6 +496,109 @@ void setupWebRoutes() {
     server.send(200, "text/plain", logContent);
   });
 
+  server.on("/api/logs", HTTP_GET, []() {
+    if (!ensureAdminAuth()) return;
+    logFlushFile();
+    struct LogItem {
+      String name;
+      size_t size;
+      String date;
+    };
+    std::vector<LogItem> items;
+    File dir = FS_IMPL.open("/logs");
+    if (dir) {
+      while (true) {
+        File entry = dir.openNextFile();
+        if (!entry) break;
+        if (!entry.isDirectory()) {
+          String name = entry.name();
+          size_t size = entry.size();
+          String shortName = name;
+          if (shortName.startsWith("/")) shortName = shortName.substring(1);
+          if (shortName.startsWith("logs/")) shortName = shortName.substring(5);
+          String date = shortName;
+          int dot = date.lastIndexOf('.');
+          if (dot > 0) date = date.substring(0, dot);
+          LogItem item;
+          item.name = shortName.length() ? shortName : name;
+          item.size = size;
+          item.date = date;
+          items.push_back(item);
+        }
+        entry.close();
+      }
+      dir.close();
+    }
+    std::sort(items.begin(), items.end(), [](const LogItem& a, const LogItem& b) {
+      return a.name > b.name;
+    });
+    JsonDocument doc;
+    JsonArray arr = doc.to<JsonArray>();
+    for (const auto& item : items) {
+      JsonObject o = arr.add<JsonObject>();
+      o["name"] = item.name;
+      o["size"] = item.size;
+      o["date"] = item.date;
+    }
+    String out;
+    serializeJson(doc, out);
+    server.send(200, "application/json", out);
+  });
+
+  server.on("/buildinfo", HTTP_GET, []() {
+    if (!ensureUiAuth()) return;
+    JsonDocument doc;
+    doc["firmware"] = FIRMWARE_VERSION;
+    doc["ui"] = UI_VERSION;
+    doc["git_sha"] = BUILD_GIT_SHA;
+    doc["build_time_utc"] = BUILD_TIME_UTC;
+    doc["environment"] = BUILD_ENV_NAME;
+    String out;
+    serializeJson(doc, out);
+    server.send(200, "application/json", out);
+  });
+
+  server.on("/log/download", HTTP_GET, []() {
+    if (!ensureAdminAuth()) return;
+    logFlushFile();
+    String path;
+    if (server.hasArg("date")) {
+      String date = server.arg("date");
+      bool valid = (date.length() == 10 &&
+                    isdigit(date[0]) && isdigit(date[1]) && isdigit(date[2]) && isdigit(date[3]) &&
+                    date[4] == '-' &&
+                    isdigit(date[5]) && isdigit(date[6]) &&
+                    date[7] == '-' &&
+                    isdigit(date[8]) && isdigit(date[9]));
+      if (!valid) {
+        server.send(400, "text/plain", "Invalid date format");
+        return;
+      }
+      path = String("/logs/") + date + ".log";
+    } else {
+      path = logLatestFilePath();
+      if (path.length() == 0) {
+        server.send(404, "text/plain", "No log files available");
+        return;
+      }
+      if (!path.startsWith("/")) {
+        path = "/" + path;
+      }
+      if (!path.startsWith("/logs/")) {
+        path = String("/logs/") + path;
+      }
+    }
+    File f = FS_IMPL.open(path, "r");
+    if (!f) {
+      server.send(404, "text/plain", "Log file not found");
+      return;
+    }
+    String filename = path.substring(path.lastIndexOf('/') + 1);
+    server.sendHeader("Content-Disposition", String("attachment; filename=\"") + filename + "\"");
+    server.streamFile(f, "text/plain");
+    f.close();
+  });
+
   // Get status
   server.on("/status", []() {
     if (!ensureUiAuth()) return;
@@ -684,6 +804,13 @@ void setupWebRoutes() {
     server.send(200, "text/plain", "Firmware update started");
     delay(100);
     checkForFirmwareUpdate();
+  });
+
+  server.on("/syncUI", HTTP_POST, []() {
+    if (!ensureAdminAuth()) return;
+    logInfo("🗂️ UI sync requested by admin");
+    syncFilesFromManifest();
+    server.send(200, "text/plain", "UI sync started");
   });
 
   server.on("/getBrightness", []() {
