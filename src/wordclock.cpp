@@ -4,6 +4,7 @@
 #include "grid_layout.h"
 #include "display_settings.h"
 #include "time_sync.h"
+#include "night_mode.h"
 
 
 
@@ -76,17 +77,20 @@ void wordclock_loop() {
       lastTimeFetchMs = nowMs;
       g_initialTimeSyncSucceeded = true;
       g_loggedInitialTimeFailure = false;
+      nightMode.updateFromTime(cachedTime);
       resetNoTimeIndicator();
     } else if (!haveTime) {
       if (!g_loggedInitialTimeFailure) {
         logWarn("❗ Unable to fetch time; showing no-time indicator");
         g_loggedInitialTimeFailure = true;
       }
+      nightMode.markTimeInvalid();
       showNoTimeIndicator(nowMs);
       return;
     }
   }
   if (!haveTime) {
+    nightMode.markTimeInvalid();
     showNoTimeIndicator(nowMs);
     return;
   }

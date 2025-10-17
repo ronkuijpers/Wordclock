@@ -13,6 +13,7 @@
 #include "mqtt_settings.h"
 #include <esp_system.h>
 #include <Preferences.h>
+#include "night_mode.h"
 
 extern DisplaySettings displaySettings;
 extern bool clockEnabled;
@@ -38,6 +39,13 @@ static String tSellState, tSellSet;
 static String tHetIsState, tHetIsSet;
 static String tLogLvlState, tLogLvlSet;
 static String tRestartCmd, tSeqCmd, tUpdateCmd;
+static String tNightEnabledState, tNightEnabledSet;
+static String tNightOverrideState, tNightOverrideSet;
+static String tNightActiveState;
+static String tNightEffectState, tNightEffectSet;
+static String tNightDimState, tNightDimSet;
+static String tNightStartState, tNightStartSet;
+static String tNightEndState, tNightEndSet;
 static String tVersion, tUiVersion, tIp, tRssi, tUptime;
 static String tHeap, tWifiChan, tBootReason, tResetCount;
 
@@ -65,6 +73,19 @@ static void buildTopics() {
   tSellSet      = base + "/sell/set";
   tHetIsState   = base + "/hetis/state";
   tHetIsSet     = base + "/hetis/set";
+  tNightEnabledState = base + "/nightmode/enabled/state";
+  tNightEnabledSet   = base + "/nightmode/enabled/set";
+  tNightOverrideState = base + "/nightmode/override/state";
+  tNightOverrideSet   = base + "/nightmode/override/set";
+  tNightActiveState   = base + "/nightmode/active";
+  tNightEffectState = base + "/nightmode/effect/state";
+  tNightEffectSet   = base + "/nightmode/effect/set";
+  tNightDimState    = base + "/nightmode/dim/state";
+  tNightDimSet      = base + "/nightmode/dim/set";
+  tNightStartState  = base + "/nightmode/start/state";
+  tNightStartSet    = base + "/nightmode/start/set";
+  tNightEndState    = base + "/nightmode/end/state";
+  tNightEndSet      = base + "/nightmode/end/set";
   tLogLvlState  = base + "/loglevel/state";
   tLogLvlSet    = base + "/loglevel/set";
   tRestartCmd   = base + "/restart/press";
@@ -128,6 +149,42 @@ static void publishDiscovery() {
   publishSwitch("Animate words", tAnimState, tAnimSet, nodeId + String("_anim"));
   publishSwitch("Auto update", tAutoUpdState, tAutoUpdSet, nodeId + String("_autoupd"));
   publishSwitch("Sell mode", tSellState, tSellSet, nodeId + String("_sell"));
+  publishSwitch("Night mode enabled", tNightEnabledState, tNightEnabledSet, nodeId + String("_night_enabled"));
+
+  // Select: night mode effect
+  {
+    JsonDocument cfg;
+    cfg["name"] = "Night mode effect";
+    cfg["uniq_id"] = (nodeId + "_night_effect");
+    cfg["cmd_t"] = tNightEffectSet;
+    cfg["stat_t"] = tNightEffectState;
+    JsonArray opts = cfg["options"].to<JsonArray>();
+    opts.add("DIM");
+    opts.add("OFF");
+    cfg["avty_t"] = availTopic;
+    JsonObject dev = cfg["dev"].to<JsonObject>();
+    dev["name"] = CLOCK_NAME;
+    dev["ids"].add(nodeId);
+    pubCfg("select", nodeId + "_night_effect", cfg);
+  }
+
+  // Number: Night mode dim percentage
+  {
+    JsonDocument cfg;
+    cfg["name"] = "Night mode dim %";
+    cfg["uniq_id"] = (nodeId + "_night_dim");
+    cfg["cmd_t"] = tNightDimSet;
+    cfg["stat_t"] = tNightDimState;
+    cfg["min"] = 0;
+    cfg["max"] = 100;
+    cfg["step"] = 1;
+    cfg["unit_of_meas"] = "%";
+    cfg["avty_t"] = availTopic;
+    JsonObject dev = cfg["dev"].to<JsonObject>();
+    dev["name"] = CLOCK_NAME;
+    dev["ids"].add(nodeId);
+    pubCfg("number", nodeId + "_night_dim", cfg);
+  }
 
   // Number: Het Is duration
   {
@@ -144,6 +201,24 @@ static void publishDiscovery() {
     pubCfg("number", nodeId + "_hetis", cfg);
   }
 
+  // Select: night mode override
+  {
+    JsonDocument cfg;
+    cfg["name"] = "Night mode override";
+    cfg["uniq_id"] = (nodeId + "_night_override");
+    cfg["cmd_t"] = tNightOverrideSet;
+    cfg["stat_t"] = tNightOverrideState;
+    JsonArray opts = cfg["options"].to<JsonArray>();
+    opts.add("AUTO");
+    opts.add("ON");
+    opts.add("OFF");
+    cfg["avty_t"] = availTopic;
+    JsonObject dev = cfg["dev"].to<JsonObject>();
+    dev["name"] = CLOCK_NAME;
+    dev["ids"].add(nodeId);
+    pubCfg("select", nodeId + "_night_override", cfg);
+  }
+
   // Select: log level
   {
     JsonDocument cfg;
@@ -158,6 +233,21 @@ static void publishDiscovery() {
     dev["name"] = CLOCK_NAME;
     dev["ids"].add(nodeId);
     pubCfg("select", nodeId + "_loglevel", cfg);
+  }
+
+  // Binary sensor: Night mode active state
+  {
+    JsonDocument cfg;
+    cfg["name"] = "Night mode active";
+    cfg["uniq_id"] = (nodeId + "_night_active");
+    cfg["stat_t"] = tNightActiveState;
+    cfg["pl_on"] = "ON";
+    cfg["pl_off"] = "OFF";
+    cfg["avty_t"] = availTopic;
+    JsonObject dev = cfg["dev"].to<JsonObject>();
+    dev["name"] = CLOCK_NAME;
+    dev["ids"].add(nodeId);
+    pubCfg("binary_sensor", nodeId + "_night_active", cfg);
   }
 
   // Buttons: restart, start sequence, check for update
@@ -197,6 +287,25 @@ static void publishDiscovery() {
   publishSensor("WiFi Channel", tWifiChan, nodeId + String("_wifichan"));
   publishSensor("Boot Reason", tBootReason, nodeId + String("_bootreason"));
   publishSensor("Reset Count", tResetCount, nodeId + String("_resetcount"));
+
+  auto publishText = [&](const char* name, const String& st, const String& set, const String& id){
+    JsonDocument cfg;
+    cfg["name"] = name;
+    cfg["uniq_id"] = id;
+    cfg["stat_t"] = st;
+    cfg["cmd_t"] = set;
+    cfg["mode"] = "text";
+    cfg["min"] = 5;
+    cfg["max"] = 5;
+    cfg["pattern"] = "^([01][0-9]|2[0-3]):[0-5][0-9]$";
+    cfg["avty_t"] = availTopic;
+    JsonObject dev = cfg["dev"].to<JsonObject>();
+    dev["name"] = CLOCK_NAME;
+    dev["ids"].add(nodeId);
+    pubCfg("text", id, cfg);
+  };
+  publishText("Night mode start", tNightStartState, tNightStartSet, nodeId + String("_night_start"));
+  publishText("Night mode end", tNightEndState, tNightEndSet, nodeId + String("_night_end"));
 }
 
 static void publishAvailability(const char* st) {
@@ -235,11 +344,50 @@ static void publishSelect(const String& topic) {
   mqtt.publish(topic.c_str(), s, true);
 }
 
+static void publishNightOverrideState() {
+  const char* s = "AUTO";
+  switch (nightMode.getOverride()) {
+    case NightModeOverride::ForceOn:  s = "ON"; break;
+    case NightModeOverride::ForceOff: s = "OFF"; break;
+    case NightModeOverride::Auto:
+    default:                         s = "AUTO"; break;
+  }
+  mqtt.publish(tNightOverrideState.c_str(), s, true);
+}
+
+static void publishNightActiveState() {
+  mqtt.publish(tNightActiveState.c_str(), nightMode.isActive() ? "ON" : "OFF", true);
+}
+
+static void publishNightEffectState() {
+  const char* s = (nightMode.getEffect() == NightModeEffect::Off) ? "OFF" : "DIM";
+  mqtt.publish(tNightEffectState.c_str(), s, true);
+}
+
+static void publishNightDimState() {
+  publishNumber(tNightDimState, nightMode.getDimPercent());
+}
+
+static void publishNightScheduleState() {
+  String start = nightMode.formatMinutes(nightMode.getStartMinutes());
+  String end = nightMode.formatMinutes(nightMode.getEndMinutes());
+  mqtt.publish(tNightStartState.c_str(), start.c_str(), true);
+  mqtt.publish(tNightEndState.c_str(), end.c_str(), true);
+}
+
 // Cache computed boot time string once NTP is synced
 static String g_bootTimeStr;
 static bool g_bootTimeSet = false;
 static String g_bootReasonStr;
 static uint32_t g_resetCount = 0;
+static bool mqttConfiguredLogged = false;
+
+static bool mqtt_has_configuration() {
+  if (g_mqttCfg.port == 0) return false;
+  String host = g_mqttCfg.host;
+  host.trim();
+  return host.length() > 0;
+}
 
 static const char* reset_reason_to_str(esp_reset_reason_t r) {
   switch (r) {
@@ -268,6 +416,12 @@ void mqtt_publish_state(bool force) {
   publishSwitch(tAutoUpdState, displaySettings.getAutoUpdate());
   publishSwitch(tSellState, displaySettings.isSellMode());
   publishNumber(tHetIsState, displaySettings.getHetIsDurationSec());
+  publishSwitch(tNightEnabledState, nightMode.isEnabled());
+  publishNightEffectState();
+  publishNightDimState();
+  publishNightScheduleState();
+  publishNightOverrideState();
+  publishNightActiveState();
   publishSelect(tLogLvlState);
 
   mqtt.publish(tVersion.c_str(), FIRMWARE_VERSION, true);
@@ -350,6 +504,60 @@ static void handleMessage(char* topic, byte* payload, unsigned int length) {
   } else if (is(tHetIsSet)) {
     int v = msg.toInt(); v = constrain(v, 0, 360); displaySettings.setHetIsDurationSec((uint16_t)v);
     publishNumber(tHetIsState, v);
+  } else if (is(tNightEnabledSet)) {
+    bool on = (msg == "ON" || msg == "on" || msg == "1" || msg == "true" || msg == "True");
+    nightMode.setEnabled(on);
+    publishSwitch(tNightEnabledState, nightMode.isEnabled());
+  } else if (is(tNightOverrideSet)) {
+    String lower = msg;
+    lower.toUpperCase();
+    if (lower == "AUTO") {
+      nightMode.setOverride(NightModeOverride::Auto);
+    } else if (lower == "ON") {
+      nightMode.setOverride(NightModeOverride::ForceOn);
+    } else if (lower == "OFF") {
+      nightMode.setOverride(NightModeOverride::ForceOff);
+    } else {
+      logWarn(String("MQTT night override invalid payload: ") + msg);
+      return;
+    }
+    publishNightOverrideState();
+    publishNightActiveState();
+  } else if (is(tNightEffectSet)) {
+    String eff = msg;
+    eff.toUpperCase();
+    if (eff == "OFF") {
+      nightMode.setEffect(NightModeEffect::Off);
+    } else if (eff == "DIM") {
+      nightMode.setEffect(NightModeEffect::Dim);
+    } else {
+      logWarn(String("MQTT night effect invalid payload: ") + msg);
+      return;
+    }
+    publishNightEffectState();
+  } else if (is(tNightDimSet)) {
+    int pct = msg.toInt();
+    pct = constrain(pct, 0, 100);
+    nightMode.setDimPercent((uint8_t)pct);
+    publishNightDimState();
+  } else if (is(tNightStartSet)) {
+    String startStr = msg;
+    uint16_t minutes = 0;
+    if (!NightMode::parseTimeString(startStr, minutes)) {
+      logWarn(String("MQTT night start invalid payload: ") + msg);
+      return;
+    }
+    nightMode.setSchedule(minutes, nightMode.getEndMinutes());
+    publishNightScheduleState();
+  } else if (is(tNightEndSet)) {
+    String endStr = msg;
+    uint16_t minutes = 0;
+    if (!NightMode::parseTimeString(endStr, minutes)) {
+      logWarn(String("MQTT night end invalid payload: ") + msg);
+      return;
+    }
+    nightMode.setSchedule(nightMode.getStartMinutes(), minutes);
+    publishNightScheduleState();
   } else if (is(tLogLvlSet)) {
     LogLevel level = LOG_LEVEL_INFO;
     if (msg == "DEBUG") level = LOG_LEVEL_DEBUG; else if (msg == "INFO") level = LOG_LEVEL_INFO; else if (msg == "WARN") level = LOG_LEVEL_WARN; else if (msg == "ERROR") level = LOG_LEVEL_ERROR;
@@ -370,9 +578,8 @@ static bool mqtt_connect() {
     g_lastErr = "WiFi not connected";
     return false;
   }
-  if (g_mqttCfg.host.length() == 0 || g_mqttCfg.port == 0) {
+  if (!mqtt_has_configuration()) {
     g_lastErr = "MQTT not configured";
-    logInfo("MQTT connect skipped: no broker configured");
     return false; // not configured yet
   }
 
@@ -409,6 +616,12 @@ static bool mqtt_connect() {
   mqtt.subscribe(tAutoUpdSet.c_str());
   mqtt.subscribe(tSellSet.c_str());
   mqtt.subscribe(tHetIsSet.c_str());
+  mqtt.subscribe(tNightEnabledSet.c_str());
+  mqtt.subscribe(tNightOverrideSet.c_str());
+  mqtt.subscribe(tNightEffectSet.c_str());
+  mqtt.subscribe(tNightDimSet.c_str());
+  mqtt.subscribe(tNightStartSet.c_str());
+  mqtt.subscribe(tNightEndSet.c_str());
   mqtt.subscribe(tLogLvlSet.c_str());
   mqtt.subscribe(tRestartCmd.c_str());
   mqtt.subscribe(tSeqCmd.c_str());
@@ -440,9 +653,26 @@ void mqtt_begin() {
     p.end();
     g_resetCount = cnt;
   }
+
+  if (!mqtt_has_configuration() && !mqttConfiguredLogged) {
+    logInfo("MQTT disabled (no broker configured)");
+    mqttConfiguredLogged = true;
+  } else {
+    mqttConfiguredLogged = false;
+  }
 }
 
 void mqtt_loop() {
+  if (!mqtt_has_configuration()) {
+    g_connected = false;
+    if (!mqttConfiguredLogged) {
+      logInfo("MQTT disabled (no broker configured)");
+      mqttConfiguredLogged = true;
+    }
+    return;
+  }
+  mqttConfiguredLogged = false;
+
   if (!mqtt.connected()) {
     unsigned long now = millis();
     if (now - lastReconnectAttempt >= reconnectDelayMs) {
@@ -457,9 +687,11 @@ void mqtt_loop() {
         unsigned long jittered = nextDelay + jitter;
         if (jittered > RECONNECT_DELAY_MAX_MS) jittered = RECONNECT_DELAY_MAX_MS;
         reconnectDelayMs = jittered;
-        String warnMsg = String("MQTT reconnect failed (") + (g_lastErr.length() ? g_lastErr : String("unknown")) +
-                         "); retry in " + reconnectDelayMs + " ms";
-        logWarn(warnMsg);
+        if (g_lastErr != "MQTT not configured") {
+          String warnMsg = String("MQTT reconnect failed (") + (g_lastErr.length() ? g_lastErr : String("unknown")) +
+                           "); retry in " + reconnectDelayMs + " ms";
+          logWarn(warnMsg);
+        }
       }
     }
     return;
@@ -495,4 +727,13 @@ void mqtt_apply_settings(const MqttSettings& s) {
   reconnectDelayMs = RECONNECT_DELAY_MIN_MS;
   reconnectAttempts = 0;
   lastReconnectAttempt = 0; // trigger immediate reconnect in loop
+
+  if (!mqtt_has_configuration()) {
+    if (!mqttConfiguredLogged) {
+      logInfo("MQTT disabled (no broker configured)");
+      mqttConfiguredLogged = true;
+    }
+  } else {
+    mqttConfiguredLogged = false;
+  }
 }

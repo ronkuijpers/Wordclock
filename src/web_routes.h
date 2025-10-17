@@ -20,6 +20,7 @@
 #include "wordclock.h"
 #include "mqtt_settings.h"
 #include "mqtt_client.h"
+#include "night_mode.h"
 
 
 // References to global variables
@@ -77,6 +78,37 @@ static bool ensureUiAuth() {
     }
   }
   return true;
+}
+
+static const char* nightEffectToStr(NightModeEffect effect) {
+  return (effect == NightModeEffect::Off) ? "off" : "dim";
+}
+
+static const char* nightOverrideToStr(NightModeOverride mode) {
+  switch (mode) {
+    case NightModeOverride::ForceOn:  return "force_on";
+    case NightModeOverride::ForceOff: return "force_off";
+    case NightModeOverride::Auto:
+    default:                          return "auto";
+  }
+}
+
+static void sendNightModeConfig() {
+  JsonDocument doc;
+  doc["enabled"] = nightMode.isEnabled();
+  doc["effect"] = nightEffectToStr(nightMode.getEffect());
+  doc["dim_percent"] = nightMode.getDimPercent();
+  doc["start"] = nightMode.formatMinutes(nightMode.getStartMinutes());
+  doc["end"] = nightMode.formatMinutes(nightMode.getEndMinutes());
+  doc["start_minutes"] = nightMode.getStartMinutes();
+  doc["end_minutes"] = nightMode.getEndMinutes();
+  doc["override"] = nightOverrideToStr(nightMode.getOverride());
+  doc["active"] = nightMode.isActive();
+  doc["schedule_active"] = nightMode.isScheduleActive();
+  doc["time_synced"] = nightMode.hasTime();
+  String out;
+  serializeJson(doc, out);
+  server.send(200, "application/json", out);
 }
 
 // Clear persistent settings (factory reset helper)
@@ -735,6 +767,133 @@ void setupWebRoutes() {
     displaySettings.setAnimateWords(on);
   logInfo(String("🎞️ Animation ") + (on ? "ON" : "OFF"));
     server.send(200, "text/plain", "OK");
+  });
+
+  // Night mode configuration
+  server.on("/getNightModeConfig", HTTP_GET, []() {
+    if (!ensureUiAuth()) return;
+    sendNightModeConfig();
+  });
+
+  server.on("/setNightModeConfig", HTTP_POST, []() {
+    if (!ensureUiAuth()) return;
+    if (!server.hasArg("plain")) {
+      server.send(400, "text/plain", "Missing body");
+      return;
+    }
+    JsonDocument doc;
+    DeserializationError err = deserializeJson(doc, server.arg("plain"));
+    if (err) {
+      server.send(400, "text/plain", "Invalid JSON");
+      return;
+    }
+
+    JsonVariant enabledVar = doc["enabled"];
+    if (!enabledVar.isNull()) {
+      if (enabledVar.is<bool>()) {
+        nightMode.setEnabled(enabledVar.as<bool>());
+      } else if (enabledVar.is<int>()) {
+        nightMode.setEnabled(enabledVar.as<int>() != 0);
+      } else if (enabledVar.is<const char*>()) {
+        String st = enabledVar.as<const char*>();
+        st.toLowerCase();
+        nightMode.setEnabled(st == "true" || st == "on" || st == "1");
+      }
+    }
+
+    JsonVariant effectVar = doc["effect"];
+    if (!effectVar.isNull()) {
+      String eff = effectVar.as<String>();
+      eff.toLowerCase();
+      if (eff == "off") {
+        nightMode.setEffect(NightModeEffect::Off);
+      } else if (eff == "dim") {
+        nightMode.setEffect(NightModeEffect::Dim);
+      } else {
+        server.send(400, "text/plain", "Invalid effect");
+        return;
+      }
+    }
+
+    JsonVariant dimVar = doc["dim_percent"];
+    if (!dimVar.isNull()) {
+      int pct = dimVar.as<int>();
+      if (pct < 0) pct = 0;
+      if (pct > 100) pct = 100;
+      nightMode.setDimPercent((uint8_t)pct);
+    }
+
+    uint16_t startMin = nightMode.getStartMinutes();
+    uint16_t endMin = nightMode.getEndMinutes();
+    bool scheduleUpdate = false;
+
+    JsonVariant startStrVar = doc["start"];
+    if (!startStrVar.isNull()) {
+      String startStr = startStrVar.as<String>();
+      uint16_t parsed = 0;
+      if (!NightMode::parseTimeString(startStr, parsed)) {
+        server.send(400, "text/plain", "Invalid start time");
+        return;
+      }
+      startMin = parsed;
+      scheduleUpdate = true;
+    } else {
+      JsonVariant startMinVar = doc["start_minutes"];
+      if (!startMinVar.isNull()) {
+        int parsed = startMinVar.as<int>();
+        if (parsed < 0 || parsed >= (24 * 60)) {
+          server.send(400, "text/plain", "Invalid start minutes");
+          return;
+        }
+        startMin = (uint16_t)parsed;
+        scheduleUpdate = true;
+      }
+    }
+
+    JsonVariant endStrVar = doc["end"];
+    if (!endStrVar.isNull()) {
+      String endStr = endStrVar.as<String>();
+      uint16_t parsed = 0;
+      if (!NightMode::parseTimeString(endStr, parsed)) {
+        server.send(400, "text/plain", "Invalid end time");
+        return;
+      }
+      endMin = parsed;
+      scheduleUpdate = true;
+    } else {
+      JsonVariant endMinVar = doc["end_minutes"];
+      if (!endMinVar.isNull()) {
+        int parsed = endMinVar.as<int>();
+        if (parsed < 0 || parsed >= (24 * 60)) {
+          server.send(400, "text/plain", "Invalid end minutes");
+          return;
+        }
+        endMin = (uint16_t)parsed;
+        scheduleUpdate = true;
+      }
+    }
+
+    if (scheduleUpdate) {
+      nightMode.setSchedule(startMin, endMin);
+    }
+
+    JsonVariant overrideVar = doc["override"];
+    if (!overrideVar.isNull()) {
+      String ov = overrideVar.as<String>();
+      ov.toLowerCase();
+      if (ov == "auto") {
+        nightMode.setOverride(NightModeOverride::Auto);
+      } else if (ov == "force_on" || ov == "on") {
+        nightMode.setOverride(NightModeOverride::ForceOn);
+      } else if (ov == "force_off" || ov == "off") {
+        nightMode.setOverride(NightModeOverride::ForceOff);
+      } else {
+        server.send(400, "text/plain", "Invalid override");
+        return;
+      }
+    }
+
+    sendNightModeConfig();
   });
 
   // Het Is duration (0..360 seconds; 0=never, 360=always)

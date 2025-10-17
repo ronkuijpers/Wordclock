@@ -2,6 +2,7 @@
 #include "config.h"
 #include "log.h"
 #include "led_state.h"
+#include "night_mode.h"
 
 
 // Instance of the NeoPixel strip
@@ -9,7 +10,8 @@ static Adafruit_NeoPixel strip(NUM_LEDS, DATA_PIN, NEO_GRBW + NEO_KHZ800);
 
 void initLeds() {
     strip.begin();
-    strip.setBrightness(ledState.getBrightness());
+    uint8_t brightness = nightMode.applyToBrightness(ledState.getBrightness());
+    strip.setBrightness(brightness);
     strip.clear();
     strip.show();
 }
@@ -24,7 +26,7 @@ void showLeds(const std::vector<uint16_t> &ledIndices) {
       strip.setPixelColor(idx, strip.Color(r, g, b, w));
     }
   }
-  strip.setBrightness(ledState.getBrightness());
+  uint8_t brightness = nightMode.applyToBrightness(ledState.getBrightness());
+  strip.setBrightness(brightness);
   strip.show();
 }
-

@@ -30,6 +30,7 @@
 #include "display_settings.h"
 #include "ui_auth.h"
 #include "mqtt_client.h"
+#include "night_mode.h"
 
 
 bool clockEnabled = true;
@@ -61,6 +62,7 @@ void setup() {
 
   // Load persisted display settings (e.g. auto-update preference) before running dependent flows
   displaySettings.begin();
+  nightMode.begin();
 
   // Mount SPIFFS filesystem
   if (!FS_IMPL.begin(true)) {

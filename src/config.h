@@ -36,6 +36,3 @@
 #define DAILY_FIRMWARE_CHECK_INTERVAL_SEC 3600
 
 constexpr unsigned long SWEEP_STEP_MS = 20;
-constexpr unsigned long IP_STEP_MS = 1000;
-constexpr uint16_t IP_ZERO_O_LED_INDEX = 56;
-

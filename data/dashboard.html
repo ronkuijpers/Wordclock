@@ -54,6 +54,43 @@
     </section>
 
     <section class="bg-white p-4 rounded-2xl shadow mb-4">
+      <div class="flex items-center justify-between mb-2">
+        <h2 class="text-xl font-semibold">Nightmode</h2>
+        <span id="nightModeStatus" class="text-xs text-gray-600">-</span>
+      </div>
+      <label class="inline-flex items-center space-x-2 mb-3">
+        <input type="checkbox" id="nightModeEnabled" class="form-checkbox">
+        <span>Nightmode inschakelen</span>
+      </label>
+      <div class="mb-3">
+        <label for="nightModeEffect" class="block text-sm mb-1">Effect</label>
+        <select id="nightModeEffect" class="w-full border rounded p-2 text-sm">
+          <option value="dim">Dimmen tot percentage</option>
+          <option value="off">Volledig uit</option>
+        </select>
+      </div>
+      <div class="mb-3" id="nightModeDimControls">
+        <label class="block text-sm mb-1">Dim-percentage: <span id="nightModeDimValue" class="font-mono">-</span>%</label>
+        <div class="flex items-center gap-3">
+          <input type="range" min="0" max="100" value="20" id="nightModeDimSlider" class="flex-1">
+          <input type="number" id="nightModeDimInput" min="0" max="100" step="1" class="w-20 border rounded p-1 text-sm">
+        </div>
+        <p class="text-xs text-gray-500 mt-1">0% = helemaal uit, 100% = originele helderheid</p>
+      </div>
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label class="block text-sm mb-1" for="nightModeStart">Starttijd</label>
+          <input type="time" id="nightModeStart" class="w-full border rounded p-2 text-sm">
+        </div>
+        <div>
+          <label class="block text-sm mb-1" for="nightModeEnd">Eindtijd</label>
+          <input type="time" id="nightModeEnd" class="w-full border rounded p-2 text-sm">
+        </div>
+      </div>
+      <p class="text-xs text-gray-500 mt-2">Als de eindtijd eerder is dan de starttijd loopt nightmode over middernacht.</p>
+    </section>
+
+    <section class="bg-white p-4 rounded-2xl shadow mb-4">
       <h2 class="text-xl font-semibold mb-2">Actions</h2>
       <div class="grid grid-cols-2 gap-2">
         <button id="restartBtn" class="py-2 rounded bg-yellow-500 text-white hover:bg-yellow-600">🔁 Restart</button>
@@ -259,6 +296,144 @@
         sendBrightnessDebounced(v);
       });
     }
+
+    const nightModeEnabled = document.getElementById('nightModeEnabled');
+    const nightModeEffect = document.getElementById('nightModeEffect');
+    const nightModeDimSlider = document.getElementById('nightModeDimSlider');
+    const nightModeDimInput = document.getElementById('nightModeDimInput');
+    const nightModeDimValue = document.getElementById('nightModeDimValue');
+    const nightModeStatus = document.getElementById('nightModeStatus');
+    const nightModeStart = document.getElementById('nightModeStart');
+    const nightModeEnd = document.getElementById('nightModeEnd');
+    let nightModeCurrent = null;
+
+    const setNightModeSaving = () => {
+      if (nightModeStatus) nightModeStatus.textContent = 'Bezig met opslaan…';
+    };
+    const setNightModeError = () => {
+      if (nightModeStatus) nightModeStatus.textContent = 'Opslaan mislukt';
+    };
+    const setNightModeDimDisabled = (disabled) => {
+      if (nightModeDimSlider) nightModeDimSlider.disabled = disabled;
+      if (nightModeDimInput) nightModeDimInput.disabled = disabled;
+      if (nightModeDimValue) nightModeDimValue.classList.toggle('text-gray-400', disabled);
+    };
+    const formatNightModeStatus = (cfg) => {
+      if (!cfg) return '-';
+      const parts = [];
+      parts.push(cfg.active ? 'Actief' : 'Inactief');
+      if (cfg.override === 'force_on') parts.push('handmatig aan');
+      else if (cfg.override === 'force_off') parts.push('handmatig uit');
+      else if (cfg.schedule_active) parts.push('volgens schema');
+      else parts.push('wacht op schema');
+      if (!cfg.time_synced) parts.push('tijd onbekend');
+      return parts.join(' • ');
+    };
+    const applyNightModeConfig = (cfg) => {
+      if (!cfg) return;
+      nightModeCurrent = cfg;
+      if (nightModeEnabled) nightModeEnabled.checked = !!cfg.enabled;
+      if (nightModeEffect) nightModeEffect.value = cfg.effect || 'dim';
+      const dim = (typeof cfg.dim_percent === 'number') ? cfg.dim_percent : 0;
+      if (nightModeDimSlider) nightModeDimSlider.value = dim;
+      if (nightModeDimInput) nightModeDimInput.value = dim;
+      if (nightModeDimValue) nightModeDimValue.textContent = dim;
+      const disableDim = (cfg.effect || 'dim') === 'off';
+      setNightModeDimDisabled(disableDim);
+      if (nightModeStart && cfg.start) nightModeStart.value = cfg.start;
+      if (nightModeEnd && cfg.end) nightModeEnd.value = cfg.end;
+      if (nightModeStatus) nightModeStatus.textContent = formatNightModeStatus(cfg);
+    };
+    const updateNightMode = async (payload) => {
+      try {
+        const res = await fetch('/setNightModeConfig', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        const cfg = await res.json();
+        applyNightModeConfig(cfg);
+      } catch (err) {
+        console.error('Nightmode update failed', err);
+        setNightModeError();
+        setTimeout(() => { loadNightMode(); }, 1500);
+      }
+    };
+    const loadNightMode = async () => {
+      if (!nightModeEnabled) return;
+      try {
+        const res = await fetch('/getNightModeConfig');
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        const cfg = await res.json();
+        applyNightModeConfig(cfg);
+      } catch (err) {
+        console.error('Nightmode config fetch failed', err);
+        setNightModeError();
+      }
+    };
+    if (nightModeEnabled) {
+      nightModeEnabled.addEventListener('change', () => {
+        setNightModeSaving();
+        updateNightMode({ enabled: nightModeEnabled.checked });
+      });
+    }
+    if (nightModeEffect) {
+      nightModeEffect.addEventListener('change', () => {
+        const eff = nightModeEffect.value;
+        setNightModeDimDisabled(eff === 'off');
+        setNightModeSaving();
+        updateNightMode({ effect: eff });
+      });
+    }
+    if (nightModeDimSlider) {
+      nightModeDimSlider.addEventListener('input', () => {
+        const v = parseInt(nightModeDimSlider.value || '0', 10);
+        if (nightModeDimValue) nightModeDimValue.textContent = v;
+        if (nightModeDimInput) nightModeDimInput.value = v;
+      });
+      nightModeDimSlider.addEventListener('change', () => {
+        const v = parseInt(nightModeDimSlider.value || '0', 10);
+        if (nightModeDimInput) nightModeDimInput.value = v;
+        if (nightModeDimValue) nightModeDimValue.textContent = v;
+        setNightModeSaving();
+        updateNightMode({ dim_percent: v });
+      });
+    }
+    if (nightModeDimInput) {
+      nightModeDimInput.addEventListener('change', () => {
+        let v = parseInt(nightModeDimInput.value || '0', 10);
+        if (isNaN(v)) v = 0;
+        v = Math.max(0, Math.min(100, v));
+        nightModeDimInput.value = v;
+        if (nightModeDimSlider) nightModeDimSlider.value = v;
+        if (nightModeDimValue) nightModeDimValue.textContent = v;
+        setNightModeSaving();
+        updateNightMode({ dim_percent: v });
+      });
+    }
+    if (nightModeStart) {
+      nightModeStart.addEventListener('change', () => {
+        if (!nightModeStart.value) {
+          if (nightModeCurrent && nightModeCurrent.start) nightModeStart.value = nightModeCurrent.start;
+          return;
+        }
+        setNightModeSaving();
+        updateNightMode({ start: nightModeStart.value });
+      });
+    }
+    if (nightModeEnd) {
+      nightModeEnd.addEventListener('change', () => {
+        if (!nightModeEnd.value) {
+          if (nightModeCurrent && nightModeCurrent.end) nightModeEnd.value = nightModeCurrent.end;
+          return;
+        }
+        setNightModeSaving();
+        updateNightMode({ end: nightModeEnd.value });
+      });
+    }
+    loadNightMode();
+
     document.getElementById('restartBtn').onclick = () => {
       if (confirm('Restart Wordclock?')) fetch('/restart');
     };
