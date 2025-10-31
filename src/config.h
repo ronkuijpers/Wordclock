@@ -36,3 +36,5 @@
 #define DAILY_FIRMWARE_CHECK_INTERVAL_SEC 3600
 
 constexpr unsigned long SWEEP_STEP_MS = 20;
+constexpr unsigned long WORD_SEQUENCE_STEP_MS = 250;
+constexpr unsigned long WORD_SEQUENCE_HOLD_MS = 2000;

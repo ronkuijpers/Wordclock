@@ -1,4 +1,29 @@
 #include "log.h"
+
+#ifdef PIO_UNIT_TESTING
+
+LogLevel LOG_LEVEL = DEFAULT_LOG_LEVEL;
+
+void log(String, int) {}
+
+void logln(String, int) {}
+
+void setLogLevel(LogLevel level) {
+  LOG_LEVEL = level;
+}
+
+void initLogSettings() {}
+
+void logEnableFileSink() {}
+
+void logFlushFile() {}
+
+String logLatestFilePath() {
+  return String();
+}
+
+#else
+
 #include <Preferences.h>
 #include <time.h>
 #include <stdlib.h>
@@ -221,3 +246,5 @@ String logLatestFilePath() {
   dir.close();
   return latest;
 }
+
+#endif // PIO_UNIT_TESTING

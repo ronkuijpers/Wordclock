@@ -1,10 +1,3 @@
-#include "led_controller.h"
-#include "config.h"
-#include "log.h"
-#include "led_state.h"
-#include "night_mode.h"
-
-
 // Instance of the NeoPixel strip
 static Adafruit_NeoPixel strip(NUM_LEDS, DATA_PIN, NEO_GRBW + NEO_KHZ800);
 

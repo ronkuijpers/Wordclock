@@ -37,6 +37,9 @@ bool clockEnabled = true;
 StartupSequence startupSequence;
 DisplaySettings displaySettings;
 UiAuth uiAuth;
+bool g_wifiHadCredentialsAtBoot = false;
+static bool g_mqttInitialized = false;
+static bool g_autoUpdateHandled = false;
 
 
 // Webserver
@@ -74,36 +77,46 @@ void setup() {
 
   initWebServer(server);      // Webserver en routes
 
-  // Wacht op WiFi verbinding (max 20x proberen)
-  logInfo("Checking WiFi connection");
-  int retry = 0;
-  while (WiFi.status() != WL_CONNECTED && retry < WIFI_CONNECT_MAX_RETRIES) {
-    delay(WIFI_CONNECT_RETRY_DELAY_MS);
-    logInfo(".");
-    retry++;
-  }
-
-  if (WiFi.status() == WL_CONNECTED) {
+  bool wifiConnected = isWiFiConnected();
+  if (wifiConnected) {
     initMqtt();
+    g_mqttInitialized = true;
     if (displaySettings.getAutoUpdate()) {
-  logInfo("✅ Connected to WiFi. Starting firmware check...");
+      logInfo("✅ Connected to WiFi. Starting firmware check...");
       checkForFirmwareUpdate();
     } else {
-  logInfo("ℹ️ Automatic firmware updates disabled. Skipping check.");
+      logInfo("ℹ️ Automatic firmware updates disabled. Skipping check.");
     }
+    g_autoUpdateHandled = true;
   } else {
-  logInfo("⚠️ No WiFi. Firmware check skipped.");
+    logInfo("⚠️ No WiFi. Waiting for connection or config portal.");
+    g_autoUpdateHandled = !displaySettings.getAutoUpdate();
   }
 
   // Synchroniseer tijd via NTP
   initTimeSync(TZ_INFO, NTP_SERVER1, NTP_SERVER2);
   initDisplay();
   initWordclockSystem(uiAuth);
+  startupSequence.setWordWalkEnabled(!g_wifiHadCredentialsAtBoot);
   initStartupSequence(startupSequence);
 }
 
 // Loop: hoofdprogramma, verwerkt webrequests, OTA, MQTT en kloklogica
 void loop() {
+  processNetwork();
+  if (isWiFiConnected() && !g_mqttInitialized) {
+    initMqtt();
+    g_mqttInitialized = true;
+  }
+  if (isWiFiConnected() && !g_autoUpdateHandled) {
+    if (displaySettings.getAutoUpdate()) {
+      logInfo("✅ Connected to WiFi. Starting firmware check...");
+      checkForFirmwareUpdate();
+    } else {
+      logInfo("ℹ️ Automatic firmware updates disabled. Skipping check.");
+    }
+    g_autoUpdateHandled = true;
+  }
   server.handleClient();
   ArduinoOTA.handle();
   mqttEventLoop();

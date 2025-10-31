@@ -115,10 +115,11 @@
         <span id="updateStatus" class="text-xs text-gray-600"></span>
       </div>
       <h3 class="text-sm font-semibold text-gray-700 mt-2 mb-1">Manual upload</h3>
-      <form action="/uploadFirmware" method="POST" enctype="multipart/form-data" class="space-y-2">
+      <form id="firmwareUploadForm" action="/uploadFirmware" method="POST" enctype="multipart/form-data" class="space-y-2">
         <input type="file" name="firmwareFile" accept=".bin" required class="block w-full text-sm text-gray-700" />
         <button type="submit" class="py-2 px-3 rounded bg-gray-700 text-white hover:bg-gray-800">Upload</button>
       </form>
+      <p id="firmwareUploadStatus" class="text-xs text-gray-600 mt-1"></p>
       <p class="mt-2 text-sm">
         <strong>Firmware version:</strong> <span id="version">-</span>
         <span class="ml-4"><strong>UI version:</strong> <span id="uiVersion">-</span></span>
@@ -457,6 +458,67 @@
         } catch (e) {
           updateStatusEl.textContent = 'Network error during update check';
         }
+      });
+    }
+
+    const manualUploadForm = document.getElementById('firmwareUploadForm');
+    const manualUploadStatusEl = document.getElementById('firmwareUploadStatus');
+    if (manualUploadForm) {
+      const submitBtn = manualUploadForm.querySelector('button[type="submit"]');
+      const fileInput = manualUploadForm.querySelector('input[name="firmwareFile"]');
+      const setManualStatus = (msg) => {
+        if (manualUploadStatusEl) manualUploadStatusEl.textContent = msg || '';
+      };
+      const setButtonDisabled = (disabled) => {
+        if (!submitBtn) return;
+        submitBtn.disabled = disabled;
+        submitBtn.classList.toggle('opacity-50', disabled);
+        submitBtn.classList.toggle('cursor-not-allowed', disabled);
+      };
+      manualUploadForm.addEventListener('submit', (evt) => {
+        evt.preventDefault();
+        if (!fileInput || fileInput.files.length === 0) {
+          setManualStatus('Selecteer eerst een firmwarebestand (.bin).');
+          return;
+        }
+        const formData = new FormData();
+        formData.append('firmwareFile', fileInput.files[0]);
+        setButtonDisabled(true);
+
+        const xhr = new XMLHttpRequest();
+        xhr.open('POST', manualUploadForm.action || '/uploadFirmware');
+        xhr.responseType = 'text';
+
+        xhr.upload.addEventListener('loadstart', () => setManualStatus('📂 Upload gestart...'));
+        xhr.upload.addEventListener('progress', (event) => {
+          if (event.lengthComputable && event.total > 0) {
+            const percent = Math.round((event.loaded / event.total) * 100);
+            setManualStatus(`✏️ Uploaden... ${percent}%`);
+          } else {
+            setManualStatus('✏️ Uploaden...');
+          }
+        });
+        xhr.upload.addEventListener('load', () => setManualStatus('📥 Bestand verstuurd, firmware wordt gecontroleerd...'));
+
+        xhr.addEventListener('load', () => {
+          if (xhr.status >= 200 && xhr.status < 300) {
+            setManualStatus('✅ Upload afgerond. De klok herstart binnen enkele seconden. Pagina ververst in 15s.');
+            setTimeout(() => location.reload(), 15000);
+          } else {
+            setManualStatus(`❌ Upload mislukt (${xhr.status} ${xhr.statusText || ''}).`);
+            setButtonDisabled(false);
+          }
+        });
+
+        const handleFailure = (msg) => {
+          setManualStatus(msg);
+          setButtonDisabled(false);
+        };
+
+        xhr.addEventListener('error', () => handleFailure('❌ Netwerkfout tijdens upload.'));
+        xhr.addEventListener('abort', () => handleFailure('⚠️ Upload afgebroken.'));
+
+        xhr.send(formData);
       });
     }
 
