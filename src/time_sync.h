@@ -2,6 +2,7 @@
 
 #include <time.h>
 #include "log.h"
+#include "config.h"
 
 extern bool g_initialTimeSyncSucceeded;
 
@@ -13,14 +14,26 @@ inline void initTimeSync(const char* tzInfo, const char* ntp1, const char* ntp2)
     configTzTime(tzInfo, ntp1, ntp2); // Set timezone and NTP servers
     logInfo("⌛ Waiting for NTP...");
     struct tm timeinfo;
-    while (!getLocalTime(&timeinfo)) { // Wait until time is available
+    unsigned long start = millis();
+    bool synced = false;
+    while (millis() - start < TIME_SYNC_TIMEOUT_MS) {
+        if (getLocalTime(&timeinfo)) {
+            synced = true;
+            break;
+        }
         logDebug(".");
         delay(500);
     }
-    logInfo("🕒 Time synchronized: " +
-        String(timeinfo.tm_mday) + "/" +
-        String(timeinfo.tm_mon+1) + " " +
-        String(timeinfo.tm_hour) + ":" +
-        String(timeinfo.tm_min));
+    if (!synced) {
+        logWarn("⌛ NTP timeout; proceeding without synced time");
+        return;
+    }
+    char buf[32];
+    snprintf(buf, sizeof(buf), "%02d/%02d %02d:%02d",
+             timeinfo.tm_mday,
+             timeinfo.tm_mon + 1,
+             timeinfo.tm_hour,
+             timeinfo.tm_min);
+    logInfo(String("🕒 Time synchronized: ") + buf);
     g_initialTimeSyncSucceeded = true;
 }

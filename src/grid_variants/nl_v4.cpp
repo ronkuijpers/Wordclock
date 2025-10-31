@@ -1,7 +1,7 @@
 #include "grid_variants/nl_v4.h"
 
 // Placeholder: NL_V4 currently reuses the NL_V1 grid until a dedicated layout is supplied.
-const uint16_t LED_COUNT_GRID_NL_V4 = 146;
+const uint16_t LED_COUNT_GRID_NL_V4 = 137;
 const uint16_t LED_COUNT_EXTRA_NL_V4 = 14;
 const uint16_t LED_COUNT_TOTAL_NL_V4 = LED_COUNT_GRID_NL_V4 + LED_COUNT_EXTRA_NL_V4;
 

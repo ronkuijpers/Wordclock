@@ -22,11 +22,12 @@
 // Logging
 
 #define SERIAL_BAUDRATE 115200
-#define WIFI_CONFIG_PORTAL_TIMEOUT 180 // seconds
+#define WIFI_CONFIG_PORTAL_TIMEOUT 300 // seconds
 #define WIFI_CONNECT_MAX_RETRIES 20
 #define WIFI_CONNECT_RETRY_DELAY_MS 500
 #define MDNS_HOSTNAME "wordclock"
 #define MDNS_START_DELAY_MS 1000
+#define TIME_SYNC_TIMEOUT_MS 15000
 
 #define OTA_UPDATE_COMPLETE_DELAY_MS 1000
 #define EEPROM_WRITE_DELAY_MS 500
@@ -36,5 +37,5 @@
 #define DAILY_FIRMWARE_CHECK_INTERVAL_SEC 3600
 
 constexpr unsigned long SWEEP_STEP_MS = 20;
-constexpr unsigned long WORD_SEQUENCE_STEP_MS = 250;
-constexpr unsigned long WORD_SEQUENCE_HOLD_MS = 2000;
+constexpr unsigned long WORD_SEQUENCE_STEP_MS = 1000;
+constexpr unsigned long WORD_SEQUENCE_HOLD_MS = 1000;

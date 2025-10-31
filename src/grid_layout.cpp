@@ -8,9 +8,16 @@
 #include "grid_variants/nl_v2.h"
 #include "grid_variants/nl_v3.h"
 #include "grid_variants/nl_v4.h"
+#include "grid_variants/nl_50x50_v1.h"
+#include "grid_variants/nl_50x50_v2.h"
 #include "grid_variants/nl_20x20_v1.h"
 
 namespace {
+
+enum class MinuteLayout {
+  AfterGrid,
+  MixedIntoGrid
+};
 
 struct GridVariantData {
   GridVariant variant;
@@ -26,22 +33,49 @@ struct GridVariantData {
   size_t wordCount;
   const uint16_t* minuteLeds;
   size_t minuteCount;
+  MinuteLayout minuteLayout;
 };
 
 // Helper to compute array length at compile time
 template <typename T, size_t N>
 constexpr size_t countof(const T (&)[N]) { return N; }
 
+uint16_t computeTotalLedCount(const GridVariantData* data) {
+  if (!data) return 0;
+  if (data->minuteLayout == MinuteLayout::AfterGrid) {
+    return data->ledCountTotal;
+  }
+  uint16_t maxLed = data->ledCountGrid;
+  for (size_t i = 0; i < data->minuteCount; ++i) {
+    if (data->minuteLeds[i] > maxLed) {
+      maxLed = data->minuteLeds[i];
+    }
+  }
+  return maxLed;
+}
+
+uint16_t computeExtraLedCount(const GridVariantData* data) {
+  if (!data) return 0;
+  if (data->minuteLayout == MinuteLayout::AfterGrid) {
+    return data->ledCountExtra;
+  }
+  uint16_t total = computeTotalLedCount(data);
+  return total > data->ledCountGrid ? static_cast<uint16_t>(total - data->ledCountGrid) : 0;
+}
+
 static const GridVariantData GRID_VARIANTS[] = {
-  { GridVariant::NL_V1, "NL_V1", "Nederlands V1", "nl", "v1", LED_COUNT_GRID_NL_V1, LED_COUNT_EXTRA_NL_V1, LED_COUNT_TOTAL_NL_V1, LETTER_GRID_NL_V1, WORDS_NL_V1, WORDS_NL_V1_COUNT, EXTRA_MINUTES_NL_V1, EXTRA_MINUTES_NL_V1_COUNT },
-  { GridVariant::NL_V2, "NL_V2", "Nederlands V2", "nl", "v2", LED_COUNT_GRID_NL_V2, LED_COUNT_EXTRA_NL_V2, LED_COUNT_TOTAL_NL_V2, LETTER_GRID_NL_V2, WORDS_NL_V2, WORDS_NL_V2_COUNT, EXTRA_MINUTES_NL_V2, EXTRA_MINUTES_NL_V2_COUNT },
-  { GridVariant::NL_V3, "NL_V3", "Nederlands V3", "nl", "v3", LED_COUNT_GRID_NL_V3, LED_COUNT_EXTRA_NL_V3, LED_COUNT_TOTAL_NL_V3, LETTER_GRID_NL_V3, WORDS_NL_V3, WORDS_NL_V3_COUNT, EXTRA_MINUTES_NL_V3, EXTRA_MINUTES_NL_V3_COUNT },
-  { GridVariant::NL_V4, "NL_V4", "Nederlands V4", "nl", "v4", LED_COUNT_GRID_NL_V4, LED_COUNT_EXTRA_NL_V4, LED_COUNT_TOTAL_NL_V4, LETTER_GRID_NL_V4, WORDS_NL_V4, WORDS_NL_V4_COUNT, EXTRA_MINUTES_NL_V4, EXTRA_MINUTES_NL_V4_COUNT },
-  { GridVariant::NL_20x20_V1, "NL_20x20_V1", "Nederlands 20x20 V1", "nl", "v1", LED_COUNT_GRID_NL_20x20_V1, LED_COUNT_EXTRA_NL_20x20_V1, LED_COUNT_TOTAL_NL_20x20_V1, LETTER_GRID_NL_20x20_V1, WORDS_NL_20x20_V1, WORDS_NL_20x20_V1_COUNT, EXTRA_MINUTES_NL_20x20_V1, EXTRA_MINUTES_NL_20x20_V1_COUNT },
-  { GridVariant::EN_V1, "EN_V1", "English V1", "en", "v1", LED_COUNT_GRID_EN_V1, LED_COUNT_EXTRA_EN_V1, LED_COUNT_TOTAL_EN_V1, LETTER_GRID_EN_V1, WORDS_EN_V1, WORDS_EN_V1_COUNT, EXTRA_MINUTES_EN_V1, EXTRA_MINUTES_EN_V1_COUNT }
+  { GridVariant::NL_V1, "NL_V1", "Nederlands V1", "nl", "v1", LED_COUNT_GRID_NL_V1, LED_COUNT_EXTRA_NL_V1, LED_COUNT_TOTAL_NL_V1, LETTER_GRID_NL_V1, WORDS_NL_V1, WORDS_NL_V1_COUNT, EXTRA_MINUTES_NL_V1, EXTRA_MINUTES_NL_V1_COUNT, MinuteLayout::AfterGrid },
+  { GridVariant::NL_V2, "NL_V2", "Nederlands V2", "nl", "v2", LED_COUNT_GRID_NL_V2, LED_COUNT_EXTRA_NL_V2, LED_COUNT_TOTAL_NL_V2, LETTER_GRID_NL_V2, WORDS_NL_V2, WORDS_NL_V2_COUNT, EXTRA_MINUTES_NL_V2, EXTRA_MINUTES_NL_V2_COUNT, MinuteLayout::AfterGrid },
+  { GridVariant::NL_V3, "NL_V3", "Nederlands V3", "nl", "v3", LED_COUNT_GRID_NL_V3, LED_COUNT_EXTRA_NL_V3, LED_COUNT_TOTAL_NL_V3, LETTER_GRID_NL_V3, WORDS_NL_V3, WORDS_NL_V3_COUNT, EXTRA_MINUTES_NL_V3, EXTRA_MINUTES_NL_V3_COUNT, MinuteLayout::AfterGrid },
+  { GridVariant::NL_V4, "NL_V4", "Nederlands V4", "nl", "v4", LED_COUNT_GRID_NL_V4, LED_COUNT_EXTRA_NL_V4, LED_COUNT_TOTAL_NL_V4, LETTER_GRID_NL_V4, WORDS_NL_V4, WORDS_NL_V4_COUNT, EXTRA_MINUTES_NL_V4, EXTRA_MINUTES_NL_V4_COUNT, MinuteLayout::AfterGrid },
+  { GridVariant::NL_20x20_V1, "NL_20x20_V1", "Nederlands 20x20 V1", "nl", "v1", LED_COUNT_GRID_NL_20x20_V1, LED_COUNT_EXTRA_NL_20x20_V1, LED_COUNT_TOTAL_NL_20x20_V1, LETTER_GRID_NL_20x20_V1, WORDS_NL_20x20_V1, WORDS_NL_20x20_V1_COUNT, EXTRA_MINUTES_NL_20x20_V1, EXTRA_MINUTES_NL_20x20_V1_COUNT, MinuteLayout::AfterGrid },
+  { GridVariant::NL_50x50_V1, "NL_50x50_V1", "Nederlands 50x50 V1", "nl", "v1", LED_COUNT_GRID_NL_50x50_V1, LED_COUNT_EXTRA_NL_50x50_V1, LED_COUNT_TOTAL_NL_50x50_V1, LETTER_GRID_NL_50x50_V1, WORDS_NL_50x50_V1, WORDS_NL_50x50_V1_COUNT, EXTRA_MINUTES_NL_50x50_V1, EXTRA_MINUTES_NL_50x50_V1_COUNT, MinuteLayout::MixedIntoGrid },
+  { GridVariant::NL_50x50_V2, "NL_50x50_V2", "Nederlands 50x50 V2", "nl", "v2", LED_COUNT_GRID_NL_50x50_V2, LED_COUNT_EXTRA_NL_50x50_V2, LED_COUNT_TOTAL_NL_50x50_V2, LETTER_GRID_NL_50x50_V2, WORDS_NL_50x50_V2, WORDS_NL_50x50_V2_COUNT, EXTRA_MINUTES_NL_50x50_V2, EXTRA_MINUTES_NL_50x50_V2_COUNT, MinuteLayout::AfterGrid },
+  { GridVariant::EN_V1, "EN_V1", "English V1", "en", "v1", LED_COUNT_GRID_EN_V1, LED_COUNT_EXTRA_EN_V1, LED_COUNT_TOTAL_EN_V1, LETTER_GRID_EN_V1, WORDS_EN_V1, WORDS_EN_V1_COUNT, EXTRA_MINUTES_EN_V1, EXTRA_MINUTES_EN_V1_COUNT, MinuteLayout::AfterGrid }
 };
 
 static const GridVariantData* activeVariant = &GRID_VARIANTS[0];
+static MinuteLayout activeMinuteLayout = MinuteLayout::AfterGrid;
 
 void applyActiveVariant(const GridVariantData* data) {
   activeVariant = data;
@@ -50,6 +84,7 @@ void applyActiveVariant(const GridVariantData* data) {
   ACTIVE_WORD_COUNT = data->wordCount;
   EXTRA_MINUTE_LEDS = data->minuteLeds;
   EXTRA_MINUTE_LED_COUNT = data->minuteCount;
+  activeMinuteLayout = data->minuteLayout;
 }
 
 const GridVariantData* findVariant(GridVariant variant) {
@@ -133,11 +168,11 @@ uint16_t getActiveLedCountGrid() {
 }
 
 uint16_t getActiveLedCountExtra() {
-  return activeVariant->ledCountExtra;
+  return computeExtraLedCount(activeVariant);
 }
 
 uint16_t getActiveLedCountTotal() {
-  return activeVariant->ledCountTotal;
+  return computeTotalLedCount(activeVariant);
 }
 
 const GridVariantInfo* getGridVariantInfos(size_t& count) {

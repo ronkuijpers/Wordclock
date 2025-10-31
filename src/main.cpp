@@ -40,6 +40,7 @@ UiAuth uiAuth;
 bool g_wifiHadCredentialsAtBoot = false;
 static bool g_mqttInitialized = false;
 static bool g_autoUpdateHandled = false;
+static bool g_serverInitialized = false;
 
 
 // Webserver
@@ -75,10 +76,10 @@ void setup() {
   logEnableFileSink();
   }
 
-  initWebServer(server);      // Webserver en routes
-
   bool wifiConnected = isWiFiConnected();
   if (wifiConnected) {
+    initWebServer(server);
+    g_serverInitialized = true;
     initMqtt();
     g_mqttInitialized = true;
     if (displaySettings.getAutoUpdate()) {
@@ -91,6 +92,7 @@ void setup() {
   } else {
     logInfo("⚠️ No WiFi. Waiting for connection or config portal.");
     g_autoUpdateHandled = !displaySettings.getAutoUpdate();
+    g_serverInitialized = false;
   }
 
   // Synchroniseer tijd via NTP
@@ -104,6 +106,10 @@ void setup() {
 // Loop: hoofdprogramma, verwerkt webrequests, OTA, MQTT en kloklogica
 void loop() {
   processNetwork();
+  if (isWiFiConnected() && !g_serverInitialized) {
+    initWebServer(server);
+    g_serverInitialized = true;
+  }
   if (isWiFiConnected() && !g_mqttInitialized) {
     initMqtt();
     g_mqttInitialized = true;
@@ -117,7 +123,9 @@ void loop() {
     }
     g_autoUpdateHandled = true;
   }
-  server.handleClient();
+  if (g_serverInitialized) {
+    server.handleClient();
+  }
   ArduinoOTA.handle();
   mqttEventLoop();
 
