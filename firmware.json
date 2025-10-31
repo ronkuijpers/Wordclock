@@ -1,7 +1,7 @@
 {
   "version": "0.12",
   "ui_version": "0.12",
-  "released": "2025-10-21T12:00:00Z",
+  "released": "2025-10-31T12:00:00Z",
   "firmware": "https://github.com/ronkuijpers/Wordclock/releases/download/v0.12/wordclock-v0.12.bin",
   "files": [
     { "path": "/admin.html",    "url": "https://raw.githubusercontent.com/ronkuijpers/Wordclock/v0.12/data/admin.html",    "sha256": "xxx" },
