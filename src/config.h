@@ -3,10 +3,9 @@
 #define LOG_BUFFER_SIZE 150
 #pragma once
 
-#define FIRMWARE_VERSION "0.11"
-#define UI_VERSION "0.11"
+#define FIRMWARE_VERSION "0.12"
+#define UI_VERSION "0.12"
 
-#define NUM_LEDS 161
 #define DATA_PIN 4
 #define DEFAULT_BRIGHTNESS 5
 

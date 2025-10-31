@@ -38,18 +38,24 @@ public:
     unsigned long now = millis();
 
     switch (state) {
-      case SWEEP:
-        if (now - lastUpdate >= SWEEP_STEP_MS && sweepIndex < NUM_LEDS) {
+      case SWEEP: {
+        const uint16_t totalLeds = getActiveLedCountTotal();
+        if (now - lastUpdate >= SWEEP_STEP_MS && sweepIndex < totalLeds) {
           showLeds({ static_cast<uint16_t>(sweepIndex) });
           sweepIndex++;
           lastUpdate = now;
-          if (sweepIndex >= NUM_LEDS) {
+          if (sweepIndex >= totalLeds) {
             logDebug(wordWalkEnabled ? "🔁 Startup: Sweep finished, starting word walk"
                                      : "🔁 Startup: Sweep finished, skipping word walk");
             transitionToWordWalk(now);
           }
+        } else if (sweepIndex >= totalLeds) {
+          logDebug(wordWalkEnabled ? "🔁 Startup: Sweep finished (adjusted), starting word walk"
+                                   : "🔁 Startup: Sweep finished (adjusted), skipping word walk");
+          transitionToWordWalk(now);
         }
         break;
+      }
 
       case WORD_WALK:
         if (wordIndex >= ACTIVE_WORD_COUNT || !ACTIVE_WORDS) {

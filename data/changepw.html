@@ -36,7 +36,8 @@
       const r = await fetch('/setUIPassword', { method: 'POST', headers: {'Content-Type':'application/x-www-form-urlencoded'}, body });
       const t = await r.text();
       if (r.ok) {
-        msg.textContent = 'Password saved. Redirecting...'; msg.className = 'text-green-600 text-sm';
+        msg.className = 'text-green-600 text-sm';
+        msg.innerHTML = 'Password saved. Redirecting... <a href="/dashboard.html" class="underline text-blue-600">Click here</a> if you are not redirected.';
         setTimeout(() => { window.location.href = '/dashboard.html'; }, 1000);
       } else {
         msg.textContent = t || 'Failed to save'; msg.className = 'text-red-600 text-sm';

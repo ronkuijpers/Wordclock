@@ -1,76 +1,83 @@
 # Wordclock Firmware
 
-Firmware for an ESP32-based Wordclock with OTA updates, a web interface, and pixel-LED time display.
+Firmware for an ESP32-based word clock with OTA updates, a browser dashboard, and addressable LED output.
 
-## Status
+## TL;DR
 
-> Development in progress.  
-> Functionality is incomplete and unstable.  
-> Use at your own risk.
+1. Download the latest release binary from the [GitHub releases page](https://github.com/ronkuijpers/Wordclock/releases).
+2. Flash the ESP32, for example:  
+   `esptool.py --chip esp32 --port /dev/ttyUSB0 --baud 921600 write_flash -z 0x1000 wordclock-v0.12.bin`
+3. Power-cycle the clock and connect to the temporary Wi-Fi network `Wordclock_AP` to finish setup.
 
-## Features
+## Project Status
 
-- WiFi setup via WiFiManager
-- OTA firmware updates
-- Web-based dashboard and admin interface
-- Telnet logging
-- NeoPixel LED word clock
+- Actively developed; expect breaking changes between releases.
+- Firmware auto-updates nightly when connected to the internet.
+- Use on production hardware only after validating with your setup.
 
-## Installation & Hardware
+## Highlights
 
-See [docs/BuildInstruction.md](docs/BuildInstruction.md) for hardware connections and LED configuration.
+- Guided Wi-Fi onboarding via WiFiManager captive portal.
+- Automatic and manual OTA firmware updates, configurable update channel via `firmware.json`.
+- Responsive web dashboard (`/dashboard`) and admin panel (`/admin`) served from SPIFFS.
+- MQTT integration for home automation platforms.
+- Multiple letter-grid layouts with persistent storage in NVS.
+- Telnet logging and serial diagnostics for development.
 
-Requirements:
-- ESP32 microcontroller
-- NeoPixel LED strip/matrix
-- Power supply (VIN + GND)
+## Hardware & Wiring
+
+Refer to [docs/BuildInstruction.md](docs/BuildInstruction.md) for wiring notes. At minimum you need:
+- ESP32 DevKit or equivalent (4 MB flash recommended)
+- 5 V power supply tied to `VIN` and `GND`
+- NeoPixel/WS2812 LED matrix connected to GPIO `D4`
+
+Mount the LEDs starting at the upper-right corner, skip the first LED (index 0), and leave four LED gaps when turning a corner.
+
+## Firmware Options
+
+- **Pre-built binary**: Each tagged release publishes `wordclock-vX.Y.bin` plus a `firmware.json` manifest that OTA clients consume.
+- **Local build**: Use PlatformIO (`platformio run -t upload`) after cloning the repository and configuring secrets (see below).
+- **OTA bundles**: Static dashboard assets live under `data/`; they are uploaded with `platformio run -t uploadfs` or via the web-based upgrader.
 
 ## Configuration
 
-1. Copy `include/secrets_template.h` to `include/secrets.h` and fill in your WiFi credentials.
-2. Modify `upload_params_template.ini` if necessary and rename it to `upload_params.ini`.
-3. Compile and upload the firmware using PlatformIO.
+1. Copy `include/secrets_template.h` to `include/secrets.h` and set Wi-Fi credentials and optional MQTT details.
+2. Duplicate `upload_params_template.ini` as `upload_params.ini` for per-device OTA and serial upload parameters.
+3. Adjust grid layout defaults in `src/wordclock_system_init.cpp` if you ship with a non-default language layout.
 
-## Usage
+## Admin & Daily Use
 
-After installation, the clock is accessible via the local network. Use the web dashboard for settings, updates, and status.
+- Access the dashboard at `http://wordclock.local` or by IP to adjust brightness, animations, and scheduling.
+- The admin UI exposes Wi-Fi reset, password management, manual firmware upload, and live logs.
+- Time synchronizes automatically via NTP; no RTC battery is required.
+- Nightly OTA checks occur at 02:00 local device time. Override the manifest URL in `src/config.h` if you host your own updates.
 
-## Project Structure & Modules
+## Development Notes
 
-The firmware is modularly built. Main modules include:
+| Path                     | Purpose                                                                    |
+|--------------------------|----------------------------------------------------------------------------|
+| `src/`                   | Core firmware modules (`main.cpp`, subsystems, grid layouts)               |
+| `data/`                  | Web dashboard and admin static assets (served from SPIFFS)                 |
+| `include/`               | Public headers, secrets template, feature flags                            |
+| `lib/`                   | External and custom reusable libraries                                     |
+| `tools/`                 | Utility scripts such as OTA deployment helpers                             |
+| `docs/`                  | Build instructions, quick start sheet, task list                           |
 
-- `main.cpp`: Central setup and loop, invokes all modules.
-- `network_init.h`: WiFi initialization via WiFiManager.
-- `ota_init.h`: Over-the-air updates (OTA).
-- `time_sync.h`: Time synchronization via NTP.
-- `webserver_init.h`: Web server and route initialization.
-- `mqtt_init.h`: MQTT initialization and event loop.
-- `display_init.h`: LED and display settings.
-- `startup_sequence_init.h`: Startup animation.
-- `wordclock_main.h`: Main logic of the clock.
-- `wordclock_system_init.h`: UI authentication and word clock setup.
-- `grid_layout.cpp`: Grid layout definitions (multiple variants) and lookup helpers.
-
-Refer to the comments in each module file for explanations of functionality and usage.
+Key modules to inspect first:
+- `src/main.cpp` bootstraps networking, OTA, web, and display subsystems.
+- `src/grid_layout.cpp` contains the available word-clock layouts and helper lookups.
+- `src/wordclock_system_init.cpp` wires settings, authentication, and web routes together.
 
 ## Documentation
 
-- [BuildInstruction.md](docs/BuildInstruction.md): Hardware and LED setup
-- [QuickStart.md](docs/QuickStart.md): Quick Start Guide
-- [todo](docs/todo): Pending and completed tasks
+- [QuickStart.md](docs/QuickStart.md): End-user setup walkthrough.
+- [BuildInstruction.md](docs/BuildInstruction.md): Physical assembly notes.
+- [todo](docs/todo): Backlog of open and completed tasks.
 
-## Grid Variants
+## Support & Contributions
 
-The firmware supports multiple LED-letter layouts. Each variant is defined in `src/grid_layout.cpp`
-and uses a language/version code such as `NL_V1` or `EN_V1`. To add or adjust a layout, provide the
-letter rows, word positions, and minute LED indices for the relevant variant. The active variant is
-stored in NVS and can be selected via the admin UI (`/admin`) or programmatically with
-`displaySettings.setGridVariant(...)`.
-
-## Todo's & Roadmap
-
-See [docs/todo](docs/todo) for current and completed tasks.
+Bug reports and feature requests are welcome in the issue tracker. Please include device details, firmware version, and logs from `/logs.html` where possible. Pull requests should target the `main` branch and include relevant tests or reproduction steps.
 
 ## License
 
-To be determined.
+To be determined. Until then, assume the code is proprietary to the project maintainers.
