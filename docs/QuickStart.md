@@ -13,12 +13,15 @@ Welcome to your Wordclock! This quick guide walks you through the first setup an
 
 ## 3. Initial Power-Up
 1. Plug in the power adapter.
-2. Wait for the clock to boot (about 10 seconds). The front should light briefly.
+2. Wait for the clock to boot (about 10 seconds). All leds will light briefly.
 
 ## 4. Connect to WiFi
 1. On first power-up (or after a WiFi reset) the clock creates a temporary WiFi network named **`Wordclock_AP`** with the password printed on your device.
 2. Connect with your phone or computer and a setup page opens automatically. If not, visit `http://192.168.4.1`.
 3. Select your home WiFi, enter the password, and save. The clock will reboot and join your network.
+
+## 5. Initial setup wizard
+1. After the clock has joined your home wifi network, an initial setup wizard needs to be completed. In this wizard you will select the correct grid for your version of the clock.
 
 ## 5. Open the Dashboard
 1. After joining WiFi, find the clock's IP address in your router or use `http://wordclock.local` in most browsers.

@@ -5,6 +5,7 @@
 #include "display_settings.h"
 #include "time_sync.h"
 #include "night_mode.h"
+#include "setup_state.h"
 
 
 
@@ -60,6 +61,8 @@ void wordclock_loop() {
   static bool haveTime = false;
   static unsigned long lastTimeFetchMs = 0;
 
+  unsigned long nowMs = millis();
+
   if (!clockEnabled) {
     animating = false;
     showLeds({});
@@ -67,8 +70,14 @@ void wordclock_loop() {
     return;
   }
 
+  if (!setupState.isComplete()) {
+    animating = false;
+    showLeds({});
+    resetNoTimeIndicator();
+    return;
+  }
+
   // Refresh cached time at most once per second
-  unsigned long nowMs = millis();
   if (!haveTime || (nowMs - lastTimeFetchMs) >= 1000UL) {
     struct tm t = {};
     if (getLocalTime(&t)) {

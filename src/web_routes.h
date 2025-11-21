@@ -1,5 +1,5 @@
 #pragma once
-#include <network.h>
+#include "network_init.h"
 #include "fs_compat.h"
 #include <Update.h>
 #include <WebServer.h>
@@ -103,7 +103,15 @@ static void sendSetupStatus() {
   doc["completed"] = setupState.isComplete();
   doc["version"] = setupState.getVersion();
   doc["migrated"] = setupState.wasMigrated();
-  doc["wifi_configured"] = g_wifiHadCredentialsAtBoot;
+  bool staConnected = (WiFi.status() == WL_CONNECTED) || isWiFiConnected() || WiFi.isConnected();
+  String ssid = staConnected ? WiFi.SSID() : WiFi.softAPSSID();
+  IPAddress ip = staConnected ? WiFi.localIP() : WiFi.softAPIP();
+  bool hasSavedSsid = WiFi.SSID().length() > 0;
+  bool hasIp = ip != IPAddress(0, 0, 0, 0);
+  doc["wifi_connected"] = staConnected || hasIp;
+  doc["wifi_configured"] = staConnected || g_wifiHadCredentialsAtBoot || hasSavedSsid || hasIp;
+  doc["wifi_ssid"] = ssid.length() ? ssid : (staConnected ? "unknown" : "AP/Portal");
+  doc["wifi_ip"] = hasIp ? ip.toString() : "";
   GridVariant active = displaySettings.getGridVariant();
   doc["grid_variant_id"] = gridVariantToId(active);
   if (const auto* info = getGridVariantInfo(active)) {
@@ -272,7 +280,11 @@ void setupWebRoutes() {
 
   // Handle password change
   server.on("/setUIPassword", HTTP_POST, []() {
-    if (!server.authenticate(uiAuth.getUser().c_str(), uiAuth.getPass().c_str())) {
+    bool needsChange = uiAuth.needsChange();
+    bool authed = server.authenticate(ADMIN_USER, ADMIN_PASS) ||
+                  server.authenticate(uiAuth.getUser().c_str(), uiAuth.getPass().c_str());
+    // During forced-change flow, allow without a second auth prompt
+    if (!authed && !needsChange) {
       server.requestAuthentication(BASIC_AUTH, "Wordclock UI");
       return;
     }

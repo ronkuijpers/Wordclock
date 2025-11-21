@@ -16,6 +16,10 @@ public:
     autoUpdate = prefs.getBool("auto_upd", true);
     const uint8_t defaultVariantId = gridVariantToId(FIRMWARE_DEFAULT_GRID_VARIANT);
     const bool hasGridKey = prefs.isKey("grid_id");
+    // Track whether a grid variant was already stored so we can detect migrations
+    if (!initialized) {
+      hasStoredVariant = hasGridKey;
+    }
     uint8_t storedVariant = prefs.getUChar("grid_id", defaultVariantId);
     if (!hasGridKey) {
       prefs.putUChar("grid_id", defaultVariantId);
@@ -31,6 +35,7 @@ public:
       prefs.putUChar("grid_id", defaultVariantId);
       prefs.end();
     }
+    initialized = true;
   }
 
   uint16_t getHetIsDurationSec() const { return hetIsDurationSec; }
@@ -39,6 +44,7 @@ public:
   bool getAutoUpdate() const { return autoUpdate; }
   GridVariant getGridVariant() const { return gridVariant; }
   uint8_t getGridVariantId() const { return gridVariantToId(gridVariant); }
+  bool hasPersistedGridVariant() const { return hasStoredVariant; }
 
   void setHetIsDurationSec(uint16_t s) {
     if (s > 360) s = 360;
@@ -93,6 +99,8 @@ private:
   bool animateWords = false; // default OFF
   bool autoUpdate = true;    // default ON to keep current behavior
   GridVariant gridVariant = FIRMWARE_DEFAULT_GRID_VARIANT;
+  bool hasStoredVariant = false;
+  bool initialized = false;
   Preferences prefs;
 };
 

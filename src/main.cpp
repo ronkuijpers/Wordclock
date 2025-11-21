@@ -31,6 +31,7 @@
 #include "ui_auth.h"
 #include "mqtt_client.h"
 #include "night_mode.h"
+#include "setup_state.h"
 
 
 bool clockEnabled = true;
@@ -66,6 +67,8 @@ void setup() {
 
   // Load persisted display settings (e.g. auto-update preference) before running dependent flows
   displaySettings.begin();
+  const bool hasLegacyConfig = g_wifiHadCredentialsAtBoot || displaySettings.hasPersistedGridVariant();
+  setupState.begin(hasLegacyConfig);
   nightMode.begin();
 
   // Mount SPIFFS filesystem
@@ -99,7 +102,8 @@ void setup() {
   initTimeSync(TZ_INFO, NTP_SERVER1, NTP_SERVER2);
   initDisplay();
   initWordclockSystem(uiAuth);
-  startupSequence.setWordWalkEnabled(!g_wifiHadCredentialsAtBoot);
+  // Skip word-walk preview when setup is not finished
+  startupSequence.setWordWalkEnabled(!g_wifiHadCredentialsAtBoot && setupState.isComplete());
   initStartupSequence(startupSequence);
 }
 

@@ -34,6 +34,22 @@
       </div>
     </section>
 
+    <section class="bg-white p-4 rounded-2xl shadow mb-4">
+      <div class="flex justify-between items-center mb-2">
+        <h2 class="text-xl font-semibold">Device info</h2>
+        <span id="deviceInfoStatus" class="text-xs text-gray-500">-</span>
+      </div>
+      <div class="grid grid-cols-2 gap-2 text-sm text-gray-700">
+        <div class="flex justify-between"><span>Uptime</span><span id="devUptime">-</span></div>
+        <div class="flex justify-between"><span>CPU</span><span id="devCpu">-</span></div>
+        <div class="flex justify-between"><span>Temp</span><span id="devTemp">-</span></div>
+        <div class="flex justify-between"><span>WiFi RSSI</span><span id="devRssi">-</span></div>
+        <div class="flex justify-between"><span>Heap free</span><span id="devHeap">-</span></div>
+        <div class="flex justify-between"><span>Min heap</span><span id="devHeapMin">-</span></div>
+        <div class="flex justify-between col-span-2"><span>Chip</span><span id="devChip">-</span></div>
+      </div>
+    </section>
+
     
     <section class="bg-white p-4 rounded-2xl shadow mb-4">
       <h2 class="text-xl font-semibold mb-2">Color</h2>
@@ -233,6 +249,34 @@
         'inline-block w-4 h-4 rounded-full ' + (on ? 'bg-green-500' : 'bg-red-500');
       const st = document.getElementById('statusText');
       if (st) st.textContent = on ? 'Wordclock on' : 'Wordclock off';
+    };
+
+    const deviceInfoStatus = document.getElementById('deviceInfoStatus');
+    const fmtBytes = (b) => {
+      if (typeof b !== 'number' || b < 0) return '-';
+      if (b >= 1024 * 1024) return (b / (1024 * 1024)).toFixed(1) + ' MB';
+      if (b >= 1024) return (b / 1024).toFixed(1) + ' KB';
+      return b + ' B';
+    };
+    const loadDeviceInfo = async () => {
+      try {
+        const res = await fetch('/api/device/info');
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        const info = await res.json();
+        const set = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
+        set('devUptime', info.uptime_human || '-');
+        set('devCpu', info.cpu_freq_mhz ? info.cpu_freq_mhz + ' MHz' : '-');
+        set('devTemp', (typeof info.temp_c === 'number') ? info.temp_c.toFixed(1) + ' °C' : 'n.v.t.');
+        set('devRssi', (typeof info.rssi === 'number') ? info.rssi + ' dBm' : '-');
+        set('devHeap', fmtBytes(info.heap_free));
+        set('devHeapMin', fmtBytes(info.heap_min_free));
+        const chip = [info.chip_model, (typeof info.chip_rev === 'number') ? ('rev ' + info.chip_rev) : null, info.sdk]
+          .filter(Boolean).join(' • ');
+        set('devChip', chip || '-');
+        if (deviceInfoStatus) deviceInfoStatus.textContent = 'live';
+      } catch (err) {
+        if (deviceInfoStatus) deviceInfoStatus.textContent = 'fout';
+      }
     };
 
     document.getElementById('toggleClockOn').onclick = () => {
@@ -579,6 +623,8 @@
     };
 
     updateStatus();
+    loadDeviceInfo();
+    setInterval(loadDeviceInfo, 10000);
     loadLog();
     setInterval(loadLog, 5000);
 
