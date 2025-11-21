@@ -1,4 +1,9 @@
 # Openstaande taken
+## Must haves
+- aparte leds aansturen voor logo - in vaste kleur combi 
+- instructie uitbreiden met plaatjes
+- setup wizard 
+
 
 ## Security
 - Basis-auth draait nog over HTTP; omzeil dit via een reverse proxy met TLS of implementeer device-side certificaten.
