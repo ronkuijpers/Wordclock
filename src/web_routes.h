@@ -6,6 +6,7 @@
 #include <esp_system.h>
 #include <ctype.h>
 #include <PubSubClient.h>
+#include <time.h>
 #include <ArduinoJson.h>
 #include <vector>
 #include <algorithm>
@@ -24,6 +25,9 @@
 #include "mqtt_client.h"
 #include "night_mode.h"
 #include "build_info.h"
+#include "setup_state.h"
+#include <WiFi.h>
+#include <Arduino.h>
 
 
 // References to global variables
@@ -31,6 +35,7 @@ extern WebServer server;
 extern String logBuffer[];
 extern int logIndex;
 extern bool clockEnabled;
+extern bool g_wifiHadCredentialsAtBoot;
 
 // Serve file, preferring a .gz variant if client accepts gzip
 static void serveFile(const char* path, const char* mime) {
@@ -93,6 +98,23 @@ static bool ensureUiAuth() {
   return true;
 }
 
+static void sendSetupStatus() {
+  JsonDocument doc;
+  doc["completed"] = setupState.isComplete();
+  doc["version"] = setupState.getVersion();
+  doc["migrated"] = setupState.wasMigrated();
+  doc["wifi_configured"] = g_wifiHadCredentialsAtBoot;
+  GridVariant active = displaySettings.getGridVariant();
+  doc["grid_variant_id"] = gridVariantToId(active);
+  if (const auto* info = getGridVariantInfo(active)) {
+    doc["grid_variant_key"] = info->key;
+    doc["grid_variant_label"] = info->label;
+  }
+  String out;
+  serializeJson(doc, out);
+  server.send(200, "application/json", out);
+}
+
 static const char* nightEffectToStr(NightModeEffect effect) {
   return (effect == NightModeEffect::Off) ? "off" : "dim";
 }
@@ -127,7 +149,7 @@ static void sendNightModeConfig() {
 // Clear persistent settings (factory reset helper)
 static void performFactoryReset() {
   Preferences p;
-  const char* keys[] = { "ui_auth", "display", "led", "log" };
+  const char* keys[] = { "ui_auth", "display", "led", "log", "setup" };
   for (auto ns : keys) {
     p.begin(ns, false);
     p.clear();
@@ -159,6 +181,11 @@ void setupWebRoutes() {
   // Dashboard (protected)
   server.on("/dashboard.html", HTTP_GET, []() {
     if (!ensureUiAuth()) return;
+    if (!setupState.isComplete()) {
+      server.sendHeader("Location", "/setup.html", true);
+      server.send(302, "text/plain", "");
+      return;
+    }
     serveFile("/dashboard.html", "text/html");
   });
 
@@ -227,12 +254,20 @@ void setupWebRoutes() {
 
   // Logout endpoints: return 401 to clear Basic Auth in browser
   server.on("/logout", HTTP_GET, []() {
-    server.sendHeader("WWW-Authenticate", "Basic realm=\"Wordclock UI\"");
-    server.send(401, "text/plain", "Logged out. Close the tab or log in again.");
+    String realm = String("Wordclock UI logout ") + millis();
+    server.sendHeader("WWW-Authenticate", String("Basic realm=\"") + realm + "\"");
+    server.sendHeader("Cache-Control", "no-store, no-cache, must-revalidate");
+    server.sendHeader("Pragma", "no-cache");
+    server.sendHeader("Location", "/", true);
+    server.send(302, "text/plain", "Logged out. Redirecting...");
   });
   server.on("/adminlogout", HTTP_GET, []() {
-    server.sendHeader("WWW-Authenticate", String("Basic realm=\"") + ADMIN_REALM + "\"");
-    server.send(401, "text/plain", "Admin logged out. Close the tab or log in again.");
+    String realm = String(ADMIN_REALM) + " logout " + millis();
+    server.sendHeader("WWW-Authenticate", String("Basic realm=\"") + realm + "\"");
+    server.sendHeader("Cache-Control", "no-store, no-cache, must-revalidate");
+    server.sendHeader("Pragma", "no-cache");
+    server.sendHeader("Location", "/", true);
+    server.send(302, "text/plain", "Admin logged out. Redirecting...");
   });
 
   // Handle password change
@@ -263,8 +298,27 @@ void setupWebRoutes() {
     serveFile("/logs.html", "text/html");
   });
 
+  // Setup page (public). Used when the wizard has not completed yet.
+  server.on("/setup.html", HTTP_GET, []() {
+    File f = FS_IMPL.open("/setup.html", "r");
+    if (!f) {
+      server.send(404, "text/plain", "setup.html not found");
+      return;
+    }
+    f.close();
+    serveFile("/setup.html", "text/html");
+  });
+
   // Public landing page with links to Login (protected) and Forgot
   server.on("/", HTTP_GET, []() {
+    if (!setupState.isComplete()) {
+      File sf = FS_IMPL.open("/setup.html", "r");
+      if (sf) {
+        sf.close();
+        serveFile("/setup.html", "text/html");
+        return;
+      }
+    }
     File f = FS_IMPL.open("/login.html", "r");
     if (!f) {
       // Fallback: redirect to protected dashboard
@@ -276,15 +330,109 @@ void setupWebRoutes() {
     serveFile("/login.html", "text/html");
   });
 
+  server.on("/api/setup/status", HTTP_GET, []() {
+    sendSetupStatus();
+  });
+
+  server.on("/api/setup/complete", HTTP_POST, []() {
+    setupState.markComplete();
+    struct tm timeinfo;
+    if (getLocalTime(&timeinfo)) {
+      wordclock_force_animation_for_time(&timeinfo);
+    }
+    server.send(200, "text/plain", "OK");
+  });
+
+  // Grid endpoints for the setup flow (open when setup is pending; require auth afterwards)
+  server.on("/api/setup/grid", HTTP_GET, []() {
+    JsonDocument doc;
+    JsonArray arr = doc["variants"].to<JsonArray>();
+    size_t count = 0;
+    const GridVariantInfo* infos = getGridVariantInfos(count);
+    GridVariant active = displaySettings.getGridVariant();
+    for (size_t i = 0; i < count; ++i) {
+      JsonObject o = arr.add<JsonObject>();
+      o["id"] = gridVariantToId(infos[i].variant);
+      o["key"] = infos[i].key;
+      o["label"] = infos[i].label;
+      o["language"] = infos[i].language;
+      o["version"] = infos[i].version;
+      o["active"] = (infos[i].variant == active);
+    }
+    doc["completed"] = setupState.isComplete();
+    String out;
+    serializeJson(doc, out);
+    server.send(200, "application/json", out);
+  });
+
+  server.on("/api/setup/grid", HTTP_POST, []() {
+    if (setupState.isComplete()) {
+      if (!ensureUiAuth()) return;
+    }
+
+    bool updated = false;
+    if (server.hasArg("id")) {
+      uint8_t id = static_cast<uint8_t>(server.arg("id").toInt());
+      size_t count = 0;
+      getGridVariantInfos(count);
+      if (id < count) {
+        GridVariant variant = gridVariantFromId(id);
+        displaySettings.setGridVariant(variant);
+        updated = true;
+      }
+    } else if (server.hasArg("key")) {
+      String key = server.arg("key");
+      GridVariant variant = gridVariantFromKey(key.c_str());
+      const GridVariantInfo* info = getGridVariantInfo(variant);
+      if (info && key == info->key) {
+        displaySettings.setGridVariant(variant);
+        updated = true;
+      }
+    }
+
+    if (!updated) {
+      server.send(400, "text/plain", "Invalid grid variant");
+      return;
+    }
+
+    if (const GridVariantInfo* info = getGridVariantInfo(displaySettings.getGridVariant())) {
+      logInfo(String("🧩 Grid variant updated (setup) to ") + info->label + " (" + info->key + ")");
+    }
+
+    JsonDocument doc;
+    GridVariant variant = displaySettings.getGridVariant();
+    doc["id"] = gridVariantToId(variant);
+    if (const GridVariantInfo* info = getGridVariantInfo(variant)) {
+      doc["key"] = info->key;
+      doc["label"] = info->label;
+      doc["language"] = info->language;
+      doc["version"] = info->version;
+    }
+    doc["completed"] = setupState.isComplete();
+    String out;
+    serializeJson(doc, out);
+    server.send(200, "application/json", out);
+  });
+
   // Update page (protected)
   server.on("/update.html", HTTP_GET, []() {
     if (!ensureUiAuth()) return;
+    if (!setupState.isComplete()) {
+      server.sendHeader("Location", "/setup.html", true);
+      server.send(302, "text/plain", "");
+      return;
+    }
     serveFile("/update.html", "text/html");
   });
 
   // MQTT settings page (protected)
   server.on("/mqtt.html", HTTP_GET, []() {
     if (!ensureUiAuth()) return;
+    if (!setupState.isComplete()) {
+      server.sendHeader("Location", "/setup.html", true);
+      server.send(302, "text/plain", "");
+      return;
+    }
     serveFile("/mqtt.html", "text/html");
   });
 
@@ -553,6 +701,37 @@ void setupWebRoutes() {
     doc["git_sha"] = BUILD_GIT_SHA;
     doc["build_time_utc"] = BUILD_TIME_UTC;
     doc["environment"] = BUILD_ENV_NAME;
+    String out;
+    serializeJson(doc, out);
+    server.send(200, "application/json", out);
+  });
+
+  server.on("/api/device/info", HTTP_GET, []() {
+    if (!ensureUiAuth()) return;
+    unsigned long upMs = millis();
+    unsigned long upSec = upMs / 1000UL;
+    unsigned long days = upSec / 86400UL;
+    upSec %= 86400UL;
+    unsigned long hours = upSec / 3600UL;
+    upSec %= 3600UL;
+    unsigned long mins = upSec / 60UL;
+    unsigned long secs = upSec % 60UL;
+    char upBuf[32];
+    snprintf(upBuf, sizeof(upBuf), "%lud %02lu:%02lu:%02lu", days, hours, mins, secs);
+
+    JsonDocument doc;
+    doc["uptime_ms"] = millis();
+    doc["uptime_human"] = upBuf;
+    doc["heap_free"] = ESP.getFreeHeap();
+    doc["heap_min_free"] = ESP.getMinFreeHeap();
+    doc["cpu_freq_mhz"] = ESP.getCpuFreqMHz();
+    doc["chip_model"] = ESP.getChipModel();
+    doc["chip_rev"] = ESP.getChipRevision();
+    doc["sdk"] = ESP.getSdkVersion();
+    doc["rssi"] = WiFi.RSSI();
+#if defined(ARDUINO_ARCH_ESP32)
+    doc["temp_c"] = temperatureRead();
+#endif
     String out;
     serializeJson(doc, out);
     server.send(200, "application/json", out);
