@@ -1,6 +1,6 @@
 {
-  "version": "v0.13",
-  "ui_version": "v0.13",
+  "version": "v2025.11.21",
+  "ui_version": "v2025.11.21",
   "released": "2025-11-21T12:00:00Z",
   "firmware": "https://github.com/ronkuijpers/Wordclock/releases/download/v2025.11.21/wordclock-v2025.11.21.bin",
   "files": [
