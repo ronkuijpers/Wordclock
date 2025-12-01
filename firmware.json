@@ -12,6 +12,6 @@
     { "path": "/logs.html",    "url": "https://raw.githubusercontent.com/ronkuijpers/Wordclock/v2025.11.22/data/logs.html",    "sha256": "xxx" },
     { "path": "/mqtt.html",    "url": "https://raw.githubusercontent.com/ronkuijpers/Wordclock/v2025.11.22/data/mqtt.html",    "sha256": "xxx" },
     { "path": "/update.html",   "url": "https://raw.githubusercontent.com/ronkuijpers/Wordclock/v2025.11.22/data/update.html",   "sha256": "xxx" },
-    { "path": "/update.html",   "url": "https://raw.githubusercontent.com/ronkuijpers/Wordclock/v2025.11.22/data/setup.html",   "sha256": "xxx" }
+    { "path": "/setup.html",   "url": "https://raw.githubusercontent.com/ronkuijpers/Wordclock/v2025.11.22/data/setup.html",   "sha256": "xxx" }
   ]
 }
