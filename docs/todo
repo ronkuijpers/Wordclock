@@ -3,6 +3,7 @@
 - aparte leds aansturen voor logo - in vaste kleur combi 
 - instructie uitbreiden met plaatjes
 - setup wizard (eerste keer blokkeren, API + setup.html toegevoegd)
+- wifi kwijt geen reconnect? moest klok opnieuw starten
 
 
 ## Security
