@@ -3,7 +3,7 @@
 // v2 is new lay-out in spiegelbeeld t.o.v. v1, elke bocht met 4 leds
 
 const uint16_t LED_COUNT_GRID_NL_V2 = 145;
-const uint16_t LED_COUNT_EXTRA_NL_V2 = 13;
+const uint16_t LED_COUNT_EXTRA_NL_V2 = 15;
 const uint16_t LED_COUNT_TOTAL_NL_V2 = LED_COUNT_GRID_NL_V2 + LED_COUNT_EXTRA_NL_V2;
 
 const char* const LETTER_GRID_NL_V2[] = {

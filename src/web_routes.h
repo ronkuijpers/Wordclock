@@ -260,24 +260,6 @@ void setupWebRoutes() {
     serveFile("/changepw.html", "text/html");
   });
 
-  // Logout endpoints: return 401 to clear Basic Auth in browser
-  server.on("/logout", HTTP_GET, []() {
-    String realm = String("Wordclock UI logout ") + millis();
-    server.sendHeader("WWW-Authenticate", String("Basic realm=\"") + realm + "\"");
-    server.sendHeader("Cache-Control", "no-store, no-cache, must-revalidate");
-    server.sendHeader("Pragma", "no-cache");
-    server.sendHeader("Location", "/", true);
-    server.send(302, "text/plain", "Logged out. Redirecting...");
-  });
-  server.on("/adminlogout", HTTP_GET, []() {
-    String realm = String(ADMIN_REALM) + " logout " + millis();
-    server.sendHeader("WWW-Authenticate", String("Basic realm=\"") + realm + "\"");
-    server.sendHeader("Cache-Control", "no-store, no-cache, must-revalidate");
-    server.sendHeader("Pragma", "no-cache");
-    server.sendHeader("Location", "/", true);
-    server.send(302, "text/plain", "Admin logged out. Redirecting...");
-  });
-
   // Handle password change
   server.on("/setUIPassword", HTTP_POST, []() {
     bool needsChange = uiAuth.needsChange();
