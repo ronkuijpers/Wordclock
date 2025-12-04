@@ -75,26 +75,8 @@ static bool ensureAdminAuth() {
   return true;
 }
 
-// Guard for general UI access (dynamic password via Preferences)
+// UI is now open; only admin pages are protected
 static bool ensureUiAuth() {
-  // Allow admin credentials to pass UI guard as well
-  if (server.authenticate(ADMIN_USER, ADMIN_PASS)) {
-    return true;
-  }
-  // Basic Auth with dynamic UI creds
-  if (!server.authenticate(uiAuth.getUser().c_str(), uiAuth.getPass().c_str())) {
-    server.requestAuthentication(BASIC_AUTH, "Wordclock UI");
-    return false;
-  }
-  // Force password change flow (only for UI user, not admin)
-  if (uiAuth.needsChange()) {
-    String uri = server.uri();
-    if (!(uri == "/changepw.html" || uri == "/setUIPassword")) {
-      server.sendHeader("Location", "/changepw.html", true);
-      server.send(302, "text/plain", "");
-      return false;
-    }
-  }
   return true;
 }
 
@@ -197,11 +179,6 @@ void setupWebRoutes() {
     serveFile("/dashboard.html", "text/html");
   });
 
-  // Forgot password page (public)
-  server.on("/forgot.html", HTTP_GET, []() {
-    serveFile("/forgot.html", "text/html");
-  });
-
   // Factory reset token endpoint (public): returns a short-lived token for reset
   server.on("/factorytoken", HTTP_GET, []() {
     // Issue new token valid for 60s
@@ -228,12 +205,8 @@ void setupWebRoutes() {
       }
     }
     if (!allowed) {
-      // Prefer admin auth prompt for browsers; otherwise 403 if token supplied but invalid
-      if (!server.hasArg("token")) {
-        server.requestAuthentication(BASIC_AUTH, ADMIN_REALM);
-      } else {
-        server.send(403, "text/plain", "Forbidden");
-      }
+      // Admin/token required; return 403 without triggering browser auth popups
+      server.send(403, "text/plain", "Forbidden (admin or valid token required)");
       return;
     }
     server.send(200, "text/html", R"rawliteral(
@@ -252,24 +225,13 @@ void setupWebRoutes() {
 
   // Change password page (protected, but accessible during forced-change flow)
   server.on("/changepw.html", HTTP_GET, []() {
-    // Only require Basic Auth, no redirect to itself
-    if (!server.authenticate(uiAuth.getUser().c_str(), uiAuth.getPass().c_str())) {
-      server.requestAuthentication(BASIC_AUTH, "Wordclock UI");
-      return;
-    }
+    if (!ensureAdminAuth()) return;
     serveFile("/changepw.html", "text/html");
   });
 
   // Handle password change
   server.on("/setUIPassword", HTTP_POST, []() {
-    bool needsChange = uiAuth.needsChange();
-    bool authed = server.authenticate(ADMIN_USER, ADMIN_PASS) ||
-                  server.authenticate(uiAuth.getUser().c_str(), uiAuth.getPass().c_str());
-    // During forced-change flow, allow without a second auth prompt
-    if (!authed && !needsChange) {
-      server.requestAuthentication(BASIC_AUTH, "Wordclock UI");
-      return;
-    }
+    if (!ensureAdminAuth()) return;
     if (!server.hasArg("new") || !server.hasArg("confirm")) {
       server.send(400, "text/plain", "Missing fields");
       return;
@@ -303,7 +265,7 @@ void setupWebRoutes() {
     serveFile("/setup.html", "text/html");
   });
 
-  // Public landing page with links to Login (protected) and Forgot
+  // Public landing page: go straight to dashboard (or setup if incomplete)
   server.on("/", HTTP_GET, []() {
     if (!setupState.isComplete()) {
       File sf = FS_IMPL.open("/setup.html", "r");
@@ -313,15 +275,13 @@ void setupWebRoutes() {
         return;
       }
     }
-    File f = FS_IMPL.open("/login.html", "r");
+    File f = FS_IMPL.open("/dashboard.html", "r");
     if (!f) {
-      // Fallback: redirect to protected dashboard
-      server.sendHeader("Location", "/dashboard.html", true);
-      server.send(302, "text/plain", "");
+      server.send(404, "text/plain", "dashboard.html not found");
       return;
     }
     f.close();
-    serveFile("/login.html", "text/html");
+    serveFile("/dashboard.html", "text/html");
   });
 
   server.on("/api/setup/status", HTTP_GET, []() {
