@@ -4,6 +4,8 @@
 - instructie uitbreiden met plaatjes
 - setup wizard (eerste keer blokkeren, API + setup.html toegevoegd)
 - wifi kwijt geen reconnect? moest klok opnieuw starten
+- unsynced logs niet te downloaden
+- logs verwijderd na x dagen of via UI
 
 
 ## Security
