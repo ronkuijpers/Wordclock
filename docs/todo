@@ -7,7 +7,7 @@
 - unsynced logs niet te downloaden
 - logs verwijderd na x dagen of via UI
 - mqtt user verplicht
-
+- remove admin link from UI
 
 ## Security
 - Basis-auth draait nog over HTTP; omzeil dit via een reverse proxy met TLS of implementeer device-side certificaten.
