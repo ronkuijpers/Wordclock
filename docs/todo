@@ -6,6 +6,7 @@
 - wifi kwijt geen reconnect? moest klok opnieuw starten
 - unsynced logs niet te downloaden
 - logs verwijderd na x dagen of via UI
+- mqtt user verplicht
 
 
 ## Security
