@@ -865,6 +865,25 @@ void setupWebRoutes() {
     server.send(200, "text/plain", String(buf));
   });
 
+  // Logo strip brightness
+  server.on("/getLogoBrightness", []() {
+    if (!ensureUiAuth()) return;
+    server.send(200, "text/plain", String(getLogoBrightness()));
+  });
+
+  server.on("/setLogoBrightness", []() {
+    if (!ensureUiAuth()) return;
+    if (!server.hasArg("level")) {
+      server.send(400, "text/plain", "Missing brightness level");
+      return;
+    }
+    int level = server.arg("level").toInt();
+    level = constrain(level, 0, 255);
+    setLogoBrightness(static_cast<uint8_t>(level));
+    logoTick();
+    server.send(200, "text/plain", "OK");
+  });
+
   // Logo strip: get all LED colors as array of RRGGBB strings
   server.on("/api/logo/leds", HTTP_GET, []() {
     if (!ensureUiAuth()) return;

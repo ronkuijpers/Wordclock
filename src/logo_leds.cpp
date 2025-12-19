@@ -12,15 +12,30 @@
 #include "night_mode.h"
 
 namespace {
-constexpr const char* PREF_NAMESPACE = "logo";
-constexpr const char* PREF_KEY_COLORS = "colors";
 constexpr uint8_t LOGO_DATA_PINS[LOGO_STRIP_COUNT] = { LOGO_DATA_PIN_1, LOGO_DATA_PIN_2 };
 static_assert(LOGO_STRIP_COUNT == (sizeof(LOGO_DATA_PINS) / sizeof(LOGO_DATA_PINS[0])),
               "LOGO_DATA_PINS must match LOGO_STRIP_COUNT");
+constexpr const char* PREF_NAMESPACE = "logo";
+constexpr const char* PREF_KEY_BRIGHTNESS = "br";
+
+// Hardcoded colors for the logo strips (RRGGBB). Edit this array to change the logo palette.
+// LEDs 0-12 = strip on LOGO_DATA_PIN_1, LEDs 13-25 = strip on LOGO_DATA_PIN_2.
+// LED 0 of each strip is unused and forced off.
+static constexpr std::array<uint32_t, LOGO_LED_TOTAL> DEFAULT_LOGO_COLORS = {
+  // Strip 1 (13 LEDs)
+  0x000000, 0xFFFFFF, 0xF2B40F, 0xFFFFFF, 0xFFFFFF,
+  0xFFFFFF, 0xFFFFFF, 0xFFFFFF, 0xFFFFFF, 0xFFFFFF,
+  0xFFFFFF, 0xFFFFFF, 0xFFFFFF,
+  // Strip 2 (13 LEDs)
+  0x000000, 0xFFFFFF, 0xF2B40F, 0xFFFFFF, 0xFFFFFF,
+  0xFFFFFF, 0xFFFFFF, 0xFFFFFF, 0xFFFFFF, 0xFFFFFF,
+  0xFFFFFF, 0xFFFFFF, 0xFFFFFF
+};
 
 std::array<uint32_t, LOGO_LED_TOTAL> g_colors{};
 uint8_t g_lastBrightness = 0;
 bool g_haveBrightness = false;
+uint8_t g_logoBrightness = 64;
 Preferences g_prefs;
 
 #ifndef PIO_UNIT_TESTING
@@ -39,6 +54,10 @@ void ensureStripConfigured(size_t stripIdx) {
   g_stripConfigured[stripIdx] = true;
 }
 
+constexpr bool isDisabledIndex(uint16_t idx) {
+  return (idx % LOGO_LED_PER_STRIP) == 0; // first LED of each strip
+}
+
 void pushToStrips(uint8_t brightness) {
   for (size_t s = 0; s < LOGO_STRIP_COUNT; ++s) {
     ensureStripConfigured(s);
@@ -46,7 +65,7 @@ void pushToStrips(uint8_t brightness) {
     strip.clear();
     for (uint16_t i = 0; i < LOGO_LED_PER_STRIP; ++i) {
       uint16_t globalIndex = static_cast<uint16_t>(s * LOGO_LED_PER_STRIP + i);
-      uint32_t rgb = g_colors[globalIndex] & 0xFFFFFF;
+      uint32_t rgb = isDisabledIndex(globalIndex) ? 0 : (g_colors[globalIndex] & 0xFFFFFF);
       uint8_t r = (rgb >> 16) & 0xFF;
       uint8_t g = (rgb >> 8) & 0xFF;
       uint8_t b = rgb & 0xFF;
@@ -61,24 +80,7 @@ std::vector<uint32_t> g_lastShown;
 #endif
 
 uint8_t currentBrightness() {
-  return nightMode.applyToBrightness(ledState.getBrightness());
-}
-
-void loadColors() {
-  g_colors.fill(0);
-  g_prefs.begin(PREF_NAMESPACE, true);
-  size_t expected = LOGO_LED_TOTAL * sizeof(uint32_t);
-  size_t stored = g_prefs.getBytesLength(PREF_KEY_COLORS);
-  if (stored == expected) {
-    g_prefs.getBytes(PREF_KEY_COLORS, g_colors.data(), expected);
-  }
-  g_prefs.end();
-}
-
-void persistColors() {
-  g_prefs.begin(PREF_NAMESPACE, false);
-  g_prefs.putBytes(PREF_KEY_COLORS, g_colors.data(), g_colors.size() * sizeof(uint32_t));
-  g_prefs.end();
+  return nightMode.applyToBrightness(g_logoBrightness);
 }
 
 void apply(uint8_t brightness) {
@@ -94,7 +96,11 @@ void apply(uint8_t brightness) {
 }  // namespace
 
 void initLogoLeds() {
-  loadColors();
+  g_colors = DEFAULT_LOGO_COLORS;
+  // Load logo-specific brightness (fallback to main brightness)
+  g_prefs.begin(PREF_NAMESPACE, true);
+  g_logoBrightness = g_prefs.getUChar(PREF_KEY_BRIGHTNESS, ledState.getBrightness());
+  g_prefs.end();
 #ifndef PIO_UNIT_TESTING
   g_stripConfigured.fill(false);
 #else
@@ -108,8 +114,7 @@ void initLogoLeds() {
 
 bool logoSetColor(uint16_t index, uint32_t rgb) {
   if (index >= LOGO_LED_TOTAL) return false;
-  g_colors[index] = rgb & 0xFFFFFF;
-  persistColors();
+  g_colors[index] = isDisabledIndex(index) ? 0 : (rgb & 0xFFFFFF);
   apply(currentBrightness());
   return true;
 }
@@ -117,9 +122,8 @@ bool logoSetColor(uint16_t index, uint32_t rgb) {
 bool logoSetColors(const std::vector<uint32_t>& colors) {
   if (colors.size() != LOGO_LED_TOTAL) return false;
   for (size_t i = 0; i < LOGO_LED_TOTAL; ++i) {
-    g_colors[i] = colors[i] & 0xFFFFFF;
+    g_colors[i] = isDisabledIndex(static_cast<uint16_t>(i)) ? 0 : (colors[i] & 0xFFFFFF);
   }
-  persistColors();
   apply(currentBrightness());
   return true;
 }
@@ -133,4 +137,18 @@ void logoTick() {
   if (!g_haveBrightness || brightness != g_lastBrightness) {
     apply(brightness);
   }
+}
+
+void setLogoBrightness(uint8_t level) {
+  if (level > 255) level = 255;
+  if (g_logoBrightness == level) return;
+  g_logoBrightness = level;
+  g_prefs.begin(PREF_NAMESPACE, false);
+  g_prefs.putUChar(PREF_KEY_BRIGHTNESS, g_logoBrightness);
+  g_prefs.end();
+  apply(currentBrightness());
+}
+
+uint8_t getLogoBrightness() {
+  return g_logoBrightness;
 }

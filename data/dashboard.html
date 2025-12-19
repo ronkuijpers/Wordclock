@@ -53,6 +53,20 @@
     </section>
 
     <section class="bg-white p-4 rounded-2xl shadow mb-4">
+      <h2 class="text-xl font-semibold mb-2">Logo Brightness</h2>
+      <div class="flex items-center gap-3 mb-2">
+        <label class="text-sm">Level: <span id="logoBrightnessValue" class="font-mono">-</span></label>
+        <input type="number" id="logoBrightnessInput" min="0" max="255" step="1" class="w-20 border rounded p-1 text-sm" />
+        <div class="flex items-center gap-1">
+          <button id="logoBrightnessDec" class="px-2 py-1 rounded bg-gray-200 hover:bg-gray-300">−10</button>
+          <button id="logoBrightnessInc" class="px-2 py-1 rounded bg-gray-200 hover:bg-gray-300">+10</button>
+        </div>
+      </div>
+      <input type="range" min="0" max="255" id="logoBrightnessSlider" class="w-full">
+      <p class="text-xs text-gray-500 mt-1">Geldt voor beide logo-strips.</p>
+    </section>
+
+    <section class="bg-white p-4 rounded-2xl shadow mb-4">
       <div class="flex items-center justify-between mb-2">
         <h2 class="text-xl font-semibold">Nightmode</h2>
         <span id="nightModeStatus" class="text-xs text-gray-600">-</span>
@@ -248,6 +262,10 @@
     const brightnessInput = document.getElementById('brightnessInput');
     const brightnessDec = document.getElementById('brightnessDec');
     const brightnessInc = document.getElementById('brightnessInc');
+    const logoBrightnessSlider = document.getElementById('logoBrightnessSlider');
+    const logoBrightnessInput = document.getElementById('logoBrightnessInput');
+    const logoBrightnessDec = document.getElementById('logoBrightnessDec');
+    const logoBrightnessInc = document.getElementById('logoBrightnessInc');
     let brightnessTimer = null;
     const sendBrightnessDebounced = (val) => {
       if (brightnessTimer) clearTimeout(brightnessTimer);
@@ -294,6 +312,51 @@
         const lbl = document.getElementById('brightnessValue2');
         if (lbl) lbl.textContent = v;
         sendBrightnessDebounced(v);
+      });
+    }
+
+    let logoBrightnessTimer = null;
+    const sendLogoBrightnessDebounced = (val) => {
+      if (logoBrightnessTimer) clearTimeout(logoBrightnessTimer);
+      logoBrightnessTimer = setTimeout(() => {
+        fetch(`/setLogoBrightness?level=${val}`);
+        logoBrightnessTimer = null;
+      }, 200);
+    };
+    const setLogoBrightnessUi = (v) => {
+      v = Math.max(0, Math.min(255, v));
+      if (logoBrightnessSlider) logoBrightnessSlider.value = v;
+      if (logoBrightnessInput) logoBrightnessInput.value = v;
+      const lbl = document.getElementById('logoBrightnessValue');
+      if (lbl) lbl.textContent = v;
+    };
+    if (logoBrightnessSlider) {
+      logoBrightnessSlider.oninput = (e) => {
+        const v = parseInt(e.target.value, 10) || 0;
+        setLogoBrightnessUi(v);
+        sendLogoBrightnessDebounced(v);
+      };
+    }
+    if (logoBrightnessInput) {
+      logoBrightnessInput.addEventListener('change', () => {
+        let v = parseInt(logoBrightnessInput.value, 10);
+        if (isNaN(v)) v = 0; v = Math.max(0, Math.min(255, v));
+        setLogoBrightnessUi(v);
+        sendLogoBrightnessDebounced(v);
+      });
+    }
+    if (logoBrightnessDec) {
+      logoBrightnessDec.addEventListener('click', () => {
+        let v = parseInt(logoBrightnessSlider?.value || '0', 10) - 10;
+        setLogoBrightnessUi(v);
+        sendLogoBrightnessDebounced(v);
+      });
+    }
+    if (logoBrightnessInc) {
+      logoBrightnessInc.addEventListener('click', () => {
+        let v = parseInt(logoBrightnessSlider?.value || '0', 10) + 10;
+        setLogoBrightnessUi(v);
+        sendLogoBrightnessDebounced(v);
       });
     }
 
@@ -588,6 +651,18 @@
         const s = document.getElementById('brightnessSlider');
         const i = document.getElementById('brightnessInput');
         const lbl = document.getElementById('brightnessValue2');
+        if (s) s.value = val;
+        if (i) i.value = val;
+        if (lbl) lbl.textContent = val;
+      });
+
+    // Init logo brightness
+    fetch('/getLogoBrightness')
+      .then(resp => resp.text())
+      .then(val => {
+        const s = document.getElementById('logoBrightnessSlider');
+        const i = document.getElementById('logoBrightnessInput');
+        const lbl = document.getElementById('logoBrightnessValue');
         if (s) s.value = val;
         if (i) i.value = val;
         if (lbl) lbl.textContent = val;
