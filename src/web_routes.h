@@ -37,6 +37,7 @@ extern String logBuffer[];
 extern int logIndex;
 extern bool clockEnabled;
 extern bool g_wifiHadCredentialsAtBoot;
+static constexpr bool UI_SYNC_ALLOWED = false; // Enable to restore UI sync endpoint
 
 // Serve file, preferring a .gz variant if client accepts gzip
 static void serveFile(const char* path, const char* mime) {
@@ -1093,8 +1094,12 @@ void setupWebRoutes() {
   });
 
   server.on("/syncUI", HTTP_POST, []() {
+    if (!UI_SYNC_ALLOWED) {
+      server.send(503, "text/plain", "UI sync disabled in this build");
+      return;
+    }
     if (!ensureAdminAuth()) return;
-    logInfo("🗂️ UI sync requested by admin");
+  logInfo("🗂️ UI sync requested by admin");
     syncFilesFromManifest();
     server.send(200, "text/plain", "UI sync started");
   });

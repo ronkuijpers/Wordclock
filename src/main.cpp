@@ -42,6 +42,7 @@ bool g_wifiHadCredentialsAtBoot = false;
 static bool g_mqttInitialized = false;
 static bool g_autoUpdateHandled = false;
 static bool g_serverInitialized = false;
+constexpr bool AUTO_UPDATE_ALLOWED = false; // Enable to restore automatic firmware updates
 
 
 // Webserver
@@ -85,16 +86,16 @@ void setup() {
     g_serverInitialized = true;
     initMqtt();
     g_mqttInitialized = true;
-    if (displaySettings.getAutoUpdate()) {
+    if (AUTO_UPDATE_ALLOWED && displaySettings.getAutoUpdate()) {
       logInfo("✅ Connected to WiFi. Starting firmware check...");
       checkForFirmwareUpdate();
     } else {
-      logInfo("ℹ️ Automatic firmware updates disabled. Skipping check.");
+      logInfo("ℹ️ Automatic firmware updates disabled in this build.");
     }
-    g_autoUpdateHandled = true;
+    g_autoUpdateHandled = true; // handled regardless
   } else {
     logInfo("⚠️ No WiFi. Waiting for connection or config portal.");
-    g_autoUpdateHandled = !displaySettings.getAutoUpdate();
+    g_autoUpdateHandled = true;
     g_serverInitialized = false;
   }
 
@@ -119,11 +120,11 @@ void loop() {
     g_mqttInitialized = true;
   }
   if (isWiFiConnected() && !g_autoUpdateHandled) {
-    if (displaySettings.getAutoUpdate()) {
+    if (AUTO_UPDATE_ALLOWED && displaySettings.getAutoUpdate()) {
       logInfo("✅ Connected to WiFi. Starting firmware check...");
       checkForFirmwareUpdate();
     } else {
-      logInfo("ℹ️ Automatic firmware updates disabled. Skipping check.");
+      logInfo("ℹ️ Automatic firmware updates disabled in this build.");
     }
     g_autoUpdateHandled = true;
   }

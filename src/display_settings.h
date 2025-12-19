@@ -13,7 +13,11 @@ public:
     if (hetIsDurationSec > 360) hetIsDurationSec = 360;
     sellMode = prefs.getBool("sell_on", false);
     animateWords = prefs.getBool("anim_on", false); // default OFF unless enabled via UI
-    autoUpdate = prefs.getBool("auto_upd", true);
+    autoUpdate = prefs.getBool("auto_upd", false); // default OFF in this build
+    if (autoUpdate) {
+      autoUpdate = false;                // force-off for this release; remove to re-enable
+      prefs.putBool("auto_upd", autoUpdate);
+    }
     const uint8_t defaultVariantId = gridVariantToId(FIRMWARE_DEFAULT_GRID_VARIANT);
     const bool hasGridKey = prefs.isKey("grid_id");
     // Track whether a grid variant was already stored so we can detect migrations
