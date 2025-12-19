@@ -6,6 +6,7 @@
 #include "time_sync.h"
 #include "night_mode.h"
 #include "setup_state.h"
+#include "logo_leds.h"
 
 
 
@@ -45,6 +46,7 @@ static void resetNoTimeIndicator() {
 void wordclock_setup() {
   // ledState.begin() is initialized in main
   initLeds();
+  initLogoLeds();
   logInfo("Wordclock setup complete");
 }
 
@@ -60,6 +62,8 @@ void wordclock_loop() {
   static struct tm cachedTime = {};
   static bool haveTime = false;
   static unsigned long lastTimeFetchMs = 0;
+
+  logoTick();
 
   unsigned long nowMs = millis();
 

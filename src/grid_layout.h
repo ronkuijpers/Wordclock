@@ -8,15 +8,7 @@ const int GRID_WIDTH = 11;
 const int GRID_HEIGHT = 11;
 
 enum class GridVariant : uint8_t {
-  NL_V1 = 0,
-  NL_V2,
-  NL_V3,
-  NL_V4,
-  NL_20x20_V1,
-  NL_50x50_V1,
-  NL_50x50_V2,
-  NL_50x50_V3,
-  EN_V1,
+  NL_BRIX = 0,
 };
 
 struct GridVariantInfo {

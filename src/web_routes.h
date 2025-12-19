@@ -17,6 +17,7 @@
 #include "time_mapper.h"
 #include "ota_updater.h"
 #include "led_controller.h"
+#include "logo_leds.h"
 #include "config.h"
 #include "display_settings.h"
 #include "ui_auth.h"
@@ -118,6 +119,28 @@ static const char* nightOverrideToStr(NightModeOverride mode) {
   }
 }
 
+static bool parseHexColor(const String& raw, uint32_t& outRgb) {
+  String filtered;
+  filtered.reserve(raw.length());
+  for (size_t i = 0; i < raw.length(); ++i) {
+    char c = raw.charAt(i);
+    if (isxdigit(static_cast<unsigned char>(c))) {
+      filtered += static_cast<char>(toupper(static_cast<unsigned char>(c)));
+    }
+  }
+  if (filtered.length() != 6) return false;
+  char buf[7];
+  filtered.toCharArray(buf, sizeof(buf));
+  outRgb = static_cast<uint32_t>(strtoul(buf, nullptr, 16)) & 0xFFFFFF;
+  return true;
+}
+
+static String formatHexColor(uint32_t rgb) {
+  char buf[7];
+  snprintf(buf, sizeof(buf), "%06X", static_cast<unsigned int>(rgb & 0xFFFFFF));
+  return String(buf);
+}
+
 static void sendNightModeConfig() {
   JsonDocument doc;
   doc["enabled"] = nightMode.isEnabled();
@@ -139,7 +162,7 @@ static void sendNightModeConfig() {
 // Clear persistent settings (factory reset helper)
 static void performFactoryReset() {
   Preferences p;
-  const char* keys[] = { "ui_auth", "display", "led", "log", "setup" };
+  const char* keys[] = { "ui_auth", "display", "led", "log", "setup", "logo" };
   for (auto ns : keys) {
     p.begin(ns, false);
     p.clear();
@@ -840,6 +863,117 @@ void setupWebRoutes() {
     char buf[7];
     snprintf(buf, sizeof(buf), "%02X%02X%02X", r, g, b);
     server.send(200, "text/plain", String(buf));
+  });
+
+  // Logo strip: get all LED colors as array of RRGGBB strings
+  server.on("/api/logo/leds", HTTP_GET, []() {
+    if (!ensureUiAuth()) return;
+    auto colors = logoGetColors();
+    JsonDocument doc;
+    JsonArray arr = doc.to<JsonArray>();
+    for (uint32_t c : colors) {
+      arr.add(formatHexColor(c));
+    }
+    String out;
+    serializeJson(doc, out);
+    server.send(200, "application/json", out);
+  });
+
+  // Logo strip: set all LED colors at once using array of RRGGBB strings or integers
+  server.on("/api/logo/leds", HTTP_POST, []() {
+    if (!ensureUiAuth()) return;
+    if (!server.hasArg("plain")) {
+      server.send(400, "text/plain", "Missing body");
+      return;
+    }
+    JsonDocument doc;
+    DeserializationError err = deserializeJson(doc, server.arg("plain"));
+    if (err || !doc.is<JsonArray>()) {
+      server.send(400, "text/plain", "Invalid JSON (expect array)");
+      return;
+    }
+    JsonArray arr = doc.as<JsonArray>();
+    if (arr.size() != LOGO_LED_TOTAL) {
+      server.send(400, "text/plain", "Expected array of exactly " + String(LOGO_LED_TOTAL));
+      return;
+    }
+    std::vector<uint32_t> parsed;
+    parsed.reserve(LOGO_LED_TOTAL);
+    for (size_t i = 0; i < arr.size(); ++i) {
+      JsonVariant v = arr[i];
+      uint32_t rgb = 0;
+      if (v.is<const char*>()) {
+        if (!parseHexColor(v.as<const char*>(), rgb)) {
+          server.send(400, "text/plain", "Invalid color at index " + String(i));
+          return;
+        }
+      } else if (v.is<int>()) {
+        int val = v.as<int>();
+        if (val < 0 || val > 0xFFFFFF) {
+          server.send(400, "text/plain", "Invalid color at index " + String(i));
+          return;
+        }
+        rgb = static_cast<uint32_t>(val);
+      } else {
+        server.send(400, "text/plain", "Invalid color at index " + String(i));
+        return;
+      }
+      parsed.push_back(rgb);
+    }
+    if (!logoSetColors(parsed)) {
+      server.send(500, "text/plain", "Unable to store colors");
+      return;
+    }
+    logoTick();
+    server.send(200, "text/plain", "OK");
+  });
+
+  // Logo strip: update a single LED { "index": n, "color": "RRGGBB" }
+  server.on("/api/logo/led", HTTP_POST, []() {
+    if (!ensureUiAuth()) return;
+    if (!server.hasArg("plain")) {
+      server.send(400, "text/plain", "Missing body");
+      return;
+    }
+    JsonDocument doc;
+    DeserializationError err = deserializeJson(doc, server.arg("plain"));
+    if (err || !doc.is<JsonObject>()) {
+      server.send(400, "text/plain", "Invalid JSON (expect object)");
+      return;
+    }
+    if (!doc["index"].is<int>() || doc["color"].isNull()) {
+      server.send(400, "text/plain", "Provide index and color");
+      return;
+    }
+    int idx = doc["index"].as<int>();
+    if (idx < 0 || idx >= LOGO_LED_TOTAL) {
+      server.send(400, "text/plain", "Index out of range");
+      return;
+    }
+    uint32_t rgb = 0;
+    JsonVariant colorVar = doc["color"];
+    if (colorVar.is<const char*>()) {
+      if (!parseHexColor(colorVar.as<const char*>(), rgb)) {
+        server.send(400, "text/plain", "Invalid color");
+        return;
+      }
+    } else if (colorVar.is<int>()) {
+      int val = colorVar.as<int>();
+      if (val < 0 || val > 0xFFFFFF) {
+        server.send(400, "text/plain", "Invalid color");
+        return;
+      }
+      rgb = static_cast<uint32_t>(val);
+    } else {
+      server.send(400, "text/plain", "Invalid color");
+      return;
+    }
+    if (!logoSetColor(static_cast<uint16_t>(idx), rgb)) {
+      server.send(500, "text/plain", "Unable to store color");
+      return;
+    }
+    logoTick();
+    server.send(200, "text/plain", "OK");
   });
   
   

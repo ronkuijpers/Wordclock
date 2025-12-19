@@ -3,7 +3,7 @@
 
 #include "grid_layout.h"
 
-constexpr GridVariant FIRMWARE_DEFAULT_GRID_VARIANT = GridVariant::NL_V4;
+constexpr GridVariant FIRMWARE_DEFAULT_GRID_VARIANT = GridVariant::NL_BRIX;
 
 class DisplaySettings {
 public:

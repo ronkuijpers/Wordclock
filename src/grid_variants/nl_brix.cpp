@@ -1,11 +1,11 @@
-#include "grid_variants/nl_50x50_v3.h"
+#include "grid_variants/nl_brix.h"
 
-// Mirrors the NL_50x50_V2 layout; adjust when hardware wiring deviates.
-const uint16_t LED_COUNT_GRID_NL_50x50_V3 = 128;
-const uint16_t LED_COUNT_EXTRA_NL_50x50_V3 = 13;
-const uint16_t LED_COUNT_TOTAL_NL_50x50_V3 = LED_COUNT_GRID_NL_50x50_V3 + LED_COUNT_EXTRA_NL_50x50_V3;
+// Layout used for the BRIX clock.
+const uint16_t LED_COUNT_GRID_NL_BRIX = 128;
+const uint16_t LED_COUNT_EXTRA_NL_BRIX = 13;
+const uint16_t LED_COUNT_TOTAL_NL_BRIX = LED_COUNT_GRID_NL_BRIX + LED_COUNT_EXTRA_NL_BRIX;
 
-const char* const LETTER_GRID_NL_50x50_V3[] = {
+const char* const LETTER_GRID_NL_BRIX[] = {
   "HETBISWYBRC",
   "RTIENMMUHLC",
   "VIJFCWKWART",
@@ -19,14 +19,14 @@ const char* const LETTER_GRID_NL_50x50_V3[] = {
   "..-.-.-.-.."
 };
 
-const uint16_t EXTRA_MINUTES_NL_50x50_V3[] = {
-  static_cast<uint16_t>(LED_COUNT_GRID_NL_50x50_V3 + 5),
-  static_cast<uint16_t>(LED_COUNT_GRID_NL_50x50_V3 + 7),
-  static_cast<uint16_t>(LED_COUNT_GRID_NL_50x50_V3 + 9),
-  static_cast<uint16_t>(LED_COUNT_GRID_NL_50x50_V3 + 11)
+const uint16_t EXTRA_MINUTES_NL_BRIX[] = {
+  static_cast<uint16_t>(LED_COUNT_GRID_NL_BRIX + 5),
+  static_cast<uint16_t>(LED_COUNT_GRID_NL_BRIX + 7),
+  static_cast<uint16_t>(LED_COUNT_GRID_NL_BRIX + 9),
+  static_cast<uint16_t>(LED_COUNT_GRID_NL_BRIX + 11)
 };
 
-const WordPosition WORDS_NL_50x50_V3[] = {
+const WordPosition WORDS_NL_BRIX[] = {
   { "HET",         { 1, 2, 3 } },
   { "IS",          { 5, 6 } },
   { "VIJF_M",      { 27, 28, 29, 30 } },
@@ -50,5 +50,5 @@ const WordPosition WORDS_NL_50x50_V3[] = {
   { "TWAALF",      { 102, 101, 100, 99, 98, 97 } }
 };
 
-const size_t WORDS_NL_50x50_V3_COUNT = sizeof(WORDS_NL_50x50_V3) / sizeof(WORDS_NL_50x50_V3[0]);
-const size_t EXTRA_MINUTES_NL_50x50_V3_COUNT = sizeof(EXTRA_MINUTES_NL_50x50_V3) / sizeof(EXTRA_MINUTES_NL_50x50_V3[0]);
+const size_t WORDS_NL_BRIX_COUNT = sizeof(WORDS_NL_BRIX) / sizeof(WORDS_NL_BRIX[0]);
+const size_t EXTRA_MINUTES_NL_BRIX_COUNT = sizeof(EXTRA_MINUTES_NL_BRIX) / sizeof(EXTRA_MINUTES_NL_BRIX[0]);
