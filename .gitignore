@@ -21,6 +21,7 @@ Thumbs.db
 secrets.h
 upload_params.ini
 uploadfs_ota.py
+build_info.h
 
 # Backup- en tijdelijke bestanden
 *.bak
@@ -35,4 +36,3 @@ lib/
 
 # Eventuele logbestanden
 *.log
-
