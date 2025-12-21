@@ -22,6 +22,8 @@ String logLatestFilePath() {
   return String();
 }
 
+void logRewriteUnsynced() {}
+
 #else
 
 #include <Preferences.h>
@@ -245,6 +247,70 @@ String logLatestFilePath() {
   }
   dir.close();
   return latest;
+}
+
+// Rewrites unsynced (uptime-based) logs into a dated log once time is synced.
+void logRewriteUnsynced() {
+  const char* UNSYNCED = "/logs/unsynced.log";
+  time_t now = time(nullptr);
+  // Only run if time is valid and the unsynced log exists
+  if (now < 1640995200) return;
+  if (!FS_IMPL.exists(UNSYNCED)) return;
+
+  File in = FS_IMPL.open(UNSYNCED, "r");
+  if (!in) return;
+
+  String outPath = String("/logs/") + determineLogTag() + String(".log");
+  File out = FS_IMPL.open(outPath, "a");
+  if (!out) {
+    in.close();
+    return;
+  }
+
+  // Approximate boot epoch from current epoch minus uptime (millis)
+  uint64_t nowMs = millis();
+  uint64_t nowEpochMs = ((uint64_t)now) * 1000ULL;
+  uint64_t bootEpochMs = (nowEpochMs > nowMs) ? (nowEpochMs - nowMs) : 0;
+
+  bool converted = false;
+  while (in.available()) {
+    String line = in.readStringUntil('\n');
+    if (line.length() == 0) continue;
+    // Expected prefix: [uptime %lu.%03lus][LEVEL] ...
+    int upPos = line.indexOf("[uptime ");
+    if (upPos != 0) continue;
+    int dotPos = line.indexOf('.', upPos + 8);
+    int sPos = line.indexOf("s][", dotPos);
+    if (dotPos < 0 || sPos < 0) continue;
+    int lvlStart = sPos + 3;
+    int lvlEnd = line.indexOf(']', lvlStart);
+    if (lvlEnd < 0) continue;
+    String secStr = line.substring(upPos + 8, dotPos);
+    String msStr = line.substring(dotPos + 1, sPos);
+    String lvlStr = line.substring(lvlStart, lvlEnd);
+    String msg = line.substring(lvlEnd + 2); // skip "] "
+    uint64_t upSec = (uint64_t)secStr.toInt();
+    uint64_t upMs = (uint64_t)msStr.toInt();
+    uint64_t lineMs = bootEpochMs + (upSec * 1000ULL) + upMs;
+    time_t lineSec = (time_t)(lineMs / 1000ULL);
+    uint16_t lineMsPart = (uint16_t)(lineMs % 1000ULL);
+    struct tm lt = {};
+    localtime_r(&lineSec, &lt);
+    char datebuf[32];
+    char tzbuf[8];
+    strftime(datebuf, sizeof(datebuf), "%Y-%m-%d %H:%M:%S", &lt);
+    strftime(tzbuf, sizeof(tzbuf), "%Z", &lt);
+    char prefix[96];
+    snprintf(prefix, sizeof(prefix), "[%s.%03u %s][%s] ", datebuf, (unsigned)lineMsPart, tzbuf, lvlStr.c_str());
+    out.print(prefix);
+    out.println(msg);
+    converted = true;
+  }
+  out.flush();
+  in.close();
+  if (converted) {
+    FS_IMPL.remove(UNSYNCED);
+  }
 }
 
 #endif // PIO_UNIT_TESTING

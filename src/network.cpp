@@ -18,11 +18,14 @@ WiFiManager& getManager() {
 }
 
 bool g_wifiConnected = false;
+static unsigned long lastReconnectAttemptMs = 0;
+static const unsigned long WIFI_RECONNECT_INTERVAL_MS = 15000; // 15s between manual reconnect attempts
 
 } // namespace
 
 void initNetwork() {
   WiFi.mode(WIFI_STA);
+  WiFi.setAutoReconnect(true);
   auto& wm = getManager();
 
   wm.setConfigPortalBlocking(false);
@@ -56,8 +59,20 @@ void processNetwork() {
   if (connected && !g_wifiConnected) {
     logInfo("✅ WiFi connection established: " + String(WiFi.SSID()));
     logInfo("📡 IP address: " + WiFi.localIP().toString());
+    lastReconnectAttemptMs = millis();
   } else if (!connected && g_wifiConnected) {
     logWarn("⚠️ WiFi connection lost.");
+    lastReconnectAttemptMs = 0; // allow immediate manual reconnect attempt
+  }
+
+  // When disconnected, kick off periodic reconnects to avoid needing a full device reboot
+  if (!connected) {
+    unsigned long now = millis();
+    if (lastReconnectAttemptMs == 0 || now - lastReconnectAttemptMs >= WIFI_RECONNECT_INTERVAL_MS) {
+      logInfo("🔄 Attempting WiFi reconnect...");
+      WiFi.reconnect();
+      lastReconnectAttemptMs = now;
+    }
   }
   g_wifiConnected = connected;
 }

@@ -165,12 +165,29 @@ void wordclock_loop() {
   // During animation: add next word every 500ms
   if (animating) {
     unsigned long now = millis();
-    if (animStep == 0 || now - lastStepAt >= 500) {
+    unsigned long deltaMs = (animStep == 0) ? 0 : (now - lastStepAt);
+    if (animStep == 0 || deltaMs >= 500) {
       if (animStep < (int)segments.size()) {
         // Append this segment
         const auto &seg = segments[animStep];
         cumulative.insert(cumulative.end(), seg.begin(), seg.end());
+        int stepIndex = animStep; // capture current step (0-based) before increment
         animStep++;
+        String msg = "Anim step ";
+        msg += (stepIndex + 1);
+        msg += "/";
+        msg += segments.size();
+        msg += " dt=";
+        msg += deltaMs;
+        msg += "ms (+";
+        msg += seg.size();
+        msg += " leds)";
+        if (deltaMs > 700) {
+          msg += " ⚠️ slow";
+          logDebug(msg);
+        } //else {
+          //logDebug(msg);
+        //}
         lastStepAt = now;
       }
     }

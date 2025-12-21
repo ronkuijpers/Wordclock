@@ -21,6 +21,7 @@ bool mqtt_settings_load(MqttSettings& out) {
     out.pass = "";
     out.discoveryPrefix = "homeassistant";
     out.baseTopic = "wordclock";
+    out.allowAnonymous = false;
     p.end();
     return false; // not persisted yet
   }
@@ -31,6 +32,7 @@ bool mqtt_settings_load(MqttSettings& out) {
   out.pass = p.getString("pass", "");
   out.discoveryPrefix = p.getString("disc", "homeassistant");
   out.baseTopic = p.getString("base", "wordclock");
+  out.allowAnonymous = p.getBool("anon", false);
   p.end();
   return true;
 }
@@ -45,6 +47,7 @@ bool mqtt_settings_save(const MqttSettings& in) {
   ok &= p.putString("pass", in.pass) >= 0; // allow empty
   ok &= p.putString("disc", in.discoveryPrefix) > 0 || in.discoveryPrefix.length() == 0;
   ok &= p.putString("base", in.baseTopic) > 0 || in.baseTopic.length() == 0;
+  ok &= p.putBool("anon", in.allowAnonymous);
   p.end();
   return ok;
 }

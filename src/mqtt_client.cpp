@@ -56,6 +56,7 @@ static const unsigned long RECONNECT_DELAY_MIN_MS = 2000;
 static const unsigned long RECONNECT_DELAY_MAX_MS = 60000;
 static unsigned long reconnectDelayMs = RECONNECT_DELAY_MIN_MS;
 static uint8_t reconnectAttempts = 0;
+static bool reconnectAborted = false;
 
 static void buildTopics() {
   base = g_mqttCfg.baseTopic;
@@ -632,6 +633,7 @@ static bool mqtt_connect() {
   g_lastErr = "";
   reconnectAttempts = 0;
   reconnectDelayMs = RECONNECT_DELAY_MIN_MS;
+  reconnectAborted = false;
   return true;
 }
 
@@ -642,6 +644,7 @@ void mqtt_begin() {
   mqtt.setCallback(handleMessage);
   reconnectDelayMs = RECONNECT_DELAY_MIN_MS;
   reconnectAttempts = 0;
+  reconnectAborted = false;
   lastReconnectAttempt = 0;
   // Bump reset counter (persisted), and cache boot reason string
   g_bootReasonStr = reset_reason_to_str(esp_reset_reason());
@@ -672,6 +675,7 @@ void mqtt_loop() {
     return;
   }
   mqttConfiguredLogged = false;
+  if (reconnectAborted) return;
 
   if (!mqtt.connected()) {
     unsigned long now = millis();
@@ -687,7 +691,14 @@ void mqtt_loop() {
         unsigned long jittered = nextDelay + jitter;
         if (jittered > RECONNECT_DELAY_MAX_MS) jittered = RECONNECT_DELAY_MAX_MS;
         reconnectDelayMs = jittered;
-        if (g_lastErr != "MQTT not configured") {
+        if (reconnectDelayMs >= RECONNECT_DELAY_MAX_MS) {
+          String errMsg = String("MQTT reconnect aborted after reaching max backoff (") +
+                          RECONNECT_DELAY_MAX_MS + " ms); last error: " +
+                          (g_lastErr.length() ? g_lastErr : String("unknown"));
+          logError(errMsg);
+          reconnectAborted = true;
+          return;
+        } else if (g_lastErr != "MQTT not configured") {
           String warnMsg = String("MQTT reconnect failed (") + (g_lastErr.length() ? g_lastErr : String("unknown")) +
                            "); retry in " + reconnectDelayMs + " ms";
           logWarn(warnMsg);
@@ -726,6 +737,7 @@ void mqtt_apply_settings(const MqttSettings& s) {
   buildTopics();
   reconnectDelayMs = RECONNECT_DELAY_MIN_MS;
   reconnectAttempts = 0;
+  reconnectAborted = false;
   lastReconnectAttempt = 0; // trigger immediate reconnect in loop
 
   if (!mqtt_has_configuration()) {

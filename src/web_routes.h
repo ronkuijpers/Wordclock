@@ -401,6 +401,7 @@ void setupWebRoutes() {
     json += "\"port\":" + String(cfg.port) + ",";
     json += "\"user\":\"" + cfg.user + "\",";
     json += "\"has_pass\":" + String(cfg.pass.length() > 0 ? "true" : "false") + ",";
+    json += "\"allow_unauth\":" + String(cfg.allowAnonymous ? "true" : "false") + ",";
     json += "\"discovery\":\"" + cfg.discoveryPrefix + "\",";
     json += "\"base\":\"" + cfg.baseTopic + "\"";
     json += "}";
@@ -416,6 +417,7 @@ void setupWebRoutes() {
     if (server.hasArg("host")) next.host = server.arg("host");
     if (server.hasArg("port")) next.port = (uint16_t) server.arg("port").toInt();
     if (server.hasArg("user")) next.user = server.arg("user");
+    if (server.hasArg("allow_unauth")) next.allowAnonymous = server.arg("allow_unauth") == "1" || server.arg("allow_unauth") == "true" || server.arg("allow_unauth") == "on";
     if (server.hasArg("pass")) {
       String p = server.arg("pass");
       if (p.length() > 0) next.pass = p; // empty means keep existing
@@ -427,6 +429,19 @@ void setupWebRoutes() {
     if (next.host.length() == 0 || next.port == 0) {
       server.send(400, "text/plain", "host/port required");
       return;
+    }
+    if (next.allowAnonymous) {
+      // explicit opt-out from auth -> clear any existing credentials
+      next.user = "";
+      next.pass = "";
+    } else {
+      // Require user+pass when auth is enabled. Allow keeping existing password if already set.
+      bool hasUser = next.user.length() > 0;
+      bool hasPass = next.pass.length() > 0;
+      if (!hasUser || !hasPass) {
+        server.send(400, "text/plain", "user/password required unless 'no auth' is checked");
+        return;
+      }
     }
 
     mqtt_apply_settings(next);
@@ -453,6 +468,13 @@ void setupWebRoutes() {
     uint16_t port = (uint16_t) server.arg("port").toInt();
     String user = server.arg("user");
     String pass = server.arg("pass");
+    bool allowUnauth = server.hasArg("allow_unauth") && (server.arg("allow_unauth") == "1" || server.arg("allow_unauth") == "true" || server.arg("allow_unauth") == "on");
+    if (!allowUnauth) {
+      if (user.length() == 0 || pass.length() == 0) {
+        server.send(400, "text/plain", "user/password required unless 'no auth' is checked");
+        return;
+      }
+    }
 
     // Quick TCP reachability test
     WiFiClient testClient;
@@ -463,8 +485,8 @@ void setupWebRoutes() {
     }
     testClient.stop();
 
-    // Optional MQTT handshake if user provided
-    if (user.length() > 0 || pass.length() > 0) {
+    // Optional MQTT handshake if auth requested
+    if (!allowUnauth) {
       WiFiClient mc;
       PubSubClient tmp(mc);
       tmp.setServer(host.c_str(), port);

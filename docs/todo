@@ -3,11 +3,12 @@
 - aparte leds aansturen voor logo - in vaste kleur combi 
 - instructie uitbreiden met plaatjes
 - setup wizard (eerste keer blokkeren, API + setup.html toegevoegd)
-- wifi kwijt geen reconnect? moest klok opnieuw starten
-- unsynced logs niet te downloaden
-- logs verwijderd na x dagen of via UI
-- mqtt user verplicht
+X wifi kwijt geen reconnect? moest klok opnieuw starten
+X unsynced logs niet te downloaden
+X logs verwijderd na x dagen of via UI
+X mqtt user verplicht
 - remove admin link from UI
+- remove logs for word animation duration (after testing)
 
 ## Security
 - Basis-auth draait nog over HTTP; omzeil dit via een reverse proxy met TLS of implementeer device-side certificaten.
