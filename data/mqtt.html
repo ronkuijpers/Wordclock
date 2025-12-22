@@ -82,6 +82,7 @@
       <div class="flex gap-2 items-center">
         <button id="saveBtn" class="py-2 px-3 rounded bg-blue-600 text-white hover:bg-blue-700">Save</button>
         <button id="testBtn" class="py-2 px-3 rounded bg-gray-200 text-gray-800 hover:bg-gray-300">Test connection</button>
+        <button id="resetBtn" class="py-2 px-3 rounded bg-red-100 text-red-700 hover:bg-red-200">Reset</button>
         <span id="saveMsg" class="text-sm text-gray-600"></span>
         <a href="/dashboard.html" class="ml-auto py-2 px-3 rounded bg-white border hover:bg-gray-50">Cancel</a>
       </div>
@@ -174,6 +175,30 @@
     }
     qs('saveBtn').addEventListener('click', saveCfg);
     qs('noauth').addEventListener('change', applyAuthState);
+    qs('resetBtn').addEventListener('click', async () => {
+      const msg = qs('saveMsg');
+      msg.textContent = 'Resetting...';
+      try {
+        const r = await fetch('/api/mqtt/reset', { method:'POST' });
+        if (r.ok) {
+          msg.textContent = 'MQTT settings cleared';
+          // Clear fields
+          qs('host').value = '';
+          qs('port').value = '';
+          qs('user').value = '';
+          qs('pass').value = '';
+          qs('noauth').checked = false;
+          hasStoredPass = false;
+          applyAuthState();
+        } else {
+          const t = await r.text();
+          msg.textContent = 'Failed: ' + t;
+        }
+      } catch (e) {
+        msg.textContent = 'Network error';
+      }
+      setTimeout(() => msg.textContent = '', 5000);
+    });
     qs('testBtn').addEventListener('click', async () => {
       const msg = qs('saveMsg');
       msg.textContent = 'Testing...';
