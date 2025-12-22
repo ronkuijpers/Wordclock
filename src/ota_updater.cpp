@@ -8,6 +8,9 @@
 #include "log.h"
 #include "secrets.h"
 #include "ota_updater.h"
+#include "grid_layout.h"
+#include "led_controller.h"
+#include "display_settings.h"
 
 static const char* FS_VERSION_FILE = "/.fs_version"; // marker
 
@@ -30,6 +33,29 @@ static bool ensureDirs(const String& path) {
 
 static bool verifySha256(const String& /*expected*/, File& /*f*/) {
   return true;
+}
+
+static bool selectFirmware(const JsonDocument& doc, const String& channel, String& outVersion, String& outUrl) {
+  outVersion = "";
+  outUrl = "";
+  const char* block = (channel == "early") ? "early" : "firmware";
+  JsonVariant fw = doc[block];
+  if (fw.is<JsonObject>()) {
+    if (fw["version"].is<const char*>()) outVersion = String(fw["version"].as<const char*>());
+    if (fw["url"].is<const char*>()) outUrl = String(fw["url"].as<const char*>());
+  } else if (fw.is<const char*>()) {
+    outUrl = String(fw.as<const char*>());
+  }
+  if (outUrl.length() == 0 && channel == "early") {
+    fw = doc["firmware"];
+    if (fw.is<JsonObject>()) {
+      if (fw["version"].is<const char*>()) outVersion = String(fw["version"].as<const char*>());
+      if (fw["url"].is<const char*>()) outUrl = String(fw["url"].as<const char*>());
+    } else if (fw.is<const char*>()) {
+      outUrl = String(fw.as<const char*>());
+    }
+  }
+  return outUrl.length() > 0;
 }
 
 static bool downloadToFs(const String& url, const String& path, WiFiClientSecure& client) {
@@ -163,18 +189,15 @@ void checkForFirmwareUpdate() {
   JsonDocument doc;
   if (!fetchManifest(doc, *client)) return;
 
-  String remoteVersion = doc["firmware"]["version"].is<const char*>() ? String(doc["firmware"]["version"].as<const char*>())
-                       : (doc["version"].is<const char*>() ? String(doc["version"].as<const char*>()) : String(""));
-  String fwUrl = doc["firmware"].is<const char*>() ? String(doc["firmware"].as<const char*>())
-               : (doc["firmware"]["url"].is<const char*>() ? String(doc["firmware"]["url"].as<const char*>())
-               : "");
-
-  if (!fwUrl.length()) {
+  String remoteVersion;
+  String fwUrl;
+  String channel = displaySettings.getUpdateChannel();
+  if (!selectFirmware(doc, channel, remoteVersion, fwUrl)) {
     logError("❌ Firmware URL missing");
     return;
   }
 
-  logInfo("ℹ️ Remote version: " + remoteVersion);
+  logInfo("ℹ️ Remote version (" + channel + "): " + remoteVersion);
   if (remoteVersion == FIRMWARE_VERSION) {
     logInfo("✅ Firmware already latest (" + String(FIRMWARE_VERSION) + ")");
     syncFilesFromManifest();
@@ -209,7 +232,43 @@ void checkForFirmwareUpdate() {
   }
 
   WiFiClient& stream = http.getStream();
-  size_t written = Update.writeStream(stream);
+  uint8_t buf[1024];
+  size_t written = 0;
+  bool blinkOn = false;
+  while (written < (size_t)contentLength) {
+    if (!stream.connected() && stream.available() == 0) {
+      logError("❌ Stream disconnected during update");
+      Update.abort();
+      otaProgressBlink(false);
+      return;
+    }
+    int avail = stream.available();
+    if (avail <= 0) {
+      delay(1);
+      continue;
+    }
+    size_t toRead = (size_t)avail;
+    if (toRead > sizeof(buf)) toRead = sizeof(buf);
+    int r = stream.readBytes((char*)buf, toRead);
+    if (r <= 0) {
+      logError("❌ Failed to read firmware chunk");
+      Update.abort();
+      otaProgressBlink(false);
+      return;
+    }
+    size_t w = Update.write(buf, (size_t)r);
+    if (w != (size_t)r) {
+      logError("❌ Error writing firmware chunk");
+      Update.abort();
+      otaProgressBlink(false);
+      return;
+    }
+    written += w;
+    blinkOn = !blinkOn;
+    otaProgressBlink(blinkOn);
+    delay(0); // yield to keep watchdog happy
+  }
+  otaProgressBlink(false);
   http.end();
 
   if (written != (size_t)contentLength) {
