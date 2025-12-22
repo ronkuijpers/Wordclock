@@ -9,6 +9,7 @@
 #include "secrets.h"
 #include "ota_updater.h"
 #include "display_settings.h"
+#include "display_settings.h"
 
 static const char* FS_VERSION_FILE = "/.fs_version"; // marker
 
@@ -156,8 +157,24 @@ void syncFilesFromManifest() {
   JsonDocument doc;
   if (!fetchManifest(doc, *client)) return;
 
-  String manifestVersion = doc["ui_version"].is<const char*>() ? String(doc["ui_version"].as<const char*>())
-                          : (doc["version"].is<const char*>() ? String(doc["version"].as<const char*>()) : String(""));
+  String channel = displaySettings.getUpdateChannel();
+  bool useEarly = (channel == "early");
+  String manifestVersion;
+  JsonVariantConst filesVar;
+
+  if (useEarly) {
+    if (doc["early_ui_version"].is<const char*>()) {
+      manifestVersion = String(doc["early_ui_version"].as<const char*>());
+    }
+    filesVar = doc["early_files"];
+  }
+  if (manifestVersion.length() == 0) {
+    manifestVersion = doc["ui_version"].is<const char*>() ? String(doc["ui_version"].as<const char*>())
+                     : (doc["version"].is<const char*>() ? String(doc["version"].as<const char*>()) : String(""));
+  }
+  if (!filesVar.is<JsonArray>()) {
+    filesVar = doc["files"];
+  }
   const String currentFsVer = readFsVersion();
 
   if (manifestVersion.length() && manifestVersion == currentFsVer) {
@@ -166,7 +183,7 @@ void syncFilesFromManifest() {
   }
 
   std::vector<FileEntry> files;
-  if (doc["files"].is<JsonArray>() && parseFiles(doc["files"], files) && !files.empty()) {
+  if (filesVar.is<JsonArray>() && parseFiles(filesVar, files) && !files.empty()) {
     bool ok = true;
     for (const auto& e : files) {
       if (!downloadToFs(e.url, e.path, *client)) { ok = false; }
