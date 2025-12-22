@@ -107,6 +107,19 @@
           <span>Automatic firmware updates</span>
         </label>
       </div>
+      <div class="mb-3">
+        <p class="text-sm font-semibold text-gray-700 mb-1">Update channel</p>
+        <div class="flex flex-col gap-1 text-sm text-gray-700">
+          <label class="inline-flex items-center gap-2">
+            <input type="radio" name="updateChannel" value="stable" class="form-radio">
+            <span>Stable</span>
+          </label>
+          <label class="inline-flex items-center gap-2">
+            <input type="radio" name="updateChannel" value="early" class="form-radio">
+            <span>Early preview (may be unstable)</span>
+          </label>
+        </div>
+      </div>
       <h3 class="text-sm font-semibold text-gray-700 mt-2 mb-1">Check for update</h3>
       <div class="flex items-center gap-2 mb-3">
         <button id="checkUpdateBtn" class="py-2 px-3 rounded bg-gray-700 text-white hover:bg-gray-800">🔎 Check for update</button>
@@ -442,6 +455,7 @@
     document.getElementById('startSequenceBtn').onclick = () => fetch('/startSequence');
     const checkBtn = document.getElementById('checkUpdateBtn');
     const updateStatusEl = document.getElementById('updateStatus');
+    const updateChannelInputs = document.querySelectorAll('input[name="updateChannel"]');
     if (checkBtn) {
       checkBtn.addEventListener('click', async () => {
         updateStatusEl.textContent = 'Checking for updates...';
@@ -458,9 +472,25 @@
         }
       });
     }
+    async function loadUpdateChannel() {
+      try {
+        const r = await fetch('/getUpdateChannel');
+        if (!r.ok) return;
+        const ch = (await r.text()).trim() || 'stable';
+        updateChannelInputs.forEach(inp => { inp.checked = inp.value === ch; });
+      } catch (_) {}
+    }
+    updateChannelInputs.forEach(inp => {
+      inp.addEventListener('change', async () => {
+        if (!inp.checked) return;
+        try { await fetch('/setUpdateChannel?channel=' + encodeURIComponent(inp.value)); } catch (_) {}
+      });
+    });
 
     const manualUploadForm = document.getElementById('firmwareUploadForm');
     const manualUploadStatusEl = document.getElementById('firmwareUploadStatus');
+    // Load initial update channel selection
+    loadUpdateChannel();
     if (manualUploadForm) {
       const submitBtn = manualUploadForm.querySelector('button[type="submit"]');
       const fileInput = manualUploadForm.querySelector('input[name="firmwareFile"]');

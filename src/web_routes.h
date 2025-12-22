@@ -457,6 +457,18 @@ void setupWebRoutes() {
     server.send(200, "application/json", json);
   });
 
+  // MQTT reset config
+  server.on("/api/mqtt/reset", HTTP_POST, []() {
+    if (!ensureUiAuth()) return;
+    Preferences p;
+    if (p.begin("mqtt", false)) {
+      p.clear();
+      p.end();
+    }
+    mqtt_apply_settings(MqttSettings()); // will be empty -> disables MQTT
+    server.send(200, "text/plain", "RESET");
+  });
+  
   // MQTT connection test (does not save). Accepts form-encoded: host, port, user?, pass?
   server.on("/api/mqtt/test", HTTP_POST, []() {
     if (!ensureUiAuth()) return;
@@ -518,6 +530,23 @@ void setupWebRoutes() {
     bool on = (st == "on" || st == "1" || st == "true");
     displaySettings.setAutoUpdate(on);
   logInfo(String("🔁 Auto firmware updates ") + (on ? "ON" : "OFF"));
+    server.send(200, "text/plain", "OK");
+  });
+
+  // Update channel: stable / early
+  server.on("/getUpdateChannel", []() {
+    if (!ensureUiAuth()) return;
+    server.send(200, "text/plain", displaySettings.getUpdateChannel());
+  });
+  server.on("/setUpdateChannel", []() {
+    if (!ensureUiAuth()) return;
+    if (!server.hasArg("channel")) {
+      server.send(400, "text/plain", "Missing channel");
+      return;
+    }
+    String ch = server.arg("channel");
+    displaySettings.setUpdateChannel(ch);
+    logInfo(String("🔀 Update channel set to ") + displaySettings.getUpdateChannel());
     server.send(200, "text/plain", "OK");
   });
 

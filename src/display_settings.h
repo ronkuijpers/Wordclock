@@ -14,6 +14,8 @@ public:
     sellMode = prefs.getBool("sell_on", false);
     animateWords = prefs.getBool("anim_on", false); // default OFF unless enabled via UI
     autoUpdate = prefs.getBool("auto_upd", true);
+    updateChannel = prefs.getString("upd_ch", "stable");
+    if (updateChannel != "early") updateChannel = "stable";
     const uint8_t defaultVariantId = gridVariantToId(FIRMWARE_DEFAULT_GRID_VARIANT);
     const bool hasGridKey = prefs.isKey("grid_id");
     // Track whether a grid variant was already stored so we can detect migrations
@@ -42,6 +44,7 @@ public:
   bool isSellMode() const { return sellMode; }
   bool getAnimateWords() const { return animateWords; }
   bool getAutoUpdate() const { return autoUpdate; }
+  String getUpdateChannel() const { return updateChannel; }
   GridVariant getGridVariant() const { return gridVariant; }
   uint8_t getGridVariantId() const { return gridVariantToId(gridVariant); }
   bool hasPersistedGridVariant() const { return hasStoredVariant; }
@@ -74,6 +77,16 @@ public:
     prefs.end();
   }
 
+  void setUpdateChannel(const String& ch) {
+    String v = ch;
+    v.toLowerCase();
+    if (v != "early") v = "stable";
+    updateChannel = v;
+    prefs.begin("display", false);
+    prefs.putString("upd_ch", updateChannel);
+    prefs.end();
+  }
+
   void setGridVariant(GridVariant variant) {
     if (!setActiveGridVariant(variant)) {
       return;
@@ -98,6 +111,7 @@ private:
   bool sellMode = false;
   bool animateWords = false; // default OFF
   bool autoUpdate = true;    // default ON to keep current behavior
+  String updateChannel = "stable"; // stable | early
   GridVariant gridVariant = FIRMWARE_DEFAULT_GRID_VARIANT;
   bool hasStoredVariant = false;
   bool initialized = false;
