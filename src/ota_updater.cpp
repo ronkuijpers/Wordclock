@@ -132,9 +132,10 @@ static bool fetchManifest(JsonDocument& doc, WiFiClientSecure& client) {
   return true;
 }
 
-static bool parseFiles(const JsonVariant& jfiles, std::vector<FileEntry>& out) {
-  if (!jfiles.is<JsonArray>()) return false;
-  for (JsonVariant v : jfiles.as<JsonArray>()) {
+static bool parseFiles(const JsonVariantConst& jfiles, std::vector<FileEntry>& out) {
+  JsonArrayConst arr = jfiles.as<JsonArrayConst>();
+  if (arr.isNull()) return false;
+  for (JsonObjectConst v : arr) {
     FileEntry e;
     e.path = v["path"] | "";
     e.url  = v["url"]  | "";
