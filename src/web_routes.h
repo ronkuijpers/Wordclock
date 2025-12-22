@@ -457,18 +457,6 @@ void setupWebRoutes() {
     server.send(200, "application/json", json);
   });
 
-  // MQTT reset config
-  server.on("/api/mqtt/reset", HTTP_POST, []() {
-    if (!ensureUiAuth()) return;
-    Preferences p;
-    if (p.begin("mqtt", false)) {
-      p.clear();
-      p.end();
-    }
-    mqtt_apply_settings(MqttSettings()); // will be empty -> disables MQTT
-    server.send(200, "text/plain", "RESET");
-  });
-
   // MQTT connection test (does not save). Accepts form-encoded: host, port, user?, pass?
   server.on("/api/mqtt/test", HTTP_POST, []() {
     if (!ensureUiAuth()) return;
