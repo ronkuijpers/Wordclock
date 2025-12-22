@@ -521,23 +521,6 @@ void setupWebRoutes() {
     server.send(200, "text/plain", "OK");
   });
 
-  // Update channel: stable / early
-  server.on("/getUpdateChannel", []() {
-    if (!ensureUiAuth()) return;
-    server.send(200, "text/plain", displaySettings.getUpdateChannel());
-  });
-  server.on("/setUpdateChannel", []() {
-    if (!ensureUiAuth()) return;
-    if (!server.hasArg("channel")) {
-      server.send(400, "text/plain", "Missing channel");
-      return;
-    }
-    String ch = server.arg("channel");
-    displaySettings.setUpdateChannel(ch);
-    logInfo(String("🔀 Update channel set to ") + displaySettings.getUpdateChannel());
-    server.send(200, "text/plain", "OK");
-  });
-
   // Grid variant endpoints
   server.on("/getGridVariant", []() {
     if (!ensureUiAuth()) return;
@@ -918,18 +901,10 @@ void setupWebRoutes() {
           Update.printError(Serial);
         } else {
           logDebug("✏️ Written: " + String(written) + " bytes");
-          static bool blink = false;
-          blink = !blink;
-          // Blink extra-minute LEDs to indicate progress
-          size_t use = EXTRA_MINUTE_LED_COUNT >= 4 ? 4 : EXTRA_MINUTE_LED_COUNT;
-          std::vector<uint16_t> leds;
-          for (size_t i = 0; i < use; ++i) leds.push_back(EXTRA_MINUTE_LEDS[i]);
-          showLeds(blink ? leds : std::vector<uint16_t>{});
         }
       } else if (upload.status == UPLOAD_FILE_END) {
         logInfo("📥 Upload completed");
         logDebug("Total " + String(Update.size()) + " bytes");
-        showLeds({});
         if (!Update.end(true)) {
           logError("❌ Update.end() failed");
           Update.printError(Serial);

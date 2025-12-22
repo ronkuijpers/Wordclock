@@ -25,8 +25,6 @@ public:
       prefs.putUChar("grid_id", defaultVariantId);
       storedVariant = defaultVariantId;
     }
-    updateChannel = prefs.getString("upd_ch", "stable");
-    if (updateChannel != "early") updateChannel = "stable";
     prefs.end();
 
     gridVariant = gridVariantFromId(storedVariant);
@@ -76,17 +74,6 @@ public:
     prefs.end();
   }
 
-  String getUpdateChannel() const { return updateChannel; }
-  void setUpdateChannel(const String& ch) {
-    String v = ch;
-    v.toLowerCase();
-    if (v != "early") v = "stable";
-    updateChannel = v;
-    prefs.begin("display", false);
-    prefs.putString("upd_ch", updateChannel);
-    prefs.end();
-  }
-
   void setGridVariant(GridVariant variant) {
     if (!setActiveGridVariant(variant)) {
       return;
@@ -111,7 +98,6 @@ private:
   bool sellMode = false;
   bool animateWords = false; // default OFF
   bool autoUpdate = true;    // default ON to keep current behavior
-  String updateChannel = "stable"; // stable | early
   GridVariant gridVariant = FIRMWARE_DEFAULT_GRID_VARIANT;
   bool hasStoredVariant = false;
   bool initialized = false;

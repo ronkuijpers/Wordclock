@@ -58,34 +58,34 @@
       </div>
       <label class="inline-flex items-center space-x-2 mb-3">
         <input type="checkbox" id="nightModeEnabled" class="form-checkbox">
-        <span>Enable night mode</span>
+        <span>Nightmode inschakelen</span>
       </label>
       <div class="mb-3">
         <label for="nightModeEffect" class="block text-sm mb-1">Effect</label>
         <select id="nightModeEffect" class="w-full border rounded p-2 text-sm">
-          <option value="dim">Dim to percentage</option>
-          <option value="off">Fully off</option>
+          <option value="dim">Dimmen tot percentage</option>
+          <option value="off">Volledig uit</option>
         </select>
       </div>
       <div class="mb-3" id="nightModeDimControls">
-        <label class="block text-sm mb-1">Dim percentage: <span id="nightModeDimValue" class="font-mono">-</span>%</label>
+        <label class="block text-sm mb-1">Dim-percentage: <span id="nightModeDimValue" class="font-mono">-</span>%</label>
         <div class="flex items-center gap-3">
           <input type="range" min="0" max="100" value="20" id="nightModeDimSlider" class="flex-1">
           <input type="number" id="nightModeDimInput" min="0" max="100" step="1" class="w-20 border rounded p-1 text-sm">
         </div>
-        <p class="text-xs text-gray-500 mt-1">0% = fully off, 100% = original brightness</p>
+        <p class="text-xs text-gray-500 mt-1">0% = helemaal uit, 100% = originele helderheid</p>
       </div>
       <div class="grid grid-cols-2 gap-3">
         <div>
-          <label class="block text-sm mb-1" for="nightModeStart">Start time</label>
+          <label class="block text-sm mb-1" for="nightModeStart">Starttijd</label>
           <input type="time" id="nightModeStart" class="w-full border rounded p-2 text-sm">
         </div>
         <div>
-          <label class="block text-sm mb-1" for="nightModeEnd">End time</label>
+          <label class="block text-sm mb-1" for="nightModeEnd">Eindtijd</label>
           <input type="time" id="nightModeEnd" class="w-full border rounded p-2 text-sm">
         </div>
       </div>
-      <p class="text-xs text-gray-500 mt-2">If the end time is earlier than the start, night mode spans midnight.</p>
+      <p class="text-xs text-gray-500 mt-2">Als de eindtijd eerder is dan de starttijd loopt nightmode over middernacht.</p>
     </section>
 
     <section class="bg-white p-4 rounded-2xl shadow mb-4">
@@ -106,19 +106,6 @@
           <input type="checkbox" id="autoUpdate" class="form-checkbox">
           <span>Automatic firmware updates</span>
         </label>
-      </div>
-      <div class="mb-3">
-        <p class="text-sm font-semibold text-gray-700 mb-1">Update channel</p>
-        <div class="flex flex-col gap-1 text-sm text-gray-700">
-          <label class="inline-flex items-center gap-2">
-            <input type="radio" name="updateChannel" value="stable" class="form-radio">
-            <span>Stable</span>
-          </label>
-          <label class="inline-flex items-center gap-2">
-            <input type="radio" name="updateChannel" value="early" class="form-radio">
-            <span>Early preview (may be unstable)</span>
-          </label>
-        </div>
       </div>
       <h3 class="text-sm font-semibold text-gray-700 mt-2 mb-1">Check for update</h3>
       <div class="flex items-center gap-2 mb-3">
@@ -160,7 +147,7 @@
           </div>
           <input type="range" min="0" max="360" value="360" id="hetIsDuration2" class="flex-1">
         </div>
-        <p class="text-xs text-gray-500 mt-1">0 = never, 360 = always</p>
+        <p class="text-xs text-gray-500 mt-1">0 = nooit, 360 = altijd</p>
       </div>
     </section>
 
@@ -171,7 +158,7 @@
     </section>
 
     <section class="bg-white p-4 rounded-2xl shadow">
-      <h2 class="text-xl font-semibold mb-2">Logs</h2>
+      <h2 class="text-xl font-semibold mb-2">Logboek</h2>
       <div class="flex items-center gap-3 mb-2">
         <label for="logLevel" class="text-sm">Log level</label>
         <select id="logLevel" class="flex-1 rounded-md border-gray-300 shadow-sm">
@@ -214,24 +201,24 @@
         });
         if (gridStatusPublic) {
           const active = variants.find(v => v.active);
-          gridStatusPublic.textContent = active ? `Active grid: ${formatVariantLabel(active)}` : '';
+          gridStatusPublic.textContent = active ? `Actieve grid: ${formatVariantLabel(active)}` : '';
         }
       } catch (err) {
-        if (gridStatusPublic) gridStatusPublic.textContent = 'Failed to load grid variants';
+        if (gridStatusPublic) gridStatusPublic.textContent = 'Kon grid-varianten niet laden';
       }
     };
     if (gridSelectPublic) {
       loadGridVariantsPublic();
       gridSelectPublic.addEventListener('change', async () => {
         const id = gridSelectPublic.value;
-        if (gridStatusPublic) gridStatusPublic.textContent = 'Saving…';
+        if (gridStatusPublic) gridStatusPublic.textContent = 'Bezig met opslaan…';
         try {
           const res = await fetch(`/setGridVariant?id=${encodeURIComponent(id)}`);
           if (!res.ok) throw new Error('HTTP ' + res.status);
           const body = await res.json();
-          if (gridStatusPublic) gridStatusPublic.textContent = `Active grid: ${formatVariantLabel(body)}`;
+          if (gridStatusPublic) gridStatusPublic.textContent = `Actieve grid: ${formatVariantLabel(body)}`;
         } catch (err) {
-          if (gridStatusPublic) gridStatusPublic.textContent = 'Save failed';
+          if (gridStatusPublic) gridStatusPublic.textContent = 'Opslaan mislukt';
         }
       });
     }
@@ -320,10 +307,10 @@
     let nightModeCurrent = null;
 
     const setNightModeSaving = () => {
-      if (nightModeStatus) nightModeStatus.textContent = 'Saving…';
+      if (nightModeStatus) nightModeStatus.textContent = 'Bezig met opslaan…';
     };
     const setNightModeError = () => {
-      if (nightModeStatus) nightModeStatus.textContent = 'Save failed';
+      if (nightModeStatus) nightModeStatus.textContent = 'Opslaan mislukt';
     };
     const setNightModeDimDisabled = (disabled) => {
       if (nightModeDimSlider) nightModeDimSlider.disabled = disabled;
@@ -333,12 +320,12 @@
     const formatNightModeStatus = (cfg) => {
       if (!cfg) return '-';
       const parts = [];
-      parts.push(cfg.active ? 'Active' : 'Inactive');
-      if (cfg.override === 'force_on') parts.push('forced on');
-      else if (cfg.override === 'force_off') parts.push('forced off');
-      else if (cfg.schedule_active) parts.push('on schedule');
-      else parts.push('waiting for schedule');
-      if (!cfg.time_synced) parts.push('time unknown');
+      parts.push(cfg.active ? 'Actief' : 'Inactief');
+      if (cfg.override === 'force_on') parts.push('handmatig aan');
+      else if (cfg.override === 'force_off') parts.push('handmatig uit');
+      else if (cfg.schedule_active) parts.push('volgens schema');
+      else parts.push('wacht op schema');
+      if (!cfg.time_synced) parts.push('tijd onbekend');
       return parts.join(' • ');
     };
     const applyNightModeConfig = (cfg) => {
@@ -455,7 +442,6 @@
     document.getElementById('startSequenceBtn').onclick = () => fetch('/startSequence');
     const checkBtn = document.getElementById('checkUpdateBtn');
     const updateStatusEl = document.getElementById('updateStatus');
-    const updateChannelInputs = document.querySelectorAll('input[name="updateChannel"]');
     if (checkBtn) {
       checkBtn.addEventListener('click', async () => {
         updateStatusEl.textContent = 'Checking for updates...';
@@ -472,25 +458,9 @@
         }
       });
     }
-    async function loadUpdateChannel() {
-      try {
-        const r = await fetch('/getUpdateChannel');
-        if (!r.ok) return;
-        const ch = (await r.text()).trim() || 'stable';
-        updateChannelInputs.forEach(inp => { inp.checked = inp.value === ch; });
-      } catch (_) {}
-    }
-    updateChannelInputs.forEach(inp => {
-      inp.addEventListener('change', async () => {
-        if (!inp.checked) return;
-        try { await fetch('/setUpdateChannel?channel=' + encodeURIComponent(inp.value)); } catch (_) {}
-      });
-    });
 
     const manualUploadForm = document.getElementById('firmwareUploadForm');
     const manualUploadStatusEl = document.getElementById('firmwareUploadStatus');
-    // Load initial update channel selection
-    loadUpdateChannel();
     if (manualUploadForm) {
       const submitBtn = manualUploadForm.querySelector('button[type="submit"]');
       const fileInput = manualUploadForm.querySelector('input[name="firmwareFile"]');
@@ -517,23 +487,23 @@
         xhr.open('POST', manualUploadForm.action || '/uploadFirmware');
         xhr.responseType = 'text';
 
-        xhr.upload.addEventListener('loadstart', () => setManualStatus('📂 Upload started...'));
+        xhr.upload.addEventListener('loadstart', () => setManualStatus('📂 Upload gestart...'));
         xhr.upload.addEventListener('progress', (event) => {
           if (event.lengthComputable && event.total > 0) {
             const percent = Math.round((event.loaded / event.total) * 100);
-            setManualStatus(`✏️ Uploading... ${percent}%`);
+            setManualStatus(`✏️ Uploaden... ${percent}%`);
           } else {
-            setManualStatus('✏️ Uploading...');
+            setManualStatus('✏️ Uploaden...');
           }
         });
-        xhr.upload.addEventListener('load', () => setManualStatus('📥 File sent, verifying firmware...'));
+        xhr.upload.addEventListener('load', () => setManualStatus('📥 Bestand verstuurd, firmware wordt gecontroleerd...'));
 
         xhr.addEventListener('load', () => {
           if (xhr.status >= 200 && xhr.status < 300) {
-            setManualStatus('✅ Upload finished. The clock restarts in a few seconds. Page refreshes in 15s.');
+            setManualStatus('✅ Upload afgerond. De klok herstart binnen enkele seconden. Pagina ververst in 15s.');
             setTimeout(() => location.reload(), 15000);
           } else {
-            setManualStatus(`❌ Upload failed (${xhr.status} ${xhr.statusText || ''}).`);
+            setManualStatus(`❌ Upload mislukt (${xhr.status} ${xhr.statusText || ''}).`);
             setButtonDisabled(false);
           }
         });
@@ -543,8 +513,8 @@
           setButtonDisabled(false);
         };
 
-        xhr.addEventListener('error', () => handleFailure('❌ Network error during upload.'));
-        xhr.addEventListener('abort', () => handleFailure('⚠️ Upload aborted.'));
+        xhr.addEventListener('error', () => handleFailure('❌ Netwerkfout tijdens upload.'));
+        xhr.addEventListener('abort', () => handleFailure('⚠️ Upload afgebroken.'));
 
         xhr.send(formData);
       });
