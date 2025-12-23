@@ -48,6 +48,7 @@ static String tNightStartState, tNightStartSet;
 static String tNightEndState, tNightEndSet;
 static String tVersion, tUiVersion, tIp, tRssi, tUptime;
 static String tHeap, tWifiChan, tBootReason, tResetCount;
+static String tUpdateChannelState, tUpdateAutoAllowed, tUpdateAvailable;
 
 static unsigned long lastReconnectAttempt = 0;
 static unsigned long lastStateAt = 0;
@@ -101,6 +102,9 @@ static void buildTopics() {
   tWifiChan     = base + "/wifi_channel";
   tBootReason   = base + "/boot_reason";
   tResetCount   = base + "/reset_count";
+  tUpdateChannelState = base + "/update/channel";
+  tUpdateAutoAllowed  = base + "/update/auto_allowed";
+  tUpdateAvailable    = base + "/update/available";
 }
 
 static void publishDiscovery() {
@@ -424,6 +428,13 @@ void mqtt_publish_state(bool force) {
   publishNightOverrideState();
   publishNightActiveState();
   publishSelect(tLogLvlState);
+
+  // Update channel / auto-update status
+  String updCh = displaySettings.getUpdateChannel();
+  mqtt.publish(tUpdateChannelState.c_str(), updCh.c_str(), true);
+  bool autoAllowed = displaySettings.getAutoUpdate() && updCh != "develop";
+  mqtt.publish(tUpdateAutoAllowed.c_str(), autoAllowed ? "ON" : "OFF", true);
+  mqtt.publish(tUpdateAvailable.c_str(), "unknown", true); // placeholder until a remote check runs
 
   mqtt.publish(tVersion.c_str(), FIRMWARE_VERSION, true);
   mqtt.publish(tUiVersion.c_str(), UI_VERSION, true);

@@ -101,6 +101,22 @@
 
     <section class="bg-white p-4 rounded-2xl shadow mb-4">
       <h2 class="text-xl font-semibold mb-2">Firmware updates</h2>
+      <h3 class="text-sm font-semibold text-gray-700 mt-1 mb-1">Release channel</h3>
+      <div class="space-y-1 mb-3">
+        <label class="inline-flex items-center space-x-2">
+          <input type="radio" name="updateChannel" value="stable" class="form-radio">
+          <span>Stable (recommended)</span>
+        </label><br>
+        <label class="inline-flex items-center space-x-2">
+          <input type="radio" name="updateChannel" value="early" class="form-radio">
+          <span>Early (experimental)</span>
+        </label><br>
+        <label class="inline-flex items-center space-x-2 text-red-600">
+          <input type="radio" name="updateChannel" value="develop" class="form-radio">
+          <span>Develop (kan de klok onbruikbaar maken; herstel niet gegarandeerd)</span>
+        </label>
+        <p id="updateChannelStatus" class="text-xs text-gray-500">Default: stable. Early/Develop kunnen instabiel zijn.</p>
+      </div>
       <h3 class="text-sm font-semibold text-gray-700 mt-1 mb-1">Automatic</h3>
       <div class="mb-3">
         <label class="inline-flex items-center space-x-2">
@@ -238,6 +254,68 @@
       const st = document.getElementById('statusText');
       if (st) st.textContent = on ? 'Wordclock on' : 'Wordclock off';
     };
+
+    const autoUpdCb = document.getElementById('autoUpdate');
+
+    // Release channel selection (stable/early)
+    const channelRadios = document.querySelectorAll('input[name="updateChannel"]');
+    const channelStatus = document.getElementById('updateChannelStatus');
+    const applyChannelGuard = (ch) => {
+      const disabled = (ch === 'develop');
+      if (autoUpdCb) {
+        if (disabled) {
+          autoUpdCb.checked = false;
+          autoUpdCb.disabled = true;
+        } else {
+          autoUpdCb.disabled = false;
+        }
+      }
+      if (channelStatus) channelStatus.textContent = `Current channel: ${ch}${disabled ? ' (automatic updates disabled)' : ''}`;
+    };
+    const loadChannel = async () => {
+      if (channelStatus) channelStatus.textContent = 'Loading channel…';
+      try {
+        const res = await fetch('/api/update/channel');
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        const body = await res.json();
+        const ch = (body && body.channel) ? body.channel : 'stable';
+        channelRadios.forEach(r => { r.checked = (r.value === ch); });
+        applyChannelGuard(ch);
+      } catch (err) {
+        channelRadios.forEach(r => { if (r.value === 'stable') r.checked = true; });
+        applyChannelGuard('stable');
+      }
+    };
+    channelRadios.forEach(r => {
+      r.addEventListener('change', async () => {
+        if (!r.checked) return;
+        const ch = r.value;
+        if (ch === 'develop') {
+          const ok = window.confirm('Weet je zeker dat je het ontwikkelkanaal wilt gebruiken? Dit kan de klok onbruikbaar maken en herstel is niet gegarandeerd.');
+          if (!ok) {
+            r.checked = false;
+            const stable = Array.from(channelRadios).find(x => x.value === 'stable');
+            if (stable) stable.checked = true;
+            applyChannelGuard('stable');
+            return;
+          }
+        }
+        if (channelStatus) channelStatus.textContent = 'Saving…';
+        try {
+          const res = await fetch('/api/update/channel', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ channel: ch })
+          });
+          if (!res.ok) throw new Error('HTTP ' + res.status);
+          applyChannelGuard(ch);
+        } catch (err) {
+          if (channelStatus) channelStatus.textContent = 'Save failed; keeping previous value';
+          await loadChannel();
+        }
+      });
+    });
+    loadChannel();
 
     document.getElementById('toggleClockOn').onclick = () => {
       fetch('/toggle?state=on').then(updateStatus);
@@ -638,14 +716,15 @@
     const hetIsDec = document.getElementById('hetIsDec');
     const hetIsInc = document.getElementById('hetIsInc');
     // Auto update toggle
-    const autoUpdCb = document.getElementById('autoUpdate');
-    fetch('/getAutoUpdate')
-      .then(r => r.text())
-      .then(v => { autoUpdCb.checked = (v.trim() === 'on'); })
-      .catch(() => { autoUpdCb.checked = true; });
-    autoUpdCb.addEventListener('change', () => {
-      fetch('/setAutoUpdate?state=' + (autoUpdCb.checked ? 'on' : 'off'));
-    });
+    if (autoUpdCb) {
+      fetch('/getAutoUpdate')
+        .then(r => r.text())
+        .then(v => { if (!autoUpdCb.disabled) autoUpdCb.checked = (v.trim() === 'on'); })
+        .catch(() => { if (!autoUpdCb.disabled) autoUpdCb.checked = true; });
+      autoUpdCb.addEventListener('change', () => {
+        fetch('/setAutoUpdate?state=' + (autoUpdCb.checked ? 'on' : 'off'));
+      });
+    }
     // Load animation toggle (default is OFF server-side)
     fetch('/getAnimate')
       .then(r => r.text())

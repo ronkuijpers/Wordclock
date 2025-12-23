@@ -8,6 +8,7 @@
 #include "log.h"
 #include "secrets.h"
 #include "ota_updater.h"
+#include "display_settings.h"
 
 static const char* FS_VERSION_FILE = "/.fs_version"; // marker
 
@@ -107,9 +108,26 @@ static bool fetchManifest(JsonDocument& doc, WiFiClientSecure& client) {
   return true;
 }
 
-static bool parseFiles(const JsonVariant& jfiles, std::vector<FileEntry>& out) {
-  if (!jfiles.is<JsonArray>()) return false;
-  for (JsonVariant v : jfiles.as<JsonArray>()) {
+static JsonVariant selectChannelBlock(JsonDocument& doc, const String& requested, String& selected) {
+  selected = requested;
+  JsonVariant channels = doc["channels"];
+  if (channels.is<JsonObject>()) {
+    JsonVariant blk = channels[requested];
+    if (!blk.isNull()) return blk;
+    blk = channels["stable"];
+    if (!blk.isNull()) {
+      selected = "stable";
+      return blk;
+    }
+  }
+  selected = "legacy";
+  return JsonVariant(); // empty -> legacy/top-level
+}
+
+static bool parseFiles(JsonVariantConst jfiles, std::vector<FileEntry>& out) {
+  JsonArrayConst arr = jfiles.as<JsonArrayConst>();
+  if (arr.isNull()) return false;
+  for (JsonObjectConst v : arr) {
     FileEntry e;
     e.path = v["path"] | "";
     e.url  = v["url"]  | "";
@@ -132,8 +150,31 @@ void syncFilesFromManifest() {
   JsonDocument doc;
   if (!fetchManifest(doc, *client)) return;
 
-  String manifestVersion = doc["ui_version"].is<const char*>() ? String(doc["ui_version"].as<const char*>())
-                          : (doc["version"].is<const char*>() ? String(doc["version"].as<const char*>()) : String(""));
+  String requestedChannel = displaySettings.getUpdateChannel();
+  requestedChannel.toLowerCase();
+  if (requestedChannel != "stable" && requestedChannel != "early" && requestedChannel != "develop") {
+    requestedChannel = "stable";
+  }
+  String selectedChannel;
+  JsonVariant channelBlock = selectChannelBlock(doc, requestedChannel, selectedChannel);
+  if (requestedChannel != selectedChannel) {
+    logInfo(String("Manifest channel fallback: requested ") + requestedChannel + " -> using " + selectedChannel);
+  } else {
+    logInfo(String("Manifest channel: ") + selectedChannel);
+  }
+  if (!channelBlock.isNull() && channelBlock["release_notes"].is<const char*>()) {
+    logInfo(String("Release notes (") + selectedChannel + "): " + channelBlock["release_notes"].as<const char*>());
+  }
+
+  String manifestVersion;
+  if (!channelBlock.isNull()) {
+    if (channelBlock["ui_version"].is<const char*>()) manifestVersion = channelBlock["ui_version"].as<const char*>();
+    else if (channelBlock["version"].is<const char*>()) manifestVersion = channelBlock["version"].as<const char*>();
+  }
+  if (manifestVersion.isEmpty()) {
+    manifestVersion = doc["ui_version"].is<const char*>() ? String(doc["ui_version"].as<const char*>())
+                       : (doc["version"].is<const char*>() ? String(doc["version"].as<const char*>()) : String(""));
+  }
   const String currentFsVer = readFsVersion();
 
   if (manifestVersion.length() && manifestVersion == currentFsVer) {
@@ -142,7 +183,14 @@ void syncFilesFromManifest() {
   }
 
   std::vector<FileEntry> files;
-  if (doc["files"].is<JsonArray>() && parseFiles(doc["files"], files) && !files.empty()) {
+  JsonVariantConst fileList;
+  if (!channelBlock.isNull() && channelBlock["files"].is<JsonArray>()) {
+    fileList = channelBlock["files"];
+  } else if (doc["files"].is<JsonArray>()) {
+    fileList = doc["files"];
+  }
+
+  if (!fileList.isNull() && parseFiles(fileList, files) && !files.empty()) {
     bool ok = true;
     for (const auto& e : files) {
       if (!downloadToFs(e.url, e.path, *client)) { ok = false; }
@@ -163,11 +211,48 @@ void checkForFirmwareUpdate() {
   JsonDocument doc;
   if (!fetchManifest(doc, *client)) return;
 
-  String remoteVersion = doc["firmware"]["version"].is<const char*>() ? String(doc["firmware"]["version"].as<const char*>())
-                       : (doc["version"].is<const char*>() ? String(doc["version"].as<const char*>()) : String(""));
-  String fwUrl = doc["firmware"].is<const char*>() ? String(doc["firmware"].as<const char*>())
-               : (doc["firmware"]["url"].is<const char*>() ? String(doc["firmware"]["url"].as<const char*>())
-               : "");
+  String requestedChannel = displaySettings.getUpdateChannel();
+  requestedChannel.toLowerCase();
+  if (requestedChannel != "stable" && requestedChannel != "early" && requestedChannel != "develop") {
+    requestedChannel = "stable";
+  }
+  String selectedChannel;
+  JsonVariant channelBlock = selectChannelBlock(doc, requestedChannel, selectedChannel);
+  if (requestedChannel != selectedChannel) {
+    logInfo(String("Manifest channel fallback: requested ") + requestedChannel + " -> using " + selectedChannel);
+  } else {
+    logInfo(String("Manifest channel: ") + selectedChannel);
+  }
+
+  JsonVariant firmwareBlock;
+  if (!channelBlock.isNull()) {
+    firmwareBlock = channelBlock["firmware"];
+  }
+
+  String remoteVersion;
+  if (!firmwareBlock.isNull()) {
+    if (firmwareBlock["version"].is<const char*>()) {
+      remoteVersion = firmwareBlock["version"].as<const char*>();
+    }
+  }
+  if (remoteVersion.isEmpty() && !channelBlock.isNull() && channelBlock["version"].is<const char*>()) {
+    remoteVersion = channelBlock["version"].as<const char*>();
+  }
+  if (remoteVersion.isEmpty()) {
+    remoteVersion = doc["firmware"]["version"].is<const char*>() ? String(doc["firmware"]["version"].as<const char*>())
+                   : (doc["version"].is<const char*>() ? String(doc["version"].as<const char*>()) : String(""));
+  }
+
+  String fwUrl;
+  if (!firmwareBlock.isNull()) {
+    if (firmwareBlock.is<const char*>()) fwUrl = firmwareBlock.as<const char*>();
+    else if (firmwareBlock["url"].is<const char*>()) fwUrl = firmwareBlock["url"].as<const char*>();
+  }
+  if (fwUrl.isEmpty()) {
+    fwUrl = doc["firmware"].is<const char*>() ? String(doc["firmware"].as<const char*>())
+           : (doc["firmware"]["url"].is<const char*>() ? String(doc["firmware"]["url"].as<const char*>())
+           : "");
+  }
 
   if (!fwUrl.length()) {
     logError("❌ Firmware URL missing");

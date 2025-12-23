@@ -522,9 +522,51 @@ void setupWebRoutes() {
     }
     String st = server.arg("state");
     bool on = (st == "on" || st == "1" || st == "true");
+    if (on && displaySettings.getUpdateChannel() == "develop") {
+      server.send(400, "text/plain", "Automatic updates are disabled on the develop channel");
+      return;
+    }
     displaySettings.setAutoUpdate(on);
   logInfo(String("🔁 Auto firmware updates ") + (on ? "ON" : "OFF"));
     server.send(200, "text/plain", "OK");
+  });
+
+  // Update channel (stable/early)
+  server.on("/api/update/channel", HTTP_GET, []() {
+    if (!ensureUiAuth()) return;
+    JsonDocument doc;
+    doc["channel"] = displaySettings.getUpdateChannel();
+    doc["default"] = "stable";
+    String out;
+    serializeJson(doc, out);
+    server.send(200, "application/json", out);
+  });
+
+  server.on("/api/update/channel", HTTP_POST, []() {
+    if (!ensureUiAuth()) return;
+    String ch;
+    if (server.hasArg("channel")) {
+      ch = server.arg("channel");
+    } else if (server.hasArg("plain")) {
+      JsonDocument doc;
+      DeserializationError err = deserializeJson(doc, server.arg("plain"));
+      if (!err && doc["channel"].is<const char*>()) {
+        ch = String(doc["channel"].as<const char*>());
+      }
+    }
+    ch.toLowerCase();
+    if (ch != "stable" && ch != "early" && ch != "develop") {
+      server.send(400, "text/plain", "channel must be 'stable', 'early', or 'develop'");
+      return;
+    }
+    displaySettings.setUpdateChannel(ch);
+    mqtt_publish_state(true);
+    JsonDocument doc;
+    doc["channel"] = displaySettings.getUpdateChannel();
+    doc["default"] = "stable";
+    String out;
+    serializeJson(doc, out);
+    server.send(200, "application/json", out);
   });
 
   // Grid variant endpoints
