@@ -15,6 +15,7 @@
       </div>
       <div class="flex items-center gap-4">
         <a href="/mqtt.html" class="text-sm text-blue-600 hover:underline">MQTT</a>
+        <a href="/logs.html" class="text-sm text-blue-600 hover:underline">Logs</a>
       </div>
     </header>
 
@@ -158,7 +159,7 @@
     </section>
 
     <section class="bg-white p-4 rounded-2xl shadow">
-      <h2 class="text-xl font-semibold mb-2">Logboek</h2>
+      <h2 class="text-xl font-semibold mb-2">Logs</h2>
       <div class="flex items-center gap-3 mb-2">
         <label for="logLevel" class="text-sm">Log level</label>
         <select id="logLevel" class="flex-1 rounded-md border-gray-300 shadow-sm">
@@ -169,6 +170,11 @@
         </select>
       </div>
       <p id="logLevelStatus" class="text-xs text-gray-500 mb-2"></p>
+      <div class="flex items-center gap-3 mb-2 text-sm">
+        <span>Storage: <span id="logSummary" class="font-semibold">-</span></span>
+        <button id="clearLogsBtn" class="py-1 px-2 rounded bg-gray-200 text-gray-800 hover:bg-gray-300 text-xs">Clear logs</button>
+        <span id="logSummaryStatus" class="text-xs text-gray-500"></span>
+      </div>
       <pre id="logOutput" class="bg-gray-100 p-2 h-40 overflow-y-auto rounded"></pre>
     </section>
   </div>
@@ -729,6 +735,52 @@
     // Init log level controls
     const logLevelSel = document.getElementById('logLevel');
     const logLevelStatus = document.getElementById('logLevelStatus');
+    const logSummaryEl = document.getElementById('logSummary');
+    const logSummaryStatus = document.getElementById('logSummaryStatus');
+    const clearLogsBtn = document.getElementById('clearLogsBtn');
+    const formatBytes = (n) => {
+      if (n >= 1024 * 1024) return (n / (1024 * 1024)).toFixed(1) + ' MB';
+      if (n >= 1024) return (n / 1024).toFixed(1) + ' KB';
+      return n + ' B';
+    };
+    const setLogSummaryColor = (bytes) => {
+      if (!logSummaryEl) return;
+      logSummaryEl.classList.remove('text-green-600','text-orange-500','text-red-600');
+      if (bytes < 200 * 1024) logSummaryEl.classList.add('text-green-600');
+      else if (bytes < 500 * 1024) logSummaryEl.classList.add('text-orange-500');
+      else logSummaryEl.classList.add('text-red-600');
+    };
+    async function loadLogSummary() {
+      if (!logSummaryEl) return;
+      try {
+        const r = await fetch('/api/logs/summary');
+        if (!r.ok) throw new Error('HTTP ' + r.status);
+        const j = await r.json();
+        const total = j.total_bytes || 0;
+        logSummaryEl.textContent = `${formatBytes(total)} (${j.count || 0} files)`;
+        setLogSummaryColor(total);
+        if (logSummaryStatus) logSummaryStatus.textContent = '';
+      } catch (e) {
+        logSummaryEl.textContent = '-';
+        if (logSummaryStatus) logSummaryStatus.textContent = 'Failed to load log summary';
+      }
+    }
+    if (clearLogsBtn) {
+      clearLogsBtn.addEventListener('click', async () => {
+        clearLogsBtn.disabled = true;
+        if (logSummaryStatus) logSummaryStatus.textContent = 'Clearing...';
+        try {
+          const r = await fetch('/api/logs/clear', { method: 'POST' });
+          if (!r.ok) throw new Error('HTTP ' + r.status);
+          if (logSummaryStatus) logSummaryStatus.textContent = 'Logs cleared';
+        } catch (e) {
+          if (logSummaryStatus) logSummaryStatus.textContent = 'Failed to clear logs';
+        } finally {
+          clearLogsBtn.disabled = false;
+          loadLogSummary();
+        }
+      });
+    }
     function setLogLevelUI(lvl) {
       if (logLevelSel) logLevelSel.value = lvl;
       if (logLevelStatus) logLevelStatus.textContent = `Current log level: ${lvl}`;
@@ -737,6 +789,7 @@
       .then(r => r.text())
       .then(lvl => setLogLevelUI(lvl || 'INFO'))
       .catch(() => {});
+    loadLogSummary();
     if (logLevelSel) {
       logLevelSel.addEventListener('change', () => {
         const lvl = logLevelSel.value;

@@ -10,6 +10,7 @@
 #include <ArduinoJson.h>
 #include <vector>
 #include <algorithm>
+#include <map>
 #include "secrets.h"
 #include "sequence_controller.h"
 #include "led_state.h"
@@ -255,7 +256,7 @@ void setupWebRoutes() {
     serveFile("/admin.html", "text/html");
   });
   server.on("/logs.html", HTTP_GET, []() {
-    if (!ensureAdminAuth()) return;
+    if (!ensureUiAuth()) return;
     serveFile("/logs.html", "text/html");
   });
 
@@ -626,14 +627,16 @@ void setupWebRoutes() {
   });
 
   server.on("/api/logs", HTTP_GET, []() {
-    if (!ensureAdminAuth()) return;
+    if (!ensureUiAuth()) return;
     logFlushFile();
     struct LogItem {
       String name;
       size_t size;
       String date;
     };
+    // Deduplicate by date: keep the largest file per date
     std::vector<LogItem> items;
+    std::map<String, LogItem, std::greater<String>> bestByDate;
     File dir = FS_IMPL.open("/logs");
     if (dir) {
       while (true) {
@@ -652,15 +655,18 @@ void setupWebRoutes() {
           item.name = shortName.length() ? shortName : name;
           item.size = size;
           item.date = date;
-          items.push_back(item);
+          auto it = bestByDate.find(date);
+          if (it == bestByDate.end() || size > it->second.size) {
+            bestByDate[date] = item;
+          }
         }
         entry.close();
       }
       dir.close();
     }
-    std::sort(items.begin(), items.end(), [](const LogItem& a, const LogItem& b) {
-      return a.name > b.name;
-    });
+    for (const auto& kv : bestByDate) {
+      items.push_back(kv.second);
+    }
     JsonDocument doc;
     JsonArray arr = doc.to<JsonArray>();
     for (const auto& item : items) {
@@ -669,6 +675,78 @@ void setupWebRoutes() {
       o["size"] = item.size;
       o["date"] = item.date;
     }
+    String out;
+    serializeJson(doc, out);
+    server.send(200, "application/json", out);
+  });
+
+  // Logs summary
+  server.on("/api/logs/summary", HTTP_GET, []() {
+    if (!ensureUiAuth()) return;
+    logFlushFile();
+    // Deduplicate per date: keep the largest file for each date to match the list view
+    size_t total = 0;
+    size_t count = 0;
+    std::map<String, size_t, std::greater<String>> bestByDate;
+    File dir = FS_IMPL.open("/logs");
+    if (dir) {
+      while (true) {
+        File entry = dir.openNextFile();
+        if (!entry) break;
+        if (!entry.isDirectory()) {
+          String shortName = entry.name();
+          if (shortName.startsWith("/")) shortName = shortName.substring(1);
+          if (shortName.startsWith("logs/")) shortName = shortName.substring(5);
+          String date = shortName;
+          int dot = date.lastIndexOf('.');
+          if (dot > 0) date = date.substring(0, dot);
+          size_t sz = entry.size();
+          auto it = bestByDate.find(date);
+          if (it == bestByDate.end() || sz > it->second) {
+            bestByDate[date] = sz;
+          }
+        }
+        entry.close();
+      }
+      dir.close();
+    }
+    for (const auto& kv : bestByDate) {
+      total += kv.second;
+      count++;
+    }
+    JsonDocument doc;
+    doc["total_bytes"] = (uint32_t)total;
+    doc["count"] = (uint32_t)count;
+    String out;
+    serializeJson(doc, out);
+    server.send(200, "application/json", out);
+  });
+
+  // Clear all log files
+  server.on("/api/logs/clear", HTTP_POST, []() {
+    if (!ensureUiAuth()) return;
+    logFlushFile();
+    size_t deleted = 0;
+    size_t failed = 0;
+    File dir = FS_IMPL.open("/logs");
+    if (dir) {
+      while (true) {
+        File entry = dir.openNextFile();
+        if (!entry) break;
+        if (!entry.isDirectory()) {
+          String name = entry.name();
+          entry.close();
+          if (FS_IMPL.remove(name)) deleted++;
+          else failed++;
+        } else {
+          entry.close();
+        }
+      }
+      dir.close();
+    }
+    JsonDocument doc;
+    doc["deleted"] = (uint32_t)deleted;
+    doc["failed"] = (uint32_t)failed;
     String out;
     serializeJson(doc, out);
     server.send(200, "application/json", out);
@@ -719,7 +797,7 @@ void setupWebRoutes() {
   });
 
   server.on("/log/download", HTTP_GET, []() {
-    if (!ensureAdminAuth()) return;
+    if (!ensureUiAuth()) return;
     logFlushFile();
     String path;
     if (server.hasArg("date")) {

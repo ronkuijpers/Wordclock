@@ -41,7 +41,7 @@ static File logFile;
 static String currentLogTag;
 static unsigned long lastFlushMs = 0;
 static const unsigned long LOG_FLUSH_INTERVAL_MS = 5000;
-static const uint32_t LOG_RETENTION_DAYS = 30;
+static const uint32_t LOG_RETENTION_DAYS = 5;
 
 static void closeLogFile() {
   if (logFile) {
