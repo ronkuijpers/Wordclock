@@ -15,7 +15,7 @@
       </div>
       <div class="flex items-center gap-4">
         <a href="/mqtt.html" class="text-sm text-blue-600 hover:underline">MQTT</a>
-        <a href="/admin.html" class="text-sm text-blue-600 hover:underline">Admin</a>
+        <a href="/logs.html" class="text-sm text-blue-600 hover:underline">Logs</a>
       </div>
     </header>
 
@@ -115,7 +115,22 @@
 
     <section class="bg-white p-4 rounded-2xl shadow mb-4">
       <h2 class="text-xl font-semibold mb-2">Firmware updates</h2>
-      <!-- Automatic firmware updates temporarily hidden; re-enable by uncommenting this block.
+      <h3 class="text-sm font-semibold text-gray-700 mt-1 mb-1">Release channel</h3>
+      <div class="space-y-1 mb-3">
+        <label class="inline-flex items-center space-x-2">
+          <input type="radio" name="updateChannel" value="stable" class="form-radio">
+          <span>Stable (recommended)</span>
+        </label><br>
+        <label class="inline-flex items-center space-x-2">
+          <input type="radio" name="updateChannel" value="early" class="form-radio">
+          <span>Early (experimental)</span>
+        </label><br>
+        <label class="inline-flex items-center space-x-2 text-red-600">
+          <input type="radio" name="updateChannel" value="develop" class="form-radio">
+          <span>Develop (kan de klok onbruikbaar maken; herstel niet gegarandeerd)</span>
+        </label>
+        <p id="updateChannelStatus" class="text-xs text-gray-500">Default: stable. Early/Develop kunnen instabiel zijn.</p>
+      </div>
       <h3 class="text-sm font-semibold text-gray-700 mt-1 mb-1">Automatic</h3>
       <div class="mb-3">
         <label class="inline-flex items-center space-x-2">
@@ -175,7 +190,7 @@
     </section>
 
     <section class="bg-white p-4 rounded-2xl shadow">
-      <h2 class="text-xl font-semibold mb-2">Logboek</h2>
+      <h2 class="text-xl font-semibold mb-2">Logs</h2>
       <div class="flex items-center gap-3 mb-2">
         <label for="logLevel" class="text-sm">Log level</label>
         <select id="logLevel" class="flex-1 rounded-md border-gray-300 shadow-sm">
@@ -186,6 +201,11 @@
         </select>
       </div>
       <p id="logLevelStatus" class="text-xs text-gray-500 mb-2"></p>
+      <div class="flex items-center gap-3 mb-2 text-sm">
+        <span>Storage: <span id="logSummary" class="font-semibold">-</span></span>
+        <button id="clearLogsBtn" class="py-1 px-2 rounded bg-gray-200 text-gray-800 hover:bg-gray-300 text-xs">Clear logs</button>
+        <span id="logSummaryStatus" class="text-xs text-gray-500"></span>
+      </div>
       <pre id="logOutput" class="bg-gray-100 p-2 h-40 overflow-y-auto rounded"></pre>
     </section>
   </div>
@@ -249,6 +269,68 @@
       const st = document.getElementById('statusText');
       if (st) st.textContent = on ? 'Wordclock on' : 'Wordclock off';
     };
+
+    const autoUpdCb = document.getElementById('autoUpdate');
+
+    // Release channel selection (stable/early)
+    const channelRadios = document.querySelectorAll('input[name="updateChannel"]');
+    const channelStatus = document.getElementById('updateChannelStatus');
+    const applyChannelGuard = (ch) => {
+      const disabled = (ch === 'develop');
+      if (autoUpdCb) {
+        if (disabled) {
+          autoUpdCb.checked = false;
+          autoUpdCb.disabled = true;
+        } else {
+          autoUpdCb.disabled = false;
+        }
+      }
+      if (channelStatus) channelStatus.textContent = `Current channel: ${ch}${disabled ? ' (automatic updates disabled)' : ''}`;
+    };
+    const loadChannel = async () => {
+      if (channelStatus) channelStatus.textContent = 'Loading channel…';
+      try {
+        const res = await fetch('/api/update/channel');
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        const body = await res.json();
+        const ch = (body && body.channel) ? body.channel : 'stable';
+        channelRadios.forEach(r => { r.checked = (r.value === ch); });
+        applyChannelGuard(ch);
+      } catch (err) {
+        channelRadios.forEach(r => { if (r.value === 'stable') r.checked = true; });
+        applyChannelGuard('stable');
+      }
+    };
+    channelRadios.forEach(r => {
+      r.addEventListener('change', async () => {
+        if (!r.checked) return;
+        const ch = r.value;
+        if (ch === 'develop') {
+          const ok = window.confirm('Weet je zeker dat je het ontwikkelkanaal wilt gebruiken? Dit kan de klok onbruikbaar maken en herstel is niet gegarandeerd.');
+          if (!ok) {
+            r.checked = false;
+            const stable = Array.from(channelRadios).find(x => x.value === 'stable');
+            if (stable) stable.checked = true;
+            applyChannelGuard('stable');
+            return;
+          }
+        }
+        if (channelStatus) channelStatus.textContent = 'Saving…';
+        try {
+          const res = await fetch('/api/update/channel', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ channel: ch })
+          });
+          if (!res.ok) throw new Error('HTTP ' + res.status);
+          applyChannelGuard(ch);
+        } catch (err) {
+          if (channelStatus) channelStatus.textContent = 'Save failed; keeping previous value';
+          await loadChannel();
+        }
+      });
+    });
+    loadChannel();
 
     document.getElementById('toggleClockOn').onclick = () => {
       fetch('/toggle?state=on').then(updateStatus);
@@ -709,13 +791,12 @@
     const durInput = document.getElementById('hetIsDurationInput');
     const hetIsDec = document.getElementById('hetIsDec');
     const hetIsInc = document.getElementById('hetIsInc');
-    // Auto update toggle (currently hidden in UI)
-    const autoUpdCb = document.getElementById('autoUpdate');
+    // Auto update toggle
     if (autoUpdCb) {
       fetch('/getAutoUpdate')
         .then(r => r.text())
-        .then(v => { autoUpdCb.checked = (v.trim() === 'on'); })
-        .catch(() => { autoUpdCb.checked = true; });
+        .then(v => { if (!autoUpdCb.disabled) autoUpdCb.checked = (v.trim() === 'on'); })
+        .catch(() => { if (!autoUpdCb.disabled) autoUpdCb.checked = true; });
       autoUpdCb.addEventListener('change', () => {
         fetch('/setAutoUpdate?state=' + (autoUpdCb.checked ? 'on' : 'off'));
       });
@@ -809,6 +890,52 @@
     // Init log level controls
     const logLevelSel = document.getElementById('logLevel');
     const logLevelStatus = document.getElementById('logLevelStatus');
+    const logSummaryEl = document.getElementById('logSummary');
+    const logSummaryStatus = document.getElementById('logSummaryStatus');
+    const clearLogsBtn = document.getElementById('clearLogsBtn');
+    const formatBytes = (n) => {
+      if (n >= 1024 * 1024) return (n / (1024 * 1024)).toFixed(1) + ' MB';
+      if (n >= 1024) return (n / 1024).toFixed(1) + ' KB';
+      return n + ' B';
+    };
+    const setLogSummaryColor = (bytes) => {
+      if (!logSummaryEl) return;
+      logSummaryEl.classList.remove('text-green-600','text-orange-500','text-red-600');
+      if (bytes < 200 * 1024) logSummaryEl.classList.add('text-green-600');
+      else if (bytes < 500 * 1024) logSummaryEl.classList.add('text-orange-500');
+      else logSummaryEl.classList.add('text-red-600');
+    };
+    async function loadLogSummary() {
+      if (!logSummaryEl) return;
+      try {
+        const r = await fetch('/api/logs/summary');
+        if (!r.ok) throw new Error('HTTP ' + r.status);
+        const j = await r.json();
+        const total = j.total_bytes || 0;
+        logSummaryEl.textContent = `${formatBytes(total)} (${j.count || 0} files)`;
+        setLogSummaryColor(total);
+        if (logSummaryStatus) logSummaryStatus.textContent = '';
+      } catch (e) {
+        logSummaryEl.textContent = '-';
+        if (logSummaryStatus) logSummaryStatus.textContent = 'Failed to load log summary';
+      }
+    }
+    if (clearLogsBtn) {
+      clearLogsBtn.addEventListener('click', async () => {
+        clearLogsBtn.disabled = true;
+        if (logSummaryStatus) logSummaryStatus.textContent = 'Clearing...';
+        try {
+          const r = await fetch('/api/logs/clear', { method: 'POST' });
+          if (!r.ok) throw new Error('HTTP ' + r.status);
+          if (logSummaryStatus) logSummaryStatus.textContent = 'Logs cleared';
+        } catch (e) {
+          if (logSummaryStatus) logSummaryStatus.textContent = 'Failed to clear logs';
+        } finally {
+          clearLogsBtn.disabled = false;
+          loadLogSummary();
+        }
+      });
+    }
     function setLogLevelUI(lvl) {
       if (logLevelSel) logLevelSel.value = lvl;
       if (logLevelStatus) logLevelStatus.textContent = `Current log level: ${lvl}`;
@@ -817,6 +944,7 @@
       .then(r => r.text())
       .then(lvl => setLogLevelUI(lvl || 'INFO'))
       .catch(() => {});
+    loadLogSummary();
     if (logLevelSel) {
       logLevelSel.addEventListener('change', () => {
         const lvl = logLevelSel.value;

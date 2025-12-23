@@ -10,6 +10,7 @@
 #include <ArduinoJson.h>
 #include <vector>
 #include <algorithm>
+#include <map>
 #include "secrets.h"
 #include "sequence_controller.h"
 #include "led_state.h"
@@ -203,6 +204,11 @@ void setupWebRoutes() {
     serveFile("/dashboard.html", "text/html");
   });
 
+  // Favicon placeholder to avoid 404 noise
+  server.on("/favicon.ico", HTTP_GET, []() {
+    server.send(204);
+  });
+
   // Factory reset token endpoint (public): returns a short-lived token for reset
   server.on("/factorytoken", HTTP_GET, []() {
     // Issue new token valid for 60s
@@ -274,7 +280,7 @@ void setupWebRoutes() {
     serveFile("/admin.html", "text/html");
   });
   server.on("/logs.html", HTTP_GET, []() {
-    if (!ensureAdminAuth()) return;
+    if (!ensureUiAuth()) return;
     serveFile("/logs.html", "text/html");
   });
 
@@ -425,6 +431,7 @@ void setupWebRoutes() {
     json += "\"port\":" + String(cfg.port) + ",";
     json += "\"user\":\"" + cfg.user + "\",";
     json += "\"has_pass\":" + String(cfg.pass.length() > 0 ? "true" : "false") + ",";
+    json += "\"allow_unauth\":" + String(cfg.allowAnonymous ? "true" : "false") + ",";
     json += "\"discovery\":\"" + cfg.discoveryPrefix + "\",";
     json += "\"base\":\"" + cfg.baseTopic + "\"";
     json += "}";
@@ -440,6 +447,7 @@ void setupWebRoutes() {
     if (server.hasArg("host")) next.host = server.arg("host");
     if (server.hasArg("port")) next.port = (uint16_t) server.arg("port").toInt();
     if (server.hasArg("user")) next.user = server.arg("user");
+    if (server.hasArg("allow_unauth")) next.allowAnonymous = server.arg("allow_unauth") == "1" || server.arg("allow_unauth") == "true" || server.arg("allow_unauth") == "on";
     if (server.hasArg("pass")) {
       String p = server.arg("pass");
       if (p.length() > 0) next.pass = p; // empty means keep existing
@@ -451,6 +459,19 @@ void setupWebRoutes() {
     if (next.host.length() == 0 || next.port == 0) {
       server.send(400, "text/plain", "host/port required");
       return;
+    }
+    if (next.allowAnonymous) {
+      // explicit opt-out from auth -> clear any existing credentials
+      next.user = "";
+      next.pass = "";
+    } else {
+      // Require user+pass when auth is enabled. Allow keeping existing password if already set.
+      bool hasUser = next.user.length() > 0;
+      bool hasPass = next.pass.length() > 0;
+      if (!hasUser || !hasPass) {
+        server.send(400, "text/plain", "user/password required unless 'no auth' is checked");
+        return;
+      }
     }
 
     mqtt_apply_settings(next);
@@ -477,6 +498,13 @@ void setupWebRoutes() {
     uint16_t port = (uint16_t) server.arg("port").toInt();
     String user = server.arg("user");
     String pass = server.arg("pass");
+    bool allowUnauth = server.hasArg("allow_unauth") && (server.arg("allow_unauth") == "1" || server.arg("allow_unauth") == "true" || server.arg("allow_unauth") == "on");
+    if (!allowUnauth) {
+      if (user.length() == 0 || pass.length() == 0) {
+        server.send(400, "text/plain", "user/password required unless 'no auth' is checked");
+        return;
+      }
+    }
 
     // Quick TCP reachability test
     WiFiClient testClient;
@@ -487,8 +515,8 @@ void setupWebRoutes() {
     }
     testClient.stop();
 
-    // Optional MQTT handshake if user provided
-    if (user.length() > 0 || pass.length() > 0) {
+    // Optional MQTT handshake if auth requested
+    if (!allowUnauth) {
       WiFiClient mc;
       PubSubClient tmp(mc);
       tmp.setServer(host.c_str(), port);
@@ -518,9 +546,51 @@ void setupWebRoutes() {
     }
     String st = server.arg("state");
     bool on = (st == "on" || st == "1" || st == "true");
+    if (on && displaySettings.getUpdateChannel() == "develop") {
+      server.send(400, "text/plain", "Automatic updates are disabled on the develop channel");
+      return;
+    }
     displaySettings.setAutoUpdate(on);
   logInfo(String("🔁 Auto firmware updates ") + (on ? "ON" : "OFF"));
     server.send(200, "text/plain", "OK");
+  });
+
+  // Update channel (stable/early)
+  server.on("/api/update/channel", HTTP_GET, []() {
+    if (!ensureUiAuth()) return;
+    JsonDocument doc;
+    doc["channel"] = displaySettings.getUpdateChannel();
+    doc["default"] = "stable";
+    String out;
+    serializeJson(doc, out);
+    server.send(200, "application/json", out);
+  });
+
+  server.on("/api/update/channel", HTTP_POST, []() {
+    if (!ensureUiAuth()) return;
+    String ch;
+    if (server.hasArg("channel")) {
+      ch = server.arg("channel");
+    } else if (server.hasArg("plain")) {
+      JsonDocument doc;
+      DeserializationError err = deserializeJson(doc, server.arg("plain"));
+      if (!err && doc["channel"].is<const char*>()) {
+        ch = String(doc["channel"].as<const char*>());
+      }
+    }
+    ch.toLowerCase();
+    if (ch != "stable" && ch != "early" && ch != "develop") {
+      server.send(400, "text/plain", "channel must be 'stable', 'early', or 'develop'");
+      return;
+    }
+    displaySettings.setUpdateChannel(ch);
+    mqtt_publish_state(true);
+    JsonDocument doc;
+    doc["channel"] = displaySettings.getUpdateChannel();
+    doc["default"] = "stable";
+    String out;
+    serializeJson(doc, out);
+    server.send(200, "application/json", out);
   });
 
   // Grid variant endpoints
@@ -623,14 +693,16 @@ void setupWebRoutes() {
   });
 
   server.on("/api/logs", HTTP_GET, []() {
-    if (!ensureAdminAuth()) return;
+    if (!ensureUiAuth()) return;
     logFlushFile();
     struct LogItem {
       String name;
       size_t size;
       String date;
     };
+    // Deduplicate by date: keep the largest file per date
     std::vector<LogItem> items;
+    std::map<String, LogItem, std::greater<String>> bestByDate;
     File dir = FS_IMPL.open("/logs");
     if (dir) {
       while (true) {
@@ -649,15 +721,18 @@ void setupWebRoutes() {
           item.name = shortName.length() ? shortName : name;
           item.size = size;
           item.date = date;
-          items.push_back(item);
+          auto it = bestByDate.find(date);
+          if (it == bestByDate.end() || size > it->second.size) {
+            bestByDate[date] = item;
+          }
         }
         entry.close();
       }
       dir.close();
     }
-    std::sort(items.begin(), items.end(), [](const LogItem& a, const LogItem& b) {
-      return a.name > b.name;
-    });
+    for (const auto& kv : bestByDate) {
+      items.push_back(kv.second);
+    }
     JsonDocument doc;
     JsonArray arr = doc.to<JsonArray>();
     for (const auto& item : items) {
@@ -666,6 +741,78 @@ void setupWebRoutes() {
       o["size"] = item.size;
       o["date"] = item.date;
     }
+    String out;
+    serializeJson(doc, out);
+    server.send(200, "application/json", out);
+  });
+
+  // Logs summary
+  server.on("/api/logs/summary", HTTP_GET, []() {
+    if (!ensureUiAuth()) return;
+    logFlushFile();
+    // Deduplicate per date: keep the largest file for each date to match the list view
+    size_t total = 0;
+    size_t count = 0;
+    std::map<String, size_t, std::greater<String>> bestByDate;
+    File dir = FS_IMPL.open("/logs");
+    if (dir) {
+      while (true) {
+        File entry = dir.openNextFile();
+        if (!entry) break;
+        if (!entry.isDirectory()) {
+          String shortName = entry.name();
+          if (shortName.startsWith("/")) shortName = shortName.substring(1);
+          if (shortName.startsWith("logs/")) shortName = shortName.substring(5);
+          String date = shortName;
+          int dot = date.lastIndexOf('.');
+          if (dot > 0) date = date.substring(0, dot);
+          size_t sz = entry.size();
+          auto it = bestByDate.find(date);
+          if (it == bestByDate.end() || sz > it->second) {
+            bestByDate[date] = sz;
+          }
+        }
+        entry.close();
+      }
+      dir.close();
+    }
+    for (const auto& kv : bestByDate) {
+      total += kv.second;
+      count++;
+    }
+    JsonDocument doc;
+    doc["total_bytes"] = (uint32_t)total;
+    doc["count"] = (uint32_t)count;
+    String out;
+    serializeJson(doc, out);
+    server.send(200, "application/json", out);
+  });
+
+  // Clear all log files
+  server.on("/api/logs/clear", HTTP_POST, []() {
+    if (!ensureUiAuth()) return;
+    logFlushFile();
+    size_t deleted = 0;
+    size_t failed = 0;
+    File dir = FS_IMPL.open("/logs");
+    if (dir) {
+      while (true) {
+        File entry = dir.openNextFile();
+        if (!entry) break;
+        if (!entry.isDirectory()) {
+          String name = entry.name();
+          entry.close();
+          if (FS_IMPL.remove(name)) deleted++;
+          else failed++;
+        } else {
+          entry.close();
+        }
+      }
+      dir.close();
+    }
+    JsonDocument doc;
+    doc["deleted"] = (uint32_t)deleted;
+    doc["failed"] = (uint32_t)failed;
     String out;
     serializeJson(doc, out);
     server.send(200, "application/json", out);
@@ -716,7 +863,7 @@ void setupWebRoutes() {
   });
 
   server.on("/log/download", HTTP_GET, []() {
-    if (!ensureAdminAuth()) return;
+    if (!ensureUiAuth()) return;
     logFlushFile();
     String path;
     if (server.hasArg("date")) {

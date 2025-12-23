@@ -36,4 +36,5 @@ inline void initTimeSync(const char* tzInfo, const char* ntp1, const char* ntp2)
              timeinfo.tm_min);
     logInfo(String("🕒 Time synchronized: ") + buf);
     g_initialTimeSyncSucceeded = true;
+    logRewriteUnsynced(); // rewrite uptime-based logs with real timestamps now that time is synced
 }

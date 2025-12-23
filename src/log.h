@@ -26,3 +26,4 @@ void initLogSettings();
 void logEnableFileSink();
 void logFlushFile();
 String logLatestFilePath();
+void logRewriteUnsynced();

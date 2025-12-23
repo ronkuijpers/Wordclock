@@ -86,16 +86,22 @@ void setup() {
     g_serverInitialized = true;
     initMqtt();
     g_mqttInitialized = true;
-    if (AUTO_UPDATE_ALLOWED && displaySettings.getAutoUpdate()) {
+    bool autoAllowed = displaySettings.getAutoUpdate() && displaySettings.getUpdateChannel() != "develop";
+    if (autoAllowed) {
       logInfo("✅ Connected to WiFi. Starting firmware check...");
       checkForFirmwareUpdate();
     } else {
-      logInfo("ℹ️ Automatic firmware updates disabled in this build.");
+      if (displaySettings.getUpdateChannel() == "develop") {
+        logInfo("ℹ️ Automatic updates disabled on develop channel. Skipping check.");
+      } else {
+        logInfo("ℹ️ Automatic firmware updates disabled. Skipping check.");
+      }
     }
     g_autoUpdateHandled = true; // handled regardless
   } else {
     logInfo("⚠️ No WiFi. Waiting for connection or config portal.");
-    g_autoUpdateHandled = true;
+    bool autoAllowed = displaySettings.getAutoUpdate() && displaySettings.getUpdateChannel() != "develop";
+    g_autoUpdateHandled = !autoAllowed;
     g_serverInitialized = false;
   }
 
@@ -120,11 +126,16 @@ void loop() {
     g_mqttInitialized = true;
   }
   if (isWiFiConnected() && !g_autoUpdateHandled) {
-    if (AUTO_UPDATE_ALLOWED && displaySettings.getAutoUpdate()) {
+    bool autoAllowed = displaySettings.getAutoUpdate() && displaySettings.getUpdateChannel() != "develop";
+    if (autoAllowed) {
       logInfo("✅ Connected to WiFi. Starting firmware check...");
       checkForFirmwareUpdate();
     } else {
-      logInfo("ℹ️ Automatic firmware updates disabled in this build.");
+      if (displaySettings.getUpdateChannel() == "develop") {
+        logInfo("ℹ️ Automatic updates disabled on develop channel. Skipping check.");
+      } else {
+        logInfo("ℹ️ Automatic firmware updates disabled. Skipping check.");
+      }
     }
     g_autoUpdateHandled = true;
   }
@@ -152,11 +163,16 @@ void loop() {
       time_t nowEpoch = time(nullptr);
       static time_t lastFirmwareCheck = 0;
       if (timeinfo.tm_hour == 2 && timeinfo.tm_min == 0 && nowEpoch - lastFirmwareCheck > 3600) {
-        if (displaySettings.getAutoUpdate()) {
+        bool autoAllowed = displaySettings.getAutoUpdate() && displaySettings.getUpdateChannel() != "develop";
+        if (autoAllowed) {
           logInfo("🛠️ Daily firmware check started...");
           checkForFirmwareUpdate();
         } else {
-          logInfo("ℹ️ Automatic firmware updates disabled (02:00 check skipped)");
+          if (displaySettings.getUpdateChannel() == "develop") {
+            logInfo("ℹ️ Automatic updates disabled on develop channel (02:00 check skipped)");
+          } else {
+            logInfo("ℹ️ Automatic firmware updates disabled (02:00 check skipped)");
+          }
         }
         lastFirmwareCheck = nowEpoch;
       }

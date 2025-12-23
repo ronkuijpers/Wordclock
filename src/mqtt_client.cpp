@@ -48,6 +48,7 @@ static String tNightStartState, tNightStartSet;
 static String tNightEndState, tNightEndSet;
 static String tVersion, tUiVersion, tIp, tRssi, tUptime;
 static String tHeap, tWifiChan, tBootReason, tResetCount;
+static String tUpdateChannelState, tUpdateAutoAllowed, tUpdateAvailable;
 
 static unsigned long lastReconnectAttempt = 0;
 static unsigned long lastStateAt = 0;
@@ -56,6 +57,7 @@ static const unsigned long RECONNECT_DELAY_MIN_MS = 2000;
 static const unsigned long RECONNECT_DELAY_MAX_MS = 60000;
 static unsigned long reconnectDelayMs = RECONNECT_DELAY_MIN_MS;
 static uint8_t reconnectAttempts = 0;
+static bool reconnectAborted = false;
 
 static void buildTopics() {
   base = g_mqttCfg.baseTopic;
@@ -100,6 +102,9 @@ static void buildTopics() {
   tWifiChan     = base + "/wifi_channel";
   tBootReason   = base + "/boot_reason";
   tResetCount   = base + "/reset_count";
+  tUpdateChannelState = base + "/update/channel";
+  tUpdateAutoAllowed  = base + "/update/auto_allowed";
+  tUpdateAvailable    = base + "/update/available";
 }
 
 static void publishDiscovery() {
@@ -424,6 +429,13 @@ void mqtt_publish_state(bool force) {
   publishNightActiveState();
   publishSelect(tLogLvlState);
 
+  // Update channel / auto-update status
+  String updCh = displaySettings.getUpdateChannel();
+  mqtt.publish(tUpdateChannelState.c_str(), updCh.c_str(), true);
+  bool autoAllowed = displaySettings.getAutoUpdate() && updCh != "develop";
+  mqtt.publish(tUpdateAutoAllowed.c_str(), autoAllowed ? "ON" : "OFF", true);
+  mqtt.publish(tUpdateAvailable.c_str(), "unknown", true); // placeholder until a remote check runs
+
   mqtt.publish(tVersion.c_str(), FIRMWARE_VERSION, true);
   mqtt.publish(tUiVersion.c_str(), UI_VERSION, true);
   mqtt.publish(tIp.c_str(), WiFi.localIP().toString().c_str(), true);
@@ -632,6 +644,7 @@ static bool mqtt_connect() {
   g_lastErr = "";
   reconnectAttempts = 0;
   reconnectDelayMs = RECONNECT_DELAY_MIN_MS;
+  reconnectAborted = false;
   return true;
 }
 
@@ -642,6 +655,7 @@ void mqtt_begin() {
   mqtt.setCallback(handleMessage);
   reconnectDelayMs = RECONNECT_DELAY_MIN_MS;
   reconnectAttempts = 0;
+  reconnectAborted = false;
   lastReconnectAttempt = 0;
   // Bump reset counter (persisted), and cache boot reason string
   g_bootReasonStr = reset_reason_to_str(esp_reset_reason());
@@ -672,6 +686,7 @@ void mqtt_loop() {
     return;
   }
   mqttConfiguredLogged = false;
+  if (reconnectAborted) return;
 
   if (!mqtt.connected()) {
     unsigned long now = millis();
@@ -687,7 +702,14 @@ void mqtt_loop() {
         unsigned long jittered = nextDelay + jitter;
         if (jittered > RECONNECT_DELAY_MAX_MS) jittered = RECONNECT_DELAY_MAX_MS;
         reconnectDelayMs = jittered;
-        if (g_lastErr != "MQTT not configured") {
+        if (reconnectDelayMs >= RECONNECT_DELAY_MAX_MS) {
+          String errMsg = String("MQTT reconnect aborted after reaching max backoff (") +
+                          RECONNECT_DELAY_MAX_MS + " ms); last error: " +
+                          (g_lastErr.length() ? g_lastErr : String("unknown"));
+          logError(errMsg);
+          reconnectAborted = true;
+          return;
+        } else if (g_lastErr != "MQTT not configured") {
           String warnMsg = String("MQTT reconnect failed (") + (g_lastErr.length() ? g_lastErr : String("unknown")) +
                            "); retry in " + reconnectDelayMs + " ms";
           logWarn(warnMsg);
@@ -726,6 +748,7 @@ void mqtt_apply_settings(const MqttSettings& s) {
   buildTopics();
   reconnectDelayMs = RECONNECT_DELAY_MIN_MS;
   reconnectAttempts = 0;
+  reconnectAborted = false;
   lastReconnectAttempt = 0; // trigger immediate reconnect in loop
 
   if (!mqtt_has_configuration()) {

@@ -2,6 +2,7 @@
 #include <Preferences.h>
 
 #include "grid_layout.h"
+#include "log.h"
 
 constexpr GridVariant FIRMWARE_DEFAULT_GRID_VARIANT = GridVariant::NL_BRIX;
 
@@ -39,6 +40,22 @@ public:
       prefs.putUChar("grid_id", defaultVariantId);
       prefs.end();
     }
+
+    // Update channel (stable by default)
+    prefs.begin("display", true);
+    hasStoredUpdateChannel = prefs.isKey("upd_ch");
+    String ch = hasStoredUpdateChannel ? prefs.getString("upd_ch", "stable") : String("stable");
+    prefs.end();
+    ch.toLowerCase();
+    if (ch != "stable" && ch != "early" && ch != "develop") ch = "stable";
+    updateChannel = ch;
+    if (updateChannel == "develop" && autoUpdate) {
+      autoUpdate = false;
+      prefs.begin("display", false);
+      prefs.putBool("auto_upd", autoUpdate);
+      prefs.end();
+      logInfo("🔁 Automatic updates disabled for develop channel");
+    }
     initialized = true;
   }
 
@@ -46,6 +63,8 @@ public:
   bool isSellMode() const { return sellMode; }
   bool getAnimateWords() const { return animateWords; }
   bool getAutoUpdate() const { return autoUpdate; }
+  String getUpdateChannel() const { return updateChannel; }
+  bool hasStoredChannel() const { return hasStoredUpdateChannel; }
   GridVariant getGridVariant() const { return gridVariant; }
   uint8_t getGridVariantId() const { return gridVariantToId(gridVariant); }
   bool hasPersistedGridVariant() const { return hasStoredVariant; }
@@ -78,6 +97,30 @@ public:
     prefs.end();
   }
 
+  void setUpdateChannel(const String& channel) {
+    String ch = channel;
+    ch.toLowerCase();
+    if (ch != "stable" && ch != "early" && ch != "develop") ch = "stable"; // default/fallback
+    if (ch == updateChannel) return;
+    updateChannel = ch;
+    prefs.begin("display", false);
+    prefs.putString("upd_ch", updateChannel);
+    prefs.end();
+    logInfo(String("🔀 Update channel set to ") + updateChannel);
+    if (updateChannel == "develop" && autoUpdate) {
+      autoUpdate = false;
+      prefs.begin("display", false);
+      prefs.putBool("auto_upd", autoUpdate);
+      prefs.end();
+      logInfo("🔁 Automatic updates disabled for develop channel");
+    }
+  }
+
+  void resetUpdateChannel() {
+    setUpdateChannel("stable");
+    hasStoredUpdateChannel = false;
+  }
+
   void setGridVariant(GridVariant variant) {
     if (!setActiveGridVariant(variant)) {
       return;
@@ -102,8 +145,10 @@ private:
   bool sellMode = false;
   bool animateWords = false; // default OFF
   bool autoUpdate = true;    // default ON to keep current behavior
+  String updateChannel = "stable";
   GridVariant gridVariant = FIRMWARE_DEFAULT_GRID_VARIANT;
   bool hasStoredVariant = false;
+  bool hasStoredUpdateChannel = false;
   bool initialized = false;
   Preferences prefs;
 };
