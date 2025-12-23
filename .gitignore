@@ -37,3 +37,4 @@ lib/
 
 # Eventuele logbestanden
 *.log
+include/secrets_brix.h
