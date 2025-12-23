@@ -22,7 +22,7 @@ secrets.h
 upload_params.ini
 uploadfs_ota.py
 build_info.h
-todo
+*.txt
 
 # Backup- en tijdelijke bestanden
 *.bak
@@ -37,4 +37,3 @@ lib/
 
 # Eventuele logbestanden
 *.log
-beta_todo.txt
