@@ -5,7 +5,7 @@
 #include "config.h"
 #include "log.h"
 #include "led_controller.h"
-#include "secrets.h"
+#include "secrets_brix.h"
 
 extern bool clockEnabled;
 extern bool g_wifiHadCredentialsAtBoot;

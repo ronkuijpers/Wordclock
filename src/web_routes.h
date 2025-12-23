@@ -11,7 +11,7 @@
 #include <vector>
 #include <algorithm>
 #include <map>
-#include "secrets.h"
+#include "secrets_brix.h"
 #include "sequence_controller.h"
 #include "led_state.h"
 #include "log.h"

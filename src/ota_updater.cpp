@@ -6,7 +6,7 @@
 #include "fs_compat.h"
 #include "config.h"
 #include "log.h"
-#include "secrets.h"
+#include "secrets_brix.h"
 #include "ota_updater.h"
 #include "display_settings.h"
 

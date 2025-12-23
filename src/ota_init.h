@@ -2,7 +2,7 @@
 
 #include <ArduinoOTA.h>
 #include "log.h"
-#include "secrets.h"
+#include "secrets_brix.h"
 
 // Initialize OTA (Over-the-air updates)
 // This function configures and starts the OTA service to allow firmware updates over the network.
