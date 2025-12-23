@@ -15,21 +15,32 @@ namespace {
 constexpr uint8_t LOGO_DATA_PINS[LOGO_STRIP_COUNT] = { LOGO_DATA_PIN_1, LOGO_DATA_PIN_2 };
 static_assert(LOGO_STRIP_COUNT == (sizeof(LOGO_DATA_PINS) / sizeof(LOGO_DATA_PINS[0])),
               "LOGO_DATA_PINS must match LOGO_STRIP_COUNT");
+constexpr uint16_t LOGO_LED_COUNTS[LOGO_STRIP_COUNT] = { LOGO_LED_COUNT_PIN18, LOGO_LED_COUNT_PIN19 };
 constexpr const char* PREF_NAMESPACE = "logo";
 constexpr const char* PREF_KEY_BRIGHTNESS = "br";
 
 // Hardcoded colors for the logo strips (RRGGBB). Edit this array to change the logo palette.
-// LEDs 0-12 = strip on LOGO_DATA_PIN_1, LEDs 13-25 = strip on LOGO_DATA_PIN_2.
-// LED 0 of each strip is unused and forced off.
+// LEDs 0-12 = strip on LOGO_DATA_PIN_1 (13 LEDs), LEDs 13-24 = strip on LOGO_DATA_PIN_2 (12 LEDs).
+// Original palette (for reference):
+// static constexpr std::array<uint32_t, LOGO_LED_TOTAL> DEFAULT_LOGO_COLORS = {
+//   // Strip 1 (13 LEDs)
+//   0x000000, 0xFFFFFF, 0xF2B40F, 0xFFFFFF, 0xFFFFFF,
+//   0xFFFFFF, 0xFFFFFF, 0xFFFFFF, 0xFFFFFF, 0xFFFFFF,
+//   0xFFFFFF, 0xFFFFFF, 0xFFFFFF,
+//   // Strip 2 (12 LEDs)
+//   0x000000, 0xFFFFFF, 0xF2B40F, 0xFFFFFF, 0xFFFFFF,
+//   0xFFFFFF, 0xFFFFFF, 0xFFFFFF, 0xFFFFFF, 0xFFFFFF,
+//   0xFFFFFF, 0xFFFFFF
+// };
 static constexpr std::array<uint32_t, LOGO_LED_TOTAL> DEFAULT_LOGO_COLORS = {
   // Strip 1 (13 LEDs)
-  0x000000, 0xFFFFFF, 0xF2B40F, 0xFFFFFF, 0xFFFFFF,
+  0xFFFFFF, 0xFFFFFF, 0xFFFFFF, 0xFFFFFF, 0xFFFFFF,
   0xFFFFFF, 0xFFFFFF, 0xFFFFFF, 0xFFFFFF, 0xFFFFFF,
   0xFFFFFF, 0xFFFFFF, 0xFFFFFF,
-  // Strip 2 (13 LEDs)
-  0x000000, 0xFFFFFF, 0xF2B40F, 0xFFFFFF, 0xFFFFFF,
+  // Strip 2 (12 LEDs)
   0xFFFFFF, 0xFFFFFF, 0xFFFFFF, 0xFFFFFF, 0xFFFFFF,
-  0xFFFFFF, 0xFFFFFF, 0xFFFFFF
+  0xFFFFFF, 0xFFFFFF, 0xFFFFFF, 0xFFFFFF, 0xFFFFFF,
+  0xFFFFFF, 0xFFFFFF
 };
 
 std::array<uint32_t, LOGO_LED_TOTAL> g_colors{};
@@ -47,25 +58,25 @@ void ensureStripConfigured(size_t stripIdx) {
   if (g_stripConfigured[stripIdx]) return;
   g_logoStrips[stripIdx].updateType(NEO_GRBW + NEO_KHZ800);
   g_logoStrips[stripIdx].setPin(LOGO_DATA_PINS[stripIdx]);
-  g_logoStrips[stripIdx].updateLength(LOGO_LED_PER_STRIP);
+  g_logoStrips[stripIdx].updateLength(LOGO_LED_COUNTS[stripIdx]);
   g_logoStrips[stripIdx].begin();
   g_logoStrips[stripIdx].clear();
   g_logoStrips[stripIdx].show();
   g_stripConfigured[stripIdx] = true;
 }
 
-constexpr bool isDisabledIndex(uint16_t idx) {
-  return (idx % LOGO_LED_PER_STRIP) == 0; // first LED of each strip
-}
+constexpr bool isDisabledIndex(uint16_t) { return false; }
 
 void pushToStrips(uint8_t brightness) {
+  uint16_t base = 0;
   for (size_t s = 0; s < LOGO_STRIP_COUNT; ++s) {
     ensureStripConfigured(s);
     auto& strip = g_logoStrips[s];
     strip.clear();
-    for (uint16_t i = 0; i < LOGO_LED_PER_STRIP; ++i) {
-      uint16_t globalIndex = static_cast<uint16_t>(s * LOGO_LED_PER_STRIP + i);
-      uint32_t rgb = isDisabledIndex(globalIndex) ? 0 : (g_colors[globalIndex] & 0xFFFFFF);
+    uint16_t len = LOGO_LED_COUNTS[s];
+    for (uint16_t i = 0; i < len; ++i) {
+      uint16_t globalIndex = static_cast<uint16_t>(base + i);
+      uint32_t rgb = (g_colors[globalIndex] & 0xFFFFFF);
       uint8_t r = (rgb >> 16) & 0xFF;
       uint8_t g = (rgb >> 8) & 0xFF;
       uint8_t b = rgb & 0xFF;
@@ -73,6 +84,7 @@ void pushToStrips(uint8_t brightness) {
     }
     strip.setBrightness(brightness);
     strip.show();
+    base = static_cast<uint16_t>(base + len);
   }
 }
 #else
@@ -108,8 +120,14 @@ void initLogoLeds() {
 #endif
   uint8_t brightness = currentBrightness();
   apply(brightness);
-  logInfo(String("🪧 Logo strips initialized (") + LOGO_STRIP_COUNT + " x " + LOGO_LED_PER_STRIP +
-          " LEDs; pins " + LOGO_DATA_PIN_1 + ", " + LOGO_DATA_PIN_2 + ")");
+  String counts = String(LOGO_LED_COUNTS[0]);
+  for (size_t i = 1; i < LOGO_STRIP_COUNT; ++i) {
+    counts += ", ";
+    counts += LOGO_LED_COUNTS[i];
+  }
+  logInfo(String("🪧 Logo strips initialized (total ") + LOGO_LED_TOTAL +
+          " LEDs; pins " + LOGO_DATA_PIN_1 + ", " + LOGO_DATA_PIN_2 +
+          "; per strip: [" + counts + "])");
 }
 
 bool logoSetColor(uint16_t index, uint32_t rgb) {
