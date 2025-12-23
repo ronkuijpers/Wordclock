@@ -9,6 +9,8 @@ X logs verwijderd na x dagen of via UI
 X mqtt user verplicht
 - remove admin link from UI
 - remove logs for word animation duration (after testing)
+- early release channel
+- blinking lights when updating
 
 ## Security
 - Basis-auth draait nog over HTTP; omzeil dit via een reverse proxy met TLS of implementeer device-side certificaten.

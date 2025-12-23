@@ -184,10 +184,10 @@ void wordclock_loop() {
         msg += " leds)";
         if (deltaMs > 700) {
           msg += " ⚠️ slow";
+          logWarn(msg);
+        } else {
           logDebug(msg);
-        } //else {
-          //logDebug(msg);
-        //}
+        }
         lastStepAt = now;
       }
     }

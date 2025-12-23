@@ -179,6 +179,11 @@ void setupWebRoutes() {
     serveFile("/dashboard.html", "text/html");
   });
 
+  // Favicon placeholder to avoid 404 noise
+  server.on("/favicon.ico", HTTP_GET, []() {
+    server.send(204);
+  });
+
   // Factory reset token endpoint (public): returns a short-lived token for reset
   server.on("/factorytoken", HTTP_GET, []() {
     // Issue new token valid for 60s
