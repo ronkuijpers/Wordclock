@@ -4,7 +4,7 @@
 
 // Placeholder: NL_V3 currently reuses the NL_V1 grid until a dedicated layout is supplied.
 const uint16_t LED_COUNT_GRID_NL_V3 = 144;
-const uint16_t LED_COUNT_EXTRA_NL_V3 = 13;
+const uint16_t LED_COUNT_EXTRA_NL_V3 = 15;
 const uint16_t LED_COUNT_TOTAL_NL_V3 = LED_COUNT_GRID_NL_V3 + LED_COUNT_EXTRA_NL_V3;
 
 const char* const LETTER_GRID_NL_V3[] = {
