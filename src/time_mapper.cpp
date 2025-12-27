@@ -6,6 +6,11 @@
 #include "wordposition.h"
 #include "time_mapper.h"
 
+static const char* HOURS[] = {
+  "TWAALF", "EEN", "TWEE", "DRIE", "VIER", "VIJF", "ZES",
+  "ZEVEN", "ACHT", "NEGEN", "TIEN", "ELF"
+};
+
 std::vector<uint16_t> get_leds_for_word(const char* word) {
   std::vector<uint16_t> result;
   const WordPosition* w = find_word(word);
@@ -41,11 +46,6 @@ std::vector<uint16_t> get_led_indices_for_time(struct tm* timeinfo) {
 
   int hour12 = hour % 12;
   if (rounded_minute >= 20) hour12 = (hour12 + 1) % 12; // After 'over' or 'half' we look at next hour
-
-  static const char* HOURS[] = {
-    "TWAALF", "EEN", "TWEE", "DRIE", "VIER", "VIJF", "ZES",
-    "ZEVEN", "ACHT", "NEGEN", "TIEN", "ELF"
-  };
 
   std::vector<uint16_t> leds = merge_leds({
     get_leds_for_word("HET"),
@@ -99,8 +99,12 @@ std::vector<uint16_t> get_led_indices_for_time(struct tm* timeinfo) {
   return leds;
 }
 
+static void append_seg(std::vector<WordSegment>& segs, const char* key) {
+  segs.push_back(WordSegment{key, get_leds_for_word(key)});
+}
+
 // Build the phrase as word-segments (without extra minute LEDs)
-std::vector<std::vector<uint16_t>> get_word_segments_for_time(struct tm* timeinfo) {
+std::vector<WordSegment> get_word_segments_with_keys(struct tm* timeinfo) {
   int hour = timeinfo->tm_hour;
   int minute = timeinfo->tm_min;
 
@@ -113,80 +117,86 @@ std::vector<std::vector<uint16_t>> get_word_segments_for_time(struct tm* timeinf
   int hour12 = hour % 12;
   if (rounded_minute >= 20) hour12 = (hour12 + 1) % 12;
 
-  static const char* HOURS[] = {
-    "TWAALF", "EEN", "TWEE", "DRIE", "VIER", "VIJF", "ZES",
-    "ZEVEN", "ACHT", "NEGEN", "TIEN", "ELF"
-  };
-
-  std::vector<std::vector<uint16_t>> segs;
+  std::vector<WordSegment> segs;
   // Split "HET" and "IS" so they can animate separately
-  segs.push_back(get_leds_for_word("HET"));
-  segs.push_back(get_leds_for_word("IS"));
+  append_seg(segs, "HET");
+  append_seg(segs, "IS");
 
   switch (rounded_minute) {
     case 0:
-      segs.push_back(get_leds_for_word(HOURS[hour12]));
-      segs.push_back(get_leds_for_word("UUR"));
+      append_seg(segs, HOURS[hour12]);
+      append_seg(segs, "UUR");
       break;
     case 5:
-      segs.push_back(get_leds_for_word("VIJF_M"));
-      segs.push_back(get_leds_for_word("OVER"));
-      segs.push_back(get_leds_for_word(HOURS[hour12]));
+      append_seg(segs, "VIJF_M");
+      append_seg(segs, "OVER");
+      append_seg(segs, HOURS[hour12]);
       break;
     case 10:
-      segs.push_back(get_leds_for_word("TIEN_M"));
-      segs.push_back(get_leds_for_word("OVER"));
-      segs.push_back(get_leds_for_word(HOURS[hour12]));
+      append_seg(segs, "TIEN_M");
+      append_seg(segs, "OVER");
+      append_seg(segs, HOURS[hour12]);
       break;
     case 15:
-      segs.push_back(get_leds_for_word("KWART"));
-      segs.push_back(get_leds_for_word("OVER"));
-      segs.push_back(get_leds_for_word(HOURS[hour12]));
+      append_seg(segs, "KWART");
+      append_seg(segs, "OVER");
+      append_seg(segs, HOURS[hour12]);
       break;
     case 20:
-      segs.push_back(get_leds_for_word("TIEN_M"));
-      segs.push_back(get_leds_for_word("VOOR"));
-      segs.push_back(get_leds_for_word("HALF"));
-      segs.push_back(get_leds_for_word(HOURS[hour12]));
+      append_seg(segs, "TIEN_M");
+      append_seg(segs, "VOOR");
+      append_seg(segs, "HALF");
+      append_seg(segs, HOURS[hour12]);
       break;
     case 25:
-      segs.push_back(get_leds_for_word("VIJF_M"));
-      segs.push_back(get_leds_for_word("VOOR"));
-      segs.push_back(get_leds_for_word("HALF"));
-      segs.push_back(get_leds_for_word(HOURS[hour12]));
+      append_seg(segs, "VIJF_M");
+      append_seg(segs, "VOOR");
+      append_seg(segs, "HALF");
+      append_seg(segs, HOURS[hour12]);
       break;
     case 30:
-      segs.push_back(get_leds_for_word("HALF"));
-      segs.push_back(get_leds_for_word(HOURS[hour12]));
+      append_seg(segs, "HALF");
+      append_seg(segs, HOURS[hour12]);
       break;
     case 35:
-      segs.push_back(get_leds_for_word("VIJF_M"));
-      segs.push_back(get_leds_for_word("OVER"));
-      segs.push_back(get_leds_for_word("HALF"));
-      segs.push_back(get_leds_for_word(HOURS[hour12]));
+      append_seg(segs, "VIJF_M");
+      append_seg(segs, "OVER");
+      append_seg(segs, "HALF");
+      append_seg(segs, HOURS[hour12]);
       break;
     case 40:
-      segs.push_back(get_leds_for_word("TIEN_M"));
-      segs.push_back(get_leds_for_word("OVER"));
-      segs.push_back(get_leds_for_word("HALF"));
-      segs.push_back(get_leds_for_word(HOURS[hour12]));
+      append_seg(segs, "TIEN_M");
+      append_seg(segs, "OVER");
+      append_seg(segs, "HALF");
+      append_seg(segs, HOURS[hour12]);
       break;
     case 45:
-      segs.push_back(get_leds_for_word("KWART"));
-      segs.push_back(get_leds_for_word("VOOR"));
-      segs.push_back(get_leds_for_word(HOURS[hour12]));
+      append_seg(segs, "KWART");
+      append_seg(segs, "VOOR");
+      append_seg(segs, HOURS[hour12]);
       break;
     case 50:
-      segs.push_back(get_leds_for_word("TIEN_M"));
-      segs.push_back(get_leds_for_word("VOOR"));
-      segs.push_back(get_leds_for_word(HOURS[hour12]));
+      append_seg(segs, "TIEN_M");
+      append_seg(segs, "VOOR");
+      append_seg(segs, HOURS[hour12]);
       break;
     case 55:
-      segs.push_back(get_leds_for_word("VIJF_M"));
-      segs.push_back(get_leds_for_word("VOOR"));
-      segs.push_back(get_leds_for_word(HOURS[hour12]));
+      append_seg(segs, "VIJF_M");
+      append_seg(segs, "VOOR");
+      append_seg(segs, HOURS[hour12]);
       break;
   }
 
+  return segs;
+}
+
+// Preserve legacy API for callers that only need LED indices
+std::vector<std::vector<uint16_t>> get_word_segments_for_time(struct tm* timeinfo) {
+  auto withKeys = get_word_segments_with_keys(timeinfo);
+  std::vector<std::vector<uint16_t>> segs;
+  segs.reserve(withKeys.size());
+  for (const auto& seg : withKeys) {
+    segs.push_back(seg.leds);
+  }
   return segs;
 }
