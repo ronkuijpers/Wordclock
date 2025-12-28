@@ -3,8 +3,8 @@
 #define LOG_BUFFER_SIZE 150
 #pragma once
 
-#define FIRMWARE_VERSION "2025.12.27_develop"
-#define UI_VERSION "2025.12.27_develop"
+#define FIRMWARE_VERSION "2025.12.28_develop"
+#define UI_VERSION "2025.12.28_develop"
 
 #define DATA_PIN 4
 #define DEFAULT_BRIGHTNESS 5
