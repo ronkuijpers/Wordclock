@@ -6,6 +6,8 @@
 #include "time_sync.h"
 #include "night_mode.h"
 #include "setup_state.h"
+#include <algorithm>
+#include <cstring>
 
 
 
@@ -14,6 +16,9 @@ static struct tm g_forcedTime = {};
 static unsigned long g_noTimeIndicatorStart = 0;
 static std::vector<uint16_t> g_noTimeIndicatorLeds;
 static bool g_loggedInitialTimeFailure = false;
+static std::vector<WordSegment> g_lastSegments;
+static std::vector<WordSegment> g_animTargetSegments;
+static std::vector<std::vector<uint16_t>> g_animFrames;
 
 static void ensureNoTimeIndicatorLeds() {
   if (!g_noTimeIndicatorLeds.empty()) return;
@@ -42,6 +47,104 @@ static void resetNoTimeIndicator() {
   g_noTimeIndicatorLeds.clear();
 }
 
+static bool isHetIs(const WordSegment& seg) {
+  return strcmp(seg.key, "HET") == 0 || strcmp(seg.key, "IS") == 0;
+}
+
+static void stripHetIsIfDisabled(std::vector<WordSegment>& segs, uint16_t hetIsDurationSec) {
+  if (hetIsDurationSec != 0) return;
+  segs.erase(std::remove_if(segs.begin(), segs.end(), [](const WordSegment& s) { return isHetIs(s); }), segs.end());
+}
+
+static std::vector<uint16_t> flattenSegments(const std::vector<WordSegment>& segs) {
+  std::vector<uint16_t> indices;
+  for (const auto& seg : segs) {
+    indices.insert(indices.end(), seg.leds.begin(), seg.leds.end());
+  }
+  return indices;
+}
+
+static const WordSegment* findSegment(const std::vector<WordSegment>& segs, const char* key) {
+  for (const auto& seg : segs) {
+    if (strcmp(seg.key, key) == 0) return &seg;
+  }
+  return nullptr;
+}
+
+static void removeLeds(std::vector<uint16_t>& base, const std::vector<uint16_t>& toRemove) {
+  base.erase(std::remove_if(base.begin(), base.end(), [&](uint16_t idx) {
+    return std::find(toRemove.begin(), toRemove.end(), idx) != toRemove.end();
+  }), base.end());
+}
+
+static bool hetIsCurrentlyVisible(uint16_t hetIsDurationSec, unsigned long hetIsVisibleUntil, unsigned long nowMs) {
+  if (hetIsDurationSec == 0) return false;
+  if (hetIsDurationSec >= 360) return true;
+  if (hetIsVisibleUntil == 0) return true;
+  return nowMs < hetIsVisibleUntil;
+}
+
+static void buildClassicFrames(const std::vector<WordSegment>& segs, std::vector<std::vector<uint16_t>>& frames) {
+  frames.clear();
+  std::vector<uint16_t> cumulative;
+  for (const auto& seg : segs) {
+    cumulative.insert(cumulative.end(), seg.leds.begin(), seg.leds.end());
+    frames.push_back(cumulative);
+  }
+}
+
+static void buildSmartFrames(const std::vector<WordSegment>& prevSegments,
+                             const std::vector<WordSegment>& nextSegments,
+                             bool hetIsVisible,
+                             std::vector<std::vector<uint16_t>>& frames) {
+  frames.clear();
+  if (prevSegments.empty()) {
+    buildClassicFrames(nextSegments, frames);
+    return;
+  }
+
+  std::vector<WordSegment> prevVisible;
+  prevVisible.reserve(prevSegments.size());
+  for (const auto& seg : prevSegments) {
+    if (isHetIs(seg) && !hetIsVisible) continue;
+    prevVisible.push_back(seg);
+  }
+
+  std::vector<uint16_t> current = flattenSegments(prevVisible);
+
+  std::vector<WordSegment> removals;
+  for (const auto& seg : prevVisible) {
+    bool presentInNext = findSegment(nextSegments, seg.key) != nullptr;
+    if (isHetIs(seg) || !presentInNext) {
+      removals.push_back(seg);
+    }
+  }
+
+  std::vector<WordSegment> additions;
+  for (const auto& seg : nextSegments) {
+    bool visibleBefore = findSegment(prevVisible, seg.key) != nullptr;
+    if (isHetIs(seg) || !visibleBefore) {
+      additions.push_back(seg);
+    }
+  }
+
+  if (!removals.empty()) {
+    std::vector<uint16_t> removalLeds;
+    for (const auto& rem : removals) {
+      removalLeds.insert(removalLeds.end(), rem.leds.begin(), rem.leds.end());
+    }
+    removeLeds(current, removalLeds);
+    frames.push_back(current);
+  }
+  for (const auto& add : additions) {
+    current.insert(current.end(), add.leds.begin(), add.leds.end());
+    frames.push_back(current);
+  }
+  if (frames.empty()) {
+    frames.push_back(current);
+  }
+}
+
 void wordclock_setup() {
   // ledState.begin() is initialized in main
   initLeds();
@@ -53,8 +156,6 @@ void wordclock_loop() {
   static unsigned long lastStepAt = 0;
   static int animStep = 0;
   static int lastRounded = -1;
-  static std::vector<std::vector<uint16_t>> segments;
-  static std::vector<uint16_t> cumulative;
   static unsigned long hetIsVisibleUntil = 0; // millis timestamp when HET+IS should turn off
   // Cache time to avoid calling getLocalTime() every 50ms
   static struct tm cachedTime = {};
@@ -133,24 +234,37 @@ void wordclock_loop() {
     if (g_forceAnim) {
       animTime = g_forcedTime;
     }
-    if (displaySettings.getAnimateWords()) {
-      segments = get_word_segments_for_time(&animTime);
-      // Respect setting: if duration==0, skip HET/IS entirely (both animation and steady state)
-      uint16_t hisSec = displaySettings.getHetIsDurationSec();
-      if (hisSec == 0 && segments.size() >= 2) {
-        segments.erase(segments.begin(), segments.begin() + 2); // drop HET and IS
+    g_animTargetSegments = get_word_segments_with_keys(&animTime);
+    g_animFrames.clear();
+    uint16_t hisSec = displaySettings.getHetIsDurationSec();
+    stripHetIsIfDisabled(g_animTargetSegments, hisSec);
+    bool animate = displaySettings.getAnimateWords();
+    WordAnimationMode mode = displaySettings.getAnimationMode();
+
+    if (animate) {
+      bool hetIsVisible = hetIsCurrentlyVisible(hisSec, hetIsVisibleUntil, nowMs);
+      if (mode == WordAnimationMode::Smart && !g_lastSegments.empty()) {
+        buildSmartFrames(g_lastSegments, g_animTargetSegments, hetIsVisible, g_animFrames);
+      } else {
+        buildClassicFrames(g_animTargetSegments, g_animFrames);
+        mode = WordAnimationMode::Classic; // normalize for logging
       }
-      cumulative.clear();
-      animStep = 0;
-      lastStepAt = millis();
-      animating = true;
-      hetIsVisibleUntil = 0; // reset; will be set when animation completes
-  logDebug("🎞️ Start animation to new text");
-      g_forceAnim = false;
+      if (g_animFrames.empty()) {
+        animating = false;
+      } else {
+        animStep = 0;
+        lastStepAt = millis();
+        animating = true;
+        hetIsVisibleUntil = 0; // reset; will be set when animation completes
+        String m = (mode == WordAnimationMode::Smart) ? "smart" : "classic";
+        logDebug(String("🎞️ Start animation to new text (") + m + ")");
+      }
     } else {
-      // No animation: immediately consider the animation 'completed' for timer purposes
       animating = false;
-      uint16_t hisSec = displaySettings.getHetIsDurationSec();
+    }
+
+    if (!animating) {
+      // Animation skipped or no steps -> immediately consider the animation 'completed'
       if (hisSec >= 360) {
         hetIsVisibleUntil = 0; // always on
       } else if (hisSec == 0) {
@@ -158,29 +272,29 @@ void wordclock_loop() {
       } else {
         hetIsVisibleUntil = millis() + (unsigned long)hisSec * 1000UL;
       }
-      g_forceAnim = false;
+      g_lastSegments = g_animTargetSegments;
     }
+    g_forceAnim = false;
   }
 
-  // During animation: add next word every 500ms
+  // During animation: add next frame every 500ms
   if (animating) {
     unsigned long now = millis();
     unsigned long deltaMs = (animStep == 0) ? 0 : (now - lastStepAt);
     if (animStep == 0 || deltaMs >= 500) {
-      if (animStep < (int)segments.size()) {
-        // Append this segment
-        const auto &seg = segments[animStep];
-        cumulative.insert(cumulative.end(), seg.begin(), seg.end());
+      if (animStep < (int)g_animFrames.size()) {
+        const auto& frame = g_animFrames[animStep];
+        size_t prevSize = (animStep == 0) ? 0 : g_animFrames[animStep - 1].size();
         int stepIndex = animStep; // capture current step (0-based) before increment
         animStep++;
         String msg = "Anim step ";
         msg += (stepIndex + 1);
         msg += "/";
-        msg += segments.size();
+        msg += g_animFrames.size();
         msg += " dt=";
         msg += deltaMs;
-        msg += "ms (+";
-        msg += seg.size();
+        msg += "ms (Δ";
+        msg += (int)frame.size() - (int)prevSize;
         msg += " leds)";
         if (deltaMs > 700) {
           msg += " ⚠️ slow";
@@ -188,12 +302,16 @@ void wordclock_loop() {
         } else {
           logDebug(msg);
         }
+        showLeds(frame);
         lastStepAt = now;
+      } else {
+        animating = false;
       }
+    } else if (animStep > 0 && animStep <= (int)g_animFrames.size()) {
+      showLeds(g_animFrames[animStep - 1]);
     }
-    // Show accumulated words (no extra minutes yet at a 5-min boundary)
-    showLeds(cumulative);
-    if (animStep >= (int)segments.size()) {
+
+    if (animStep >= (int)g_animFrames.size()) {
       animating = false;
       // Start timer for hiding HET+IS now that full text is shown
       uint16_t hisSec = displaySettings.getHetIsDurationSec();
@@ -204,16 +322,19 @@ void wordclock_loop() {
       } else {
         hetIsVisibleUntil = millis() + (unsigned long)hisSec * 1000UL;
       }
-  logDebug(String("Animation completed; segments=") + segments.size() + String(", HET IS duration=") + (hisSec>=360?"always": (hisSec==0?"off":String(hisSec)+"s")));
+      g_lastSegments = g_animTargetSegments;
+  logDebug(String("Animation completed; steps=") + g_animFrames.size() + String(", HET IS duration=") + (hisSec>=360?"always": (hisSec==0?"off":String(hisSec)+"s")));
     }
     return;
   }
 
   // Not animating: update full phrase + extra minute LEDs if needed
-  std::vector<std::vector<uint16_t>> baseSegs = get_word_segments_for_time(&effective);
+  std::vector<WordSegment> baseSegs = get_word_segments_with_keys(&effective);
+  uint16_t hisSec = displaySettings.getHetIsDurationSec();
+  stripHetIsIfDisabled(baseSegs, hisSec);
+
   std::vector<uint16_t> indices;
   // Decide whether to include HET/IS based on setting and timer
-  uint16_t hisSec = displaySettings.getHetIsDurationSec();
   static bool lastHetIsHidden = false;
   bool hideHetIs = false;
   if (hisSec == 0) hideHetIs = true;              // never show
@@ -226,16 +347,15 @@ void wordclock_loop() {
   }
   lastHetIsHidden = hideHetIs;
 
-  for (size_t si = 0; si < baseSegs.size(); ++si) {
-    // baseSegs[0] == HET, baseSegs[1] == IS per mapper design
-    if (hideHetIs && (si == 0 || si == 1)) continue;
-    const auto &seg = baseSegs[si];
-    indices.insert(indices.end(), seg.begin(), seg.end());
+  for (const auto& seg : baseSegs) {
+    if (hideHetIs && isHetIs(seg)) continue;
+    indices.insert(indices.end(), seg.leds.begin(), seg.leds.end());
   }
   for (int i = 0; i < extra && i < 4; ++i) {
     indices.push_back(EXTRA_MINUTE_LEDS[i]);
   }
   showLeds(indices);
+  g_lastSegments = baseSegs;
 }
 
 void wordclock_force_animation_for_time(struct tm* timeinfo) {

@@ -1176,6 +1176,28 @@ void setupWebRoutes() {
     server.send(200, "text/plain", "OK");
   });
 
+  server.on("/getAnimMode", []() {
+    if (!ensureUiAuth()) return;
+    WordAnimationMode mode = displaySettings.getAnimationMode();
+    server.send(200, "text/plain", mode == WordAnimationMode::Smart ? "smart" : "classic");
+  });
+  server.on("/setAnimMode", []() {
+    if (!ensureUiAuth()) return;
+    if (!server.hasArg("mode")) {
+      server.send(400, "text/plain", "Missing mode");
+      return;
+    }
+    String st = server.arg("mode");
+    st.toLowerCase();
+    WordAnimationMode mode = WordAnimationMode::Classic;
+    if (st == "smart" || st == "1" || st == "true") {
+      mode = WordAnimationMode::Smart;
+    }
+    displaySettings.setAnimationMode(mode);
+  logInfo(String("🎞️ Animation mode ") + (mode == WordAnimationMode::Smart ? "SMART" : "CLASSIC"));
+    server.send(200, "text/plain", "OK");
+  });
+
   // Night mode configuration
   server.on("/getNightModeConfig", HTTP_GET, []() {
     if (!ensureUiAuth()) return;

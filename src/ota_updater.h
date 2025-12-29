@@ -2,4 +2,5 @@
 #pragma once
 
 void syncFilesFromManifest();
+void syncUiFilesFromConfiguredVersion();
 void checkForFirmwareUpdate();

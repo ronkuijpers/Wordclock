@@ -26,6 +26,7 @@
 #include "log.h"
 #include "config.h"
 #include "ota_init.h"
+#include "ota_updater.h"
 #include "sequence_controller.h"
 #include "display_settings.h"
 #include "ui_auth.h"
@@ -41,6 +42,7 @@ UiAuth uiAuth;
 bool g_wifiHadCredentialsAtBoot = false;
 static bool g_mqttInitialized = false;
 static bool g_autoUpdateHandled = false;
+static bool g_uiSyncHandled = false;
 static bool g_serverInitialized = false;
 
 
@@ -85,6 +87,8 @@ void setup() {
     g_serverInitialized = true;
     initMqtt();
     g_mqttInitialized = true;
+    syncUiFilesFromConfiguredVersion();
+    g_uiSyncHandled = true;
     bool autoAllowed = displaySettings.getAutoUpdate() && displaySettings.getUpdateChannel() != "develop";
     if (autoAllowed) {
       logInfo("✅ Connected to WiFi. Starting firmware check...");
@@ -123,6 +127,10 @@ void loop() {
   if (isWiFiConnected() && !g_mqttInitialized) {
     initMqtt();
     g_mqttInitialized = true;
+  }
+  if (isWiFiConnected() && !g_uiSyncHandled) {
+    syncUiFilesFromConfiguredVersion();
+    g_uiSyncHandled = true;
   }
   if (isWiFiConnected() && !g_autoUpdateHandled) {
     bool autoAllowed = displaySettings.getAutoUpdate() && displaySettings.getUpdateChannel() != "develop";

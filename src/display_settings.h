@@ -5,6 +5,7 @@
 #include "log.h"
 
 constexpr GridVariant FIRMWARE_DEFAULT_GRID_VARIANT = GridVariant::NL_V4;
+enum class WordAnimationMode : uint8_t { Classic = 0, Smart = 1 };
 
 class DisplaySettings {
 public:
@@ -14,6 +15,11 @@ public:
     if (hetIsDurationSec > 360) hetIsDurationSec = 360;
     sellMode = prefs.getBool("sell_on", false);
     animateWords = prefs.getBool("anim_on", false); // default OFF unless enabled via UI
+    uint8_t storedAnimMode = prefs.getUChar("anim_mode", static_cast<uint8_t>(WordAnimationMode::Classic));
+    if (storedAnimMode > static_cast<uint8_t>(WordAnimationMode::Smart)) {
+      storedAnimMode = static_cast<uint8_t>(WordAnimationMode::Classic);
+    }
+    animationMode = static_cast<WordAnimationMode>(storedAnimMode);
     autoUpdate = prefs.getBool("auto_upd", true);
     const uint8_t defaultVariantId = gridVariantToId(FIRMWARE_DEFAULT_GRID_VARIANT);
     const bool hasGridKey = prefs.isKey("grid_id");
@@ -58,6 +64,8 @@ public:
   uint16_t getHetIsDurationSec() const { return hetIsDurationSec; }
   bool isSellMode() const { return sellMode; }
   bool getAnimateWords() const { return animateWords; }
+  WordAnimationMode getAnimationMode() const { return animationMode; }
+  uint8_t getAnimationModeId() const { return static_cast<uint8_t>(animationMode); }
   bool getAutoUpdate() const { return autoUpdate; }
   String getUpdateChannel() const { return updateChannel; }
   bool hasStoredChannel() const { return hasStoredUpdateChannel; }
@@ -84,6 +92,20 @@ public:
     prefs.begin("display", false);
     prefs.putBool("anim_on", animateWords);
     prefs.end();
+  }
+
+  void setAnimationMode(WordAnimationMode mode) {
+    animationMode = mode;
+    prefs.begin("display", false);
+    prefs.putUChar("anim_mode", static_cast<uint8_t>(animationMode));
+    prefs.end();
+  }
+
+  void setAnimationModeById(uint8_t id) {
+    if (id > static_cast<uint8_t>(WordAnimationMode::Smart)) {
+      id = static_cast<uint8_t>(WordAnimationMode::Classic);
+    }
+    setAnimationMode(static_cast<WordAnimationMode>(id));
   }
 
   void setAutoUpdate(bool on) {
@@ -140,6 +162,7 @@ private:
   uint16_t hetIsDurationSec = 360; // default ALWAYS
   bool sellMode = false;
   bool animateWords = false; // default OFF
+  WordAnimationMode animationMode = WordAnimationMode::Classic;
   bool autoUpdate = true;    // default ON to keep current behavior
   String updateChannel = "stable";
   GridVariant gridVariant = FIRMWARE_DEFAULT_GRID_VARIANT;

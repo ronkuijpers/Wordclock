@@ -3,6 +3,7 @@
 #include <HTTPClient.h>
 #include <ArduinoJson.h>
 #include <Update.h>
+#include <vector>
 #include "fs_compat.h"
 #include "config.h"
 #include "log.h"
@@ -135,6 +136,54 @@ static bool parseFiles(JsonVariantConst jfiles, std::vector<FileEntry>& out) {
     if (e.path.length() && e.url.length()) out.push_back(e);
   }
   return true;
+}
+
+void syncUiFilesFromConfiguredVersion() {
+  logInfo("🔍 Checking UI files (configured version)...");
+  if (!FS_IMPL.begin(true)) {
+    logError("FS mount failed");
+    return;
+  }
+
+  const String targetVersion = UI_VERSION;
+  if (targetVersion.isEmpty()) {
+    logError("UI_VERSION is empty; skipping UI sync.");
+    return;
+  }
+  const String currentVersion = readFsVersion();
+  if (currentVersion == targetVersion) {
+    logInfo("UI up-to-date (configured version match).");
+    return;
+  }
+
+  static const char* UI_FILES[] = {
+    "admin.html",
+    "changepw.html",
+    "dashboard.html",
+    "logs.html",
+    "mqtt.html",
+    "setup.html",
+    "update.html",
+  };
+
+  std::unique_ptr<WiFiClientSecure> client(new WiFiClientSecure());
+  client->setInsecure();
+
+  bool ok = true;
+  for (const char* name : UI_FILES) {
+    const String url = String("https://raw.githubusercontent.com/ronkuijpers/Wordclock/v") + targetVersion + "/data/" + name;
+    const String path = "/" + String(name);
+    if (!downloadToFs(url, path, *client)) {
+      ok = false;
+    }
+  }
+
+  if (ok) {
+    writeFsVersion(targetVersion);
+    logInfo("✅ UI files synced from configured version.");
+  } else {
+    logError("⚠️ Some UI files failed (configured version).");
+  }
 }
 
 void syncFilesFromManifest() {
