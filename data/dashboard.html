@@ -54,6 +54,23 @@
 
     <section class="bg-white p-4 rounded-2xl shadow mb-4">
       <div class="flex items-center justify-between mb-2">
+        <h2 class="text-xl font-semibold">Logo LEDs</h2>
+        <span id="logoStatus" class="text-xs text-gray-500">-</span>
+      </div>
+      <div class="mb-3">
+        <label class="text-sm">Brightness: <span id="logoBrightnessValue" class="font-mono">-</span></label>
+        <input type="range" min="0" max="255" id="logoBrightness" class="w-full">
+      </div>
+      <div id="logoGrid" class="grid grid-cols-5 gap-2 mb-3"></div>
+      <div class="flex items-center gap-3">
+        <input type="color" id="logoAllColor" class="h-10 w-16 p-0 border rounded">
+        <button id="logoFillAll" class="px-3 py-2 rounded bg-gray-200 text-gray-800 hover:bg-gray-300 text-sm">Vul alles</button>
+        <button id="logoApply" class="px-3 py-2 rounded bg-blue-600 text-white hover:bg-blue-700 text-sm">Opslaan</button>
+      </div>
+    </section>
+
+    <section class="bg-white p-4 rounded-2xl shadow mb-4">
+      <div class="flex items-center justify-between mb-2">
         <h2 class="text-xl font-semibold">Nightmode</h2>
         <span id="nightModeStatus" class="text-xs text-gray-600">-</span>
       </div>
@@ -95,6 +112,7 @@
         <button id="restartBtn" class="py-2 rounded bg-yellow-500 text-white hover:bg-yellow-600">🔁 Restart</button>
         <button id="resetWifiBtn" class="py-2 rounded bg-blue-500 text-white hover:bg-blue-600">📶 Reset WiFi</button>
         <button id="startSequenceBtn" class="py-2 rounded bg-purple-500 text-white hover:bg-purple-600">✨ Start Sequence</button>
+        <button id="testBlinkBtn" class="py-2 rounded bg-green-600 text-white hover:bg-green-700">💡 Test blink</button>
       </div>
       
     </section>
@@ -380,6 +398,92 @@
       });
     }
 
+    const logoGrid = document.getElementById('logoGrid');
+    const logoPickers = [];
+    if (logoGrid) {
+      for (let i = 0; i < 25; i++) {
+        const input = document.createElement('input');
+        input.type = 'color';
+        input.className = 'w-full h-10 p-0 border rounded';
+        input.value = '#000000';
+        logoGrid.appendChild(input);
+        logoPickers.push(input);
+      }
+    }
+    const logoBrightness = document.getElementById('logoBrightness');
+    const logoBrightnessValue = document.getElementById('logoBrightnessValue');
+    const logoStatus = document.getElementById('logoStatus');
+    const setLogoStatus = (msg, error) => {
+      if (!logoStatus) return;
+      logoStatus.textContent = msg;
+      logoStatus.className = 'text-xs ' + (error ? 'text-red-600' : 'text-gray-600');
+    };
+    const renderLogoState = (data) => {
+      if (logoBrightness && data.brightness !== undefined) {
+        logoBrightness.value = data.brightness;
+        if (logoBrightnessValue) logoBrightnessValue.textContent = data.brightness;
+      }
+      if (Array.isArray(data.colors)) {
+        data.colors.forEach((hex, idx) => {
+          if (idx < logoPickers.length && typeof hex === 'string' && hex.length === 6) {
+            logoPickers[idx].value = '#' + hex;
+          }
+        });
+      }
+    };
+    if (logoBrightness) {
+      logoBrightness.addEventListener('input', () => {
+        if (logoBrightnessValue) logoBrightnessValue.textContent = logoBrightness.value;
+      });
+    }
+    const loadLogoState = async () => {
+      if (!logoGrid) return;
+      setLogoStatus('Laden…');
+      try {
+        const res = await fetch('/logo/state');
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        const data = await res.json();
+        renderLogoState(data);
+        setLogoStatus('Opgeslagen');
+      } catch (err) {
+        setLogoStatus('Laden mislukt', true);
+      }
+    };
+    const saveLogoState = async () => {
+      if (!logoGrid) return;
+      setLogoStatus('Opslaan…');
+      const payload = {
+        brightness: parseInt(logoBrightness ? logoBrightness.value : '0', 10) || 0,
+        colors: logoPickers.map((p) => (p.value || '#000000').replace('#', '').toUpperCase())
+      };
+      try {
+        const res = await fetch('/logo/state', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        const data = await res.json();
+        renderLogoState(data);
+        setLogoStatus('Opgeslagen');
+      } catch (err) {
+        setLogoStatus('Opslaan mislukt', true);
+      }
+    };
+    const logoApplyBtn = document.getElementById('logoApply');
+    if (logoApplyBtn) {
+      logoApplyBtn.addEventListener('click', saveLogoState);
+    }
+    const logoFillAll = document.getElementById('logoFillAll');
+    const logoAllColor = document.getElementById('logoAllColor');
+    if (logoFillAll) {
+      logoFillAll.addEventListener('click', () => {
+        if (!logoAllColor) return;
+        const val = logoAllColor.value || '#000000';
+        logoPickers.forEach((p) => { p.value = val; });
+      });
+    }
+
     const nightModeEnabled = document.getElementById('nightModeEnabled');
     const nightModeEffect = document.getElementById('nightModeEffect');
     const nightModeDimSlider = document.getElementById('nightModeDimSlider');
@@ -524,6 +628,21 @@
       if (confirm('Reset WiFi?')) fetch('/resetwifi');
     };
     document.getElementById('startSequenceBtn').onclick = () => fetch('/startSequence');
+    const testBlinkBtn = document.getElementById('testBlinkBtn');
+    if (testBlinkBtn) {
+      const originalText = testBlinkBtn.textContent;
+      testBlinkBtn.addEventListener('click', async () => {
+        testBlinkBtn.disabled = true;
+        testBlinkBtn.textContent = 'Knipperen…';
+        try {
+          await fetch('/testBlink');
+        } catch (e) {
+          // ignore
+        }
+        testBlinkBtn.textContent = originalText;
+        testBlinkBtn.disabled = false;
+      });
+    }
     const checkBtn = document.getElementById('checkUpdateBtn');
     const updateStatusEl = document.getElementById('updateStatus');
     if (checkBtn) {
@@ -675,6 +794,7 @@
         if (i) i.value = val;
         if (lbl) lbl.textContent = val;
       });
+    loadLogoState();
 
     // Load firmware version
     fetch('/version').then(r => r.text()).then(v => {

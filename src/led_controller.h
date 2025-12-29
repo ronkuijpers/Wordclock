@@ -9,6 +9,8 @@
 // Export the function prototypes:
 void initLeds();
 void showLeds(const std::vector<uint16_t> &ledIndices);
+void showLedsCombined(const std::vector<uint16_t> &ledIndices, bool includeLogo);
+void blinkAllLeds(uint8_t blinks = 3, uint16_t onMs = 200, uint16_t offMs = 200);
 
 #ifdef PIO_UNIT_TESTING
 const std::vector<uint16_t>& test_getLastShownLeds();

@@ -1,6 +1,7 @@
 #include "led_controller.h"
 #include "config.h"
 #include "grid_layout.h"
+#include "logo_leds.h"
 #include "led_state.h"
 #include "night_mode.h"
 
@@ -12,7 +13,7 @@ static Adafruit_NeoPixel strip;
 static uint16_t activeStripLength = 0;
 
 static void ensureStripLength() {
-  uint16_t required = getActiveLedCountTotal();
+  uint16_t required = getTotalStripLength();
   if (required == 0) {
     required = 1; // keep strip functional even if layout is missing
   }
@@ -30,11 +31,68 @@ static void ensureStripLength() {
 static std::vector<uint16_t> lastShown;
 #endif
 
+static void renderLeds(const std::vector<uint16_t> &ledIndices, bool includeLogo) {
+#ifndef PIO_UNIT_TESTING
+  ensureStripLength();
+  strip.clear();
+  uint8_t clockBrightness = nightMode.applyToBrightness(ledState.getBrightness());
+  uint8_t logoBrightness = nightMode.applyToBrightness(logoLeds.getBrightness());
+
+  auto applyBrightness = [](uint8_t value, uint8_t brightness) -> uint8_t {
+    return static_cast<uint8_t>((static_cast<uint16_t>(value) * brightness) / 255);
+  };
+
+  for (uint16_t idx : ledIndices) {
+    if (idx < strip.numPixels()) {
+      // Use the calculated RGB and W
+      uint8_t r, g, b, w;
+      ledState.getRGBW(r, g, b, w);
+      strip.setPixelColor(
+        idx,
+        strip.Color(
+          applyBrightness(r, clockBrightness),
+          applyBrightness(g, clockBrightness),
+          applyBrightness(b, clockBrightness),
+          applyBrightness(w, clockBrightness)
+        )
+      );
+    }
+  }
+
+  if (includeLogo) {
+    const uint16_t logoStart = getLogoStartIndex();
+    const LogoLedColor* colors = logoLeds.getColors();
+    for (uint16_t i = 0; i < LOGO_LED_COUNT; ++i) {
+      uint16_t stripIdx = static_cast<uint16_t>(logoStart + i);
+      if (stripIdx >= strip.numPixels()) break;
+      const LogoLedColor& c = colors[i];
+      strip.setPixelColor(
+        stripIdx,
+        strip.Color(
+          applyBrightness(c.r, logoBrightness),
+          applyBrightness(c.g, logoBrightness),
+          applyBrightness(c.b, logoBrightness),
+          0
+        )
+      );
+    }
+  }
+
+  strip.setBrightness(255);
+  strip.show();
+#else
+  if (includeLogo) {
+    lastShown = ledIndices;
+  } else {
+    lastShown.clear();
+  }
+#endif
+}
+
 void initLeds() {
 #ifndef PIO_UNIT_TESTING
   ensureStripLength();
-  uint8_t brightness = nightMode.applyToBrightness(ledState.getBrightness());
-  strip.setBrightness(brightness);
+  strip.setBrightness(255); // We apply brightness per segment
   strip.clear();
   strip.show();
 #else
@@ -43,22 +101,29 @@ void initLeds() {
 }
 
 void showLeds(const std::vector<uint16_t> &ledIndices) {
+  renderLeds(ledIndices, true);
+}
+
+void showLedsCombined(const std::vector<uint16_t> &ledIndices, bool includeLogo) {
+  renderLeds(ledIndices, includeLogo);
+}
+
+void blinkAllLeds(uint8_t blinks, uint16_t onMs, uint16_t offMs) {
 #ifndef PIO_UNIT_TESTING
-  ensureStripLength();
-  strip.clear();
-  for (uint16_t idx : ledIndices) {
-    if (idx < strip.numPixels()) {
-      // Use the calculated RGB and W
-      uint8_t r, g, b, w;
-      ledState.getRGBW(r, g, b, w);
-      strip.setPixelColor(idx, strip.Color(r, g, b, w));
-    }
+  uint16_t total = getTotalStripLength();
+  std::vector<uint16_t> all;
+  all.reserve(total);
+  for (uint16_t i = 0; i < total; ++i) {
+    all.push_back(i);
   }
-  uint8_t brightness = nightMode.applyToBrightness(ledState.getBrightness());
-  strip.setBrightness(brightness);
-  strip.show();
+  for (uint8_t i = 0; i < blinks; ++i) {
+    showLedsCombined(all, false); // includeLogo=false ensures full off between blinks
+    delay(onMs);
+    showLedsCombined({}, false);
+    delay(offMs);
+  }
 #else
-  lastShown = ledIndices;
+  lastShown.clear();
 #endif
 }
 

@@ -2,7 +2,7 @@
 
 // Mirrors the NL_50x50_V2 layout; adjust when hardware wiring deviates.
 const uint16_t LED_COUNT_GRID_NL_50x50_V3 = 128;
-const uint16_t LED_COUNT_EXTRA_NL_50x50_V3 = 13;
+const uint16_t LED_COUNT_EXTRA_NL_50x50_V3 = 14;
 const uint16_t LED_COUNT_TOTAL_NL_50x50_V3 = LED_COUNT_GRID_NL_50x50_V3 + LED_COUNT_EXTRA_NL_50x50_V3;
 
 const char* const LETTER_GRID_NL_50x50_V3[] = {

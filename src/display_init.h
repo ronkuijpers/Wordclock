@@ -2,6 +2,7 @@
 
 #include "led_state.h"
 #include "display_settings.h"
+#include "logo_leds.h"
 #include "log.h"
 
 // Initialize LED and display settings
@@ -9,6 +10,7 @@
 // Ensures the clock starts up with correct color and brightness.
 inline void initDisplay() {
     ledState.begin();
+    logoLeds.begin();
     displaySettings.begin();
     const GridVariantInfo* info = getGridVariantInfo(displaySettings.getGridVariant());
     if (info) {
