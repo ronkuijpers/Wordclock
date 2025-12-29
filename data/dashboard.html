@@ -166,6 +166,14 @@
         <input type="checkbox" id="animateWords" class="form-checkbox">
         <span>Word-by-word animation</span>
       </label>
+      <div class="mb-3">
+        <label for="animMode" class="block text-sm mb-1">Animatiestijl</label>
+        <select id="animMode" class="w-full border rounded p-2 text-sm">
+          <option value="classic">Klassiek: alle woorden opnieuw</option>
+          <option value="smart">Slim: alleen veranderende woorden</option>
+        </select>
+        <p class="text-xs text-gray-500 mt-1">Slim laat ongewijzigde woorden staan en animeert alleen 'HET/IS' en de wijzigingen.</p>
+      </div>
       <label class="inline-flex items-center space-x-2 mb-2">
         <input type="checkbox" id="hetIsAlways2" class="form-checkbox">
         <span>Always show 'HET IS'</span>
@@ -832,6 +840,7 @@
     const durValue2 = document.getElementById('hetIsDurationValue2');
     const alwaysCb2 = document.getElementById('hetIsAlways2');
     const animateCb = document.getElementById('animateWords');
+    const animModeSel = document.getElementById('animMode');
     const durInput = document.getElementById('hetIsDurationInput');
     const hetIsDec = document.getElementById('hetIsDec');
     const hetIsInc = document.getElementById('hetIsInc');
@@ -846,13 +855,32 @@
       });
     }
     // Load animation toggle (default is OFF server-side)
+    const updateAnimModeDisabled = () => {
+      if (animModeSel && animateCb) animModeSel.disabled = !animateCb.checked;
+    };
     fetch('/getAnimate')
       .then(r => r.text())
-      .then(v => { animateCb.checked = (v.trim() === 'on'); })
-      .catch(() => { animateCb.checked = false; });
+      .then(v => { animateCb.checked = (v.trim() === 'on'); updateAnimModeDisabled(); })
+      .catch(() => { animateCb.checked = false; updateAnimModeDisabled(); });
+    fetch('/getAnimMode')
+      .then(r => r.text())
+      .then(v => {
+        if (!animModeSel) return;
+        const mode = (v || '').trim().toLowerCase();
+        animModeSel.value = (mode === 'smart' || mode === '1') ? 'smart' : 'classic';
+        updateAnimModeDisabled();
+      })
+      .catch(() => { if (animModeSel) animModeSel.value = 'classic'; });
     animateCb.addEventListener('change', () => {
       fetch('/setAnimate?state=' + (animateCb.checked ? 'on' : 'off'));
+      updateAnimModeDisabled();
     });
+    if (animModeSel) {
+      animModeSel.addEventListener('change', () => {
+        const val = animModeSel.value || 'classic';
+        fetch('/setAnimMode?mode=' + encodeURIComponent(val));
+      });
+    }
     fetch('/getHetIsDuration')
       .then(r => r.text())
       .then(secStr => {
