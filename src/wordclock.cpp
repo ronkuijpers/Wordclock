@@ -206,15 +206,6 @@ void wordclock_loop() {
   }
   struct tm timeinfo = cachedTime;
 
-  // Debug: log every minute change
-  static int lastLoggedMinute = -1;
-  if (timeinfo.tm_min != lastLoggedMinute) {
-    lastLoggedMinute = timeinfo.tm_min;
-    char buf[20];
-    snprintf(buf, sizeof(buf), "🔄 %02d:%02d", timeinfo.tm_hour, timeinfo.tm_min);
-    logDebug(String(buf));
-  }
-
   // Determine current rounded bucket and extra minutes
   // Apply sell-mode override (forces 10:47)
   struct tm effective = timeinfo;

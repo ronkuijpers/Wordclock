@@ -196,7 +196,6 @@
       <p id="logLevelStatus" class="text-xs text-gray-500 mb-2"></p>
       <div class="flex items-center gap-3 mb-2 text-sm">
         <span>Storage: <span id="logSummary" class="font-semibold">-</span></span>
-        <button id="clearLogsBtn" class="py-1 px-2 rounded bg-gray-200 text-gray-800 hover:bg-gray-300 text-xs">Clear logs</button>
         <span id="logSummaryStatus" class="text-xs text-gray-500"></span>
       </div>
       <pre id="logOutput" class="bg-gray-100 p-2 h-40 overflow-y-auto rounded"></pre>
@@ -204,6 +203,131 @@
   </div>
 
   <script>
+    // DataLoader class voor onafhankelijk laden van data
+    class DataLoader {
+      constructor() {
+        this.loaders = new Map();
+        this.retryDelays = [1000, 2000, 5000]; // Progressive backoff
+        this.intervals = new Map();
+      }
+
+      register(name, loaderFn, options = {}) {
+        this.loaders.set(name, {
+          fn: loaderFn,
+          loading: false,
+          lastError: null,
+          retryCount: 0,
+          interval: options.interval || null,
+          priority: options.priority || 0,
+          timeout: options.timeout || 5000,
+          onSuccess: options.onSuccess || null,
+          onError: options.onError || null,
+        });
+      }
+
+      async load(name) {
+        const loader = this.loaders.get(name);
+        if (!loader || loader.loading) return;
+
+        loader.loading = true;
+        loader.lastError = null;
+
+        try {
+          const result = await Promise.race([
+            loader.fn(),
+            new Promise((_, reject) => 
+              setTimeout(() => reject(new Error('Timeout')), loader.timeout)
+            )
+          ]);
+
+          loader.retryCount = 0;
+          if (loader.onSuccess) loader.onSuccess(result);
+          return result;
+        } catch (error) {
+          loader.lastError = error;
+          if (loader.onError) loader.onError(error);
+          
+          // Retry logic
+          if (loader.retryCount < this.retryDelays.length) {
+            const delay = this.retryDelays[loader.retryCount];
+            loader.retryCount++;
+            setTimeout(() => this.load(name), delay);
+          }
+        } finally {
+          loader.loading = false;
+        }
+      }
+
+      async loadAll() {
+        const sorted = Array.from(this.loaders.entries())
+          .sort((a, b) => b[1].priority - a[1].priority);
+        
+        // Laad eerst hoge prioriteit items
+        const highPriority = sorted.filter(([_, l]) => l.priority >= 5);
+        await Promise.allSettled(highPriority.map(([name]) => this.load(name)));
+        
+        // Laad dan rest parallel
+        const rest = sorted.filter(([_, l]) => l.priority < 5);
+        await Promise.allSettled(rest.map(([name]) => this.load(name)));
+      }
+
+      startInterval(name) {
+        const loader = this.loaders.get(name);
+        if (!loader || !loader.interval) return;
+        
+        if (this.intervals.has(name)) {
+          clearInterval(this.intervals.get(name));
+        }
+        
+        // Load immediately, then set interval
+        this.load(name);
+        const intervalId = setInterval(() => this.load(name), loader.interval);
+        this.intervals.set(name, intervalId);
+      }
+
+      stopInterval(name) {
+        if (this.intervals.has(name)) {
+          clearInterval(this.intervals.get(name));
+          this.intervals.delete(name);
+        }
+      }
+    }
+
+    // Helper functies voor loading/error states
+    function setLoadingState(elementId, loading) {
+      const el = document.getElementById(elementId);
+      if (!el) return;
+      
+      if (loading) {
+        el.classList.add('opacity-50');
+        el.setAttribute('data-loading', 'true');
+      } else {
+        el.classList.remove('opacity-50');
+        el.removeAttribute('data-loading');
+      }
+    }
+
+    function setErrorState(elementId, error, fallbackText = '-') {
+      const el = document.getElementById(elementId);
+      if (!el) return;
+      
+      el.classList.add('text-red-600');
+      el.setAttribute('title', `Error: ${error.message || error}`);
+      if (el.tagName === 'SPAN' || el.tagName === 'P' || el.tagName === 'DIV') {
+        el.textContent = fallbackText;
+      }
+    }
+
+    function clearErrorState(elementId) {
+      const el = document.getElementById(elementId);
+      if (!el) return;
+      el.classList.remove('text-red-600');
+      el.removeAttribute('title');
+    }
+
+    // Initialize DataLoader
+    const dataLoader = new DataLoader();
+
     const formatVariantLabel = (variant) => {
       if (!variant) return '';
       const base = variant.label || variant.key || '';
@@ -237,8 +361,15 @@
         if (gridStatusPublic) gridStatusPublic.textContent = 'Kon grid-varianten niet laden';
       }
     };
+    
+    // Grid Variants list loader (normale prioriteit)
     if (gridSelectPublic) {
-      loadGridVariantsPublic();
+      dataLoader.register('gridVariantsList', loadGridVariantsPublic, {
+        priority: 5,
+        onError: (error) => {
+          if (gridStatusPublic) gridStatusPublic.textContent = 'Kon grid-varianten niet laden';
+        }
+      });
       gridSelectPublic.addEventListener('change', async () => {
         const id = gridSelectPublic.value;
         if (gridStatusPublic) gridStatusPublic.textContent = 'Bezig met opslaan…';
@@ -253,14 +384,32 @@
       });
     }
 
-    const updateStatus = async () => {
+    // Status loader (hoge prioriteit, interval)
+    dataLoader.register('status', async () => {
+      setLoadingState('statusIndicator', true);
       const res = await fetch('/status');
-      const status = await res.text();
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      return res.text();
+    }, {
+      priority: 10,
+      interval: 2000,
+      onSuccess: (status) => {
+        setLoadingState('statusIndicator', false);
+        clearErrorState('statusText');
       const on = status === 'on';
       document.getElementById('statusIndicator').className =
         'inline-block w-4 h-4 rounded-full ' + (on ? 'bg-green-500' : 'bg-red-500');
       const st = document.getElementById('statusText');
       if (st) st.textContent = on ? 'Wordclock on' : 'Wordclock off';
+      },
+      onError: (error) => {
+        setLoadingState('statusIndicator', false);
+        setErrorState('statusText', error, 'Error loading status');
+      }
+    });
+
+    const updateStatus = () => {
+      dataLoader.load('status');
     };
 
     const autoUpdCb = document.getElementById('autoUpdate');
@@ -294,6 +443,15 @@
         applyChannelGuard('stable');
       }
     };
+    
+    // Channel loader (normale prioriteit)
+    dataLoader.register('channel', loadChannel, {
+      priority: 5,
+      onError: (error) => {
+        channelRadios.forEach(r => { if (r.value === 'stable') r.checked = true; });
+        applyChannelGuard('stable');
+      }
+    });
     channelRadios.forEach(r => {
       r.addEventListener('change', async () => {
         if (!r.checked) return;
@@ -323,13 +481,13 @@
         }
       });
     });
-    loadChannel();
+    dataLoader.load('channel');
 
     document.getElementById('toggleClockOn').onclick = () => {
-      fetch('/toggle?state=on').then(updateStatus);
+      fetch('/toggle?state=on').then(() => dataLoader.load('status'));
     };
     document.getElementById('toggleClockOff').onclick = () => {
-      fetch('/toggle?state=off').then(updateStatus);
+      fetch('/toggle?state=off').then(() => dataLoader.load('status'));
     };
     document.getElementById('colorPicker').oninput = (e) => {
       const hex = e.target.value.substring(1);
@@ -463,6 +621,16 @@
         setNightModeError();
       }
     };
+    
+    // Night Mode loader (normale prioriteit)
+    if (nightModeEnabled) {
+      dataLoader.register('nightMode', loadNightMode, {
+        priority: 5,
+        onError: (error) => {
+          setNightModeError();
+        }
+      });
+    }
     if (nightModeEnabled) {
       nightModeEnabled.addEventListener('change', () => {
         setNightModeSaving();
@@ -523,7 +691,7 @@
         updateNightMode({ end: nightModeEnd.value });
       });
     }
-    loadNightMode();
+    // Night mode wordt geladen via dataLoader
 
     document.getElementById('restartBtn').onclick = () => {
       if (confirm('Restart Wordclock?')) fetch('/restart');
@@ -612,11 +780,261 @@
       });
     }
 
-    // Track last seen raw log line to append only new lines
-    let lastLogMarker = null;
 
+    // Brightness loader (normale prioriteit)
+    dataLoader.register('brightness', async () => {
+      setLoadingState('brightnessSlider', true);
+      const res = await fetch('/getBrightness');
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      return res.text();
+    }, {
+      priority: 5,
+      onSuccess: (val) => {
+        setLoadingState('brightnessSlider', false);
+        clearErrorState('brightnessValue2');
+        const s = document.getElementById('brightnessSlider');
+        const i = document.getElementById('brightnessInput');
+        const lbl = document.getElementById('brightnessValue2');
+        if (s) s.value = val;
+        if (i) i.value = val;
+        if (lbl) lbl.textContent = val;
+      },
+      onError: (error) => {
+        setLoadingState('brightnessSlider', false);
+        setErrorState('brightnessValue2', error, '-');
+      }
+    });
+
+    // Versions loader (lage prioriteit, één keer)
+    dataLoader.register('versions', async () => {
+      setLoadingState('version', true);
+      setLoadingState('uiVersion', true);
+      const [fwRes, uiRes] = await Promise.all([
+        fetch('/version'),
+        fetch('/uiversion')
+      ]);
+      if (!fwRes.ok || !uiRes.ok) throw new Error('Version fetch failed');
+      return {
+        firmware: await fwRes.text(),
+        ui: await uiRes.text()
+      };
+    }, {
+      priority: 1,
+      onSuccess: ({firmware, ui}) => {
+        setLoadingState('version', false);
+        setLoadingState('uiVersion', false);
+        clearErrorState('version');
+        clearErrorState('uiVersion');
+        const fwEl = document.getElementById('version');
+        const uiEl = document.getElementById('uiVersion');
+        if (fwEl) fwEl.textContent = firmware;
+        if (uiEl) uiEl.textContent = ui;
+      },
+      onError: (error) => {
+        setLoadingState('version', false);
+        setLoadingState('uiVersion', false);
+        setErrorState('version', error, '-');
+        setErrorState('uiVersion', error, '-');
+      }
+    });
+
+    // Grid Variant loader (normale prioriteit)
+    dataLoader.register('gridVariant', async () => {
+      setLoadingState('gridVariantLabel', true);
+      const res = await fetch('/getGridVariant');
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      return res.json();
+    }, {
+      priority: 5,
+      onSuccess: (v) => {
+        setLoadingState('gridVariantLabel', false);
+        clearErrorState('gridVariantLabel');
+        const el = document.getElementById('gridVariantLabel');
+        if (el) el.textContent = v.label || v.key || ('ID ' + v.id);
+      },
+      onError: (error) => {
+        setLoadingState('gridVariantLabel', false);
+        const el = document.getElementById('gridVariantLabel');
+        if (el) el.textContent = 'n.v.t.';
+      }
+    });
+
+    // Color loader (normale prioriteit)
+    dataLoader.register('color', async () => {
+      const res = await fetch('/getColor');
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      return res.text();
+    }, {
+      priority: 5,
+      onSuccess: (hex) => {
+        const cp = document.getElementById('colorPicker');
+        if (cp && hex && hex.length === 6) {
+          cp.value = '#' + hex;
+        }
+      },
+      onError: (error) => {
+        console.warn('Failed to load color:', error);
+      }
+    });
+
+    // Auto Update loader (normale prioriteit)
+    const autoUpdCb = document.getElementById('autoUpdate');
+    if (autoUpdCb) {
+      dataLoader.register('autoUpdate', async () => {
+        const res = await fetch('/getAutoUpdate');
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        return res.text();
+      }, {
+        priority: 5,
+        onSuccess: (v) => {
+          if (!autoUpdCb.disabled) autoUpdCb.checked = (v.trim() === 'on');
+        },
+        onError: (error) => {
+          if (!autoUpdCb.disabled) autoUpdCb.checked = true;
+        }
+      });
+    }
+
+    // Animation loaders (normale prioriteit)
+    const animateCb = document.getElementById('animateWords');
+    const animModeSel = document.getElementById('animMode');
+    const updateAnimModeDisabled = () => {
+      if (animModeSel && animateCb) animModeSel.disabled = !animateCb.checked;
+    };
+
+    if (animateCb) {
+      dataLoader.register('animate', async () => {
+        const res = await fetch('/getAnimate');
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        return res.text();
+      }, {
+        priority: 5,
+        onSuccess: (v) => {
+          animateCb.checked = (v.trim() === 'on');
+          updateAnimModeDisabled();
+        },
+        onError: (error) => {
+          animateCb.checked = false;
+          updateAnimModeDisabled();
+        }
+      });
+    }
+
+    if (animModeSel) {
+      dataLoader.register('animMode', async () => {
+        const res = await fetch('/getAnimMode');
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        return res.text();
+      }, {
+        priority: 5,
+        onSuccess: (v) => {
+        const mode = (v || '').trim().toLowerCase();
+        animModeSel.value = (mode === 'smart' || mode === '1') ? 'smart' : 'classic';
+        updateAnimModeDisabled();
+        },
+        onError: (error) => {
+          animModeSel.value = 'classic';
+          updateAnimModeDisabled();
+        }
+      });
+    }
+
+    // HET IS Duration loader (normale prioriteit)
+    const durSlider2 = document.getElementById('hetIsDuration2');
+    const durValue2 = document.getElementById('hetIsDurationValue2');
+    const alwaysCb2 = document.getElementById('hetIsAlways2');
+    const durInput = document.getElementById('hetIsDurationInput');
+    if (durSlider2) {
+      dataLoader.register('hetIsDuration', async () => {
+        setLoadingState('hetIsDuration2', true);
+        const res = await fetch('/getHetIsDuration');
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        return res.text();
+      }, {
+        priority: 5,
+        onSuccess: (secStr) => {
+          setLoadingState('hetIsDuration2', false);
+          clearErrorState('hetIsDurationValue2');
+          const sec = parseInt(secStr, 10) || 30;
+          durSlider2.value = sec;
+          if (durValue2) durValue2.textContent = sec;
+          if (durInput) durInput.value = sec;
+          if (alwaysCb2) alwaysCb2.checked = sec >= 360;
+          durSlider2.disabled = alwaysCb2 ? alwaysCb2.checked : false;
+          if (durInput) durInput.disabled = alwaysCb2 ? alwaysCb2.checked : false;
+        },
+        onError: (error) => {
+          setLoadingState('hetIsDuration2', false);
+          setErrorState('hetIsDurationValue2', error, '-');
+        }
+      });
+    }
+
+    // Log Level loader (lage prioriteit)
+    const logLevelSel = document.getElementById('logLevel');
+    const logLevelStatus = document.getElementById('logLevelStatus');
+    if (logLevelSel) {
+      dataLoader.register('logLevel', async () => {
+        const res = await fetch('/getLogLevel');
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        return res.text();
+      }, {
+        priority: 1,
+        onSuccess: (lvl) => {
+          if (logLevelSel) logLevelSel.value = lvl || 'INFO';
+          if (logLevelStatus) logLevelStatus.textContent = `Current log level: ${lvl || 'INFO'}`;
+        },
+        onError: (error) => {
+          console.warn('Failed to load log level:', error);
+        }
+      });
+    }
+
+    // Log Summary loader (lage prioriteit)
+    const logSummaryEl = document.getElementById('logSummary');
+    const logSummaryStatus = document.getElementById('logSummaryStatus');
+    const formatBytes = (n) => {
+      if (n >= 1024 * 1024) return (n / (1024 * 1024)).toFixed(1) + ' MB';
+      if (n >= 1024) return (n / 1024).toFixed(1) + ' KB';
+      return n + ' B';
+    };
+    const setLogSummaryColor = (bytes) => {
+      if (!logSummaryEl) return;
+      logSummaryEl.classList.remove('text-green-600','text-orange-500','text-red-600');
+      if (bytes < 200 * 1024) logSummaryEl.classList.add('text-green-600');
+      else if (bytes < 500 * 1024) logSummaryEl.classList.add('text-orange-500');
+      else logSummaryEl.classList.add('text-red-600');
+    };
+    if (logSummaryEl) {
+      dataLoader.register('logSummary', async () => {
+        setLoadingState('logSummary', true);
+        const res = await fetch('/api/logs/summary');
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        return res.json();
+      }, {
+        priority: 1,
+        onSuccess: (j) => {
+          setLoadingState('logSummary', false);
+          clearErrorState('logSummary');
+          const total = j.total_bytes || 0;
+          logSummaryEl.textContent = `${formatBytes(total)} (${j.count || 0} files)`;
+          setLogSummaryColor(total);
+          if (logSummaryStatus) logSummaryStatus.textContent = '';
+        },
+        onError: (error) => {
+          setLoadingState('logSummary', false);
+          logSummaryEl.textContent = '-';
+          if (logSummaryStatus) logSummaryStatus.textContent = 'Failed to load log summary';
+        }
+      });
+    }
+
+    // Logs loader (lage prioriteit, interval)
+    let lastLogMarker = null;
     const loadLog = async () => {
+      try {
       const res = await fetch('/log');
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const text = await res.text();
       const rawLines = text.split(/\r?\n/).filter(l => l.length > 0);
       const esc = (s) => s
@@ -661,142 +1079,73 @@
         if (rawLines.length > 0) {
           lastLogMarker = rawLines[rawLines.length - 1];
         }
-        // Auto-scroll to bottom if we were already at the bottom
         if (atBottom) {
           el.scrollTop = el.scrollHeight;
         }
+        }
+      } catch (error) {
+        console.warn('Failed to load logs:', error);
       }
     };
 
-    updateStatus();
-    loadLog();
-    setInterval(loadLog, 5000);
-
-    // Init brightness value
-    fetch('/getBrightness')
-      .then(resp => resp.text())
-      .then(val => {
-        const s = document.getElementById('brightnessSlider');
-        const i = document.getElementById('brightnessInput');
-        const lbl = document.getElementById('brightnessValue2');
-        if (s) s.value = val;
-        if (i) i.value = val;
-        if (lbl) lbl.textContent = val;
-      });
-
-    // Load firmware version
-    fetch('/version').then(r => r.text()).then(v => {
-      const el = document.getElementById('version');
-      if (el) el.textContent = v;
+    dataLoader.register('logs', loadLog, {
+      priority: 2,
+      interval: 5000,
+      onError: (error) => {
+        console.warn('Log loading error:', error);
+      }
     });
-    // Load UI version
-    fetch('/uiversion').then(r => r.text()).then(v => {
-      const el = document.getElementById('uiVersion');
-      if (el) el.textContent = v;
-    });
-    fetch('/getGridVariant')
-      .then(r => r.json())
-      .then(v => {
-        const el = document.getElementById('gridVariantLabel');
-        if (el) el.textContent = v.label || v.key || ('ID ' + v.id);
-      })
-      .catch(() => {
-        const el = document.getElementById('gridVariantLabel');
-        if (el) el.textContent = 'n.v.t.';
-      });
 
-    // Init color picker to current color
-    fetch('/getColor')
-      .then(r => r.text())
-      .then(hex => {
-        const cp = document.getElementById('colorPicker');
-        if (cp && hex && hex.length === 6) {
-          cp.value = '#' + hex;
-        }
-      });
+    // Initialize all data loaders
+    dataLoader.loadAll();
+    
+    // Start interval loaders
+    dataLoader.startInterval('status');
+    dataLoader.startInterval('logs');
 
-    // Init HET IS controls
-    const durSlider2 = document.getElementById('hetIsDuration2');
-    const durValue2 = document.getElementById('hetIsDurationValue2');
-    const alwaysCb2 = document.getElementById('hetIsAlways2');
-    const animateCb = document.getElementById('animateWords');
-    const animModeSel = document.getElementById('animMode');
-    const durInput = document.getElementById('hetIsDurationInput');
+    // HET IS controls event listeners
     const hetIsDec = document.getElementById('hetIsDec');
     const hetIsInc = document.getElementById('hetIsInc');
-    // Auto update toggle
-    if (autoUpdCb) {
-      fetch('/getAutoUpdate')
-        .then(r => r.text())
-        .then(v => { if (!autoUpdCb.disabled) autoUpdCb.checked = (v.trim() === 'on'); })
-        .catch(() => { if (!autoUpdCb.disabled) autoUpdCb.checked = true; });
-      autoUpdCb.addEventListener('change', () => {
-        fetch('/setAutoUpdate?state=' + (autoUpdCb.checked ? 'on' : 'off'));
-      });
-    }
-    // Load animation toggle (default is OFF server-side)
-    const updateAnimModeDisabled = () => {
-      if (animModeSel && animateCb) animModeSel.disabled = !animateCb.checked;
-    };
-    fetch('/getAnimate')
-      .then(r => r.text())
-      .then(v => { animateCb.checked = (v.trim() === 'on'); updateAnimModeDisabled(); })
-      .catch(() => { animateCb.checked = false; updateAnimModeDisabled(); });
-    fetch('/getAnimMode')
-      .then(r => r.text())
-      .then(v => {
-        if (!animModeSel) return;
-        const mode = (v || '').trim().toLowerCase();
-        animModeSel.value = (mode === 'smart' || mode === '1') ? 'smart' : 'classic';
-        updateAnimModeDisabled();
-      })
-      .catch(() => { if (animModeSel) animModeSel.value = 'classic'; });
+    if (animateCb) {
     animateCb.addEventListener('change', () => {
       fetch('/setAnimate?state=' + (animateCb.checked ? 'on' : 'off'));
       updateAnimModeDisabled();
     });
+    }
     if (animModeSel) {
       animModeSel.addEventListener('change', () => {
         const val = animModeSel.value || 'classic';
         fetch('/setAnimMode?mode=' + encodeURIComponent(val));
       });
     }
-    fetch('/getHetIsDuration')
-      .then(r => r.text())
-      .then(secStr => {
-        const sec = parseInt(secStr, 10) || 30;
-        durSlider2.value = sec;
-        durValue2.textContent = sec;
-        if (durInput) durInput.value = sec;
-        alwaysCb2.checked = sec >= 360;
-        durSlider2.disabled = alwaysCb2.checked;
-        if (durInput) durInput.disabled = alwaysCb2.checked;
-      });
+    if (durSlider2) {
     durSlider2.addEventListener('input', () => {
       const sec = parseInt(durSlider2.value, 10);
-      durValue2.textContent = sec;
+        if (durValue2) durValue2.textContent = sec;
       if (durInput) durInput.value = sec;
     });
     durSlider2.addEventListener('change', () => {
       const sec = parseInt(durSlider2.value, 10);
       fetch(`/setHetIsDuration?seconds=${sec}`);
-      alwaysCb2.checked = sec >= 360;
-      durSlider2.disabled = alwaysCb2.checked;
-      if (durInput) durInput.disabled = alwaysCb2.checked;
-    });
+        if (alwaysCb2) alwaysCb2.checked = sec >= 360;
+        durSlider2.disabled = alwaysCb2 ? alwaysCb2.checked : false;
+        if (durInput) durInput.disabled = alwaysCb2 ? alwaysCb2.checked : false;
+      });
+    }
+    if (alwaysCb2) {
     alwaysCb2.addEventListener('change', () => {
       if (alwaysCb2.checked) {
         durSlider2.disabled = true;
-        durSlider2.value = 360;
-        durValue2.textContent = 360;
+        if (durSlider2) durSlider2.value = 360;
+        if (durValue2) durValue2.textContent = 360;
         if (durInput) { durInput.disabled = true; durInput.value = 360; }
         fetch('/setHetIsDuration?seconds=360');
       } else {
         // Reset to default 30 seconds and enable input
-        durSlider2.disabled = false;
+        if (durSlider2) durSlider2.disabled = false;
         if (durInput) durInput.disabled = false;
-        durSlider2.value = 30;
-        durValue2.textContent = 30;
+        if (durSlider2) durSlider2.value = 30;
+        if (durValue2) durValue2.textContent = 30;
         if (durInput) durInput.value = 30;
         fetch('/setHetIsDuration?seconds=30');
       }
@@ -806,97 +1155,55 @@
         let sec = parseInt(durInput.value, 10);
         if (isNaN(sec)) sec = 0; sec = Math.max(0, Math.min(360, sec));
         durInput.value = sec;
-        durSlider2.value = sec;
-        durValue2.textContent = sec;
+        if (durSlider2) durSlider2.value = sec;
+        if (durValue2) durValue2.textContent = sec;
         fetch(`/setHetIsDuration?seconds=${sec}`);
-        alwaysCb2.checked = sec >= 360;
-        durSlider2.disabled = alwaysCb2.checked;
-        durInput.disabled = alwaysCb2.checked;
+        if (alwaysCb2) alwaysCb2.checked = sec >= 360;
+        if (durSlider2) durSlider2.disabled = alwaysCb2 ? alwaysCb2.checked : false;
+        durInput.disabled = alwaysCb2 ? alwaysCb2.checked : false;
       });
     }
     function setHetIsSeconds(sec) {
       sec = Math.max(0, Math.min(360, sec));
-      durSlider2.value = sec;
+      if (durSlider2) durSlider2.value = sec;
       if (durInput) durInput.value = sec;
-      durValue2.textContent = sec;
+      if (durValue2) durValue2.textContent = sec;
       fetch(`/setHetIsDuration?seconds=${sec}`);
-      alwaysCb2.checked = sec >= 360;
-      durSlider2.disabled = alwaysCb2.checked;
-      if (durInput) durInput.disabled = alwaysCb2.checked;
+      if (alwaysCb2) alwaysCb2.checked = sec >= 360;
+      if (durSlider2) durSlider2.disabled = alwaysCb2 ? alwaysCb2.checked : false;
+      if (durInput) durInput.disabled = alwaysCb2 ? alwaysCb2.checked : false;
     }
     if (hetIsDec) {
       hetIsDec.addEventListener('click', () => {
-        if (alwaysCb2.checked) { alwaysCb2.checked = false; durSlider2.disabled = false; if (durInput) durInput.disabled = false; }
-        let sec = parseInt(durSlider2.value || '0', 10) - 5;
+        if (alwaysCb2 && alwaysCb2.checked) { 
+          alwaysCb2.checked = false; 
+          if (durSlider2) durSlider2.disabled = false; 
+          if (durInput) durInput.disabled = false; 
+        }
+        let sec = parseInt(durSlider2 ? durSlider2.value || '0' : '0', 10) - 5;
         setHetIsSeconds(sec);
       });
     }
     if (hetIsInc) {
       hetIsInc.addEventListener('click', () => {
-        if (alwaysCb2.checked) { alwaysCb2.checked = false; durSlider2.disabled = false; if (durInput) durInput.disabled = false; }
-        let sec = parseInt(durSlider2.value || '0', 10) + 5;
+        if (alwaysCb2 && alwaysCb2.checked) { 
+          alwaysCb2.checked = false; 
+          if (durSlider2) durSlider2.disabled = false; 
+          if (durInput) durInput.disabled = false; 
+        }
+        let sec = parseInt(durSlider2 ? durSlider2.value || '0' : '0', 10) + 5;
         setHetIsSeconds(sec);
       });
     }
 
-    // Init log level controls
-    const logLevelSel = document.getElementById('logLevel');
-    const logLevelStatus = document.getElementById('logLevelStatus');
-    const logSummaryEl = document.getElementById('logSummary');
-    const logSummaryStatus = document.getElementById('logSummaryStatus');
-    const clearLogsBtn = document.getElementById('clearLogsBtn');
-    const formatBytes = (n) => {
-      if (n >= 1024 * 1024) return (n / (1024 * 1024)).toFixed(1) + ' MB';
-      if (n >= 1024) return (n / 1024).toFixed(1) + ' KB';
-      return n + ' B';
-    };
-    const setLogSummaryColor = (bytes) => {
-      if (!logSummaryEl) return;
-      logSummaryEl.classList.remove('text-green-600','text-orange-500','text-red-600');
-      if (bytes < 200 * 1024) logSummaryEl.classList.add('text-green-600');
-      else if (bytes < 500 * 1024) logSummaryEl.classList.add('text-orange-500');
-      else logSummaryEl.classList.add('text-red-600');
-    };
+    // Log controls event listeners
     async function loadLogSummary() {
-      if (!logSummaryEl) return;
-      try {
-        const r = await fetch('/api/logs/summary');
-        if (!r.ok) throw new Error('HTTP ' + r.status);
-        const j = await r.json();
-        const total = j.total_bytes || 0;
-        logSummaryEl.textContent = `${formatBytes(total)} (${j.count || 0} files)`;
-        setLogSummaryColor(total);
-        if (logSummaryStatus) logSummaryStatus.textContent = '';
-      } catch (e) {
-        logSummaryEl.textContent = '-';
-        if (logSummaryStatus) logSummaryStatus.textContent = 'Failed to load log summary';
-      }
-    }
-    if (clearLogsBtn) {
-      clearLogsBtn.addEventListener('click', async () => {
-        clearLogsBtn.disabled = true;
-        if (logSummaryStatus) logSummaryStatus.textContent = 'Clearing...';
-        try {
-          const r = await fetch('/api/logs/clear', { method: 'POST' });
-          if (!r.ok) throw new Error('HTTP ' + r.status);
-          if (logSummaryStatus) logSummaryStatus.textContent = 'Logs cleared';
-        } catch (e) {
-          if (logSummaryStatus) logSummaryStatus.textContent = 'Failed to clear logs';
-        } finally {
-          clearLogsBtn.disabled = false;
-          loadLogSummary();
-        }
-      });
+      dataLoader.load('logSummary');
     }
     function setLogLevelUI(lvl) {
       if (logLevelSel) logLevelSel.value = lvl;
       if (logLevelStatus) logLevelStatus.textContent = `Current log level: ${lvl}`;
     }
-    fetch('/getLogLevel')
-      .then(r => r.text())
-      .then(lvl => setLogLevelUI(lvl || 'INFO'))
-      .catch(() => {});
-    loadLogSummary();
     if (logLevelSel) {
       logLevelSel.addEventListener('change', () => {
         const lvl = logLevelSel.value;

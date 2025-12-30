@@ -134,6 +134,7 @@ static void sendNightModeConfig() {
   doc["time_synced"] = nightMode.hasTime();
   String out;
   serializeJson(doc, out);
+  logDebug("[API] sendNightModeConfig: response length=" + String(out.length()) + ", enabled=" + String(nightMode.isEnabled()));
   server.send(200, "application/json", out);
 }
 
@@ -146,6 +147,43 @@ static void performFactoryReset() {
     p.clear();
     p.end();
   }
+}
+
+// Clear all log files (helper function)
+static void clearAllLogFiles() {
+  logFlushFile();
+  logCloseFile();
+  size_t deleted = 0;
+  size_t failed = 0;
+  File dir = FS_IMPL.open("/logs");
+  if (dir) {
+    while (true) {
+      File entry = dir.openNextFile();
+      if (!entry) break;
+      if (!entry.isDirectory()) {
+        String name = entry.name();
+        // Normalize path: remove leading "/" and "logs/" prefix if present
+        if (name.startsWith("/")) name = name.substring(1);
+        if (name.startsWith("logs/")) name = name.substring(5);
+        String full = String("/logs/") + name;
+        entry.close();
+        if (FS_IMPL.remove(full)) {
+          deleted++;
+        } else {
+          failed++;
+          logWarn("Failed to remove log file: " + full);
+        }
+      } else {
+        entry.close();
+      }
+    }
+    dir.close();
+    logInfo("🗑️ Cleared " + String(deleted) + " log files" + (failed > 0 ? " (" + String(failed) + " failed)" : ""));
+  } else {
+    logWarn("Failed to open /logs directory for clearing");
+  }
+  // Re-enable file sink (will recreate today's file if needed)
+  logEnableFileSink();
 }
 
 // Token for allowing factory reset from Forgot Password page
@@ -171,12 +209,18 @@ void setupWebRoutes() {
   // Main pages
   // Dashboard (protected)
   server.on("/dashboard.html", HTTP_GET, []() {
-    if (!ensureUiAuth()) return;
+    logDebug("[API] GET /dashboard.html from " + server.client().remoteIP().toString());
+    if (!ensureUiAuth()) {
+      logWarn("[API] /dashboard.html: Auth failed");
+      return;
+    }
     if (!setupState.isComplete()) {
+      logDebug("[API] /dashboard.html: Setup not complete, redirecting to /setup.html");
       server.sendHeader("Location", "/setup.html", true);
       server.send(302, "text/plain", "");
       return;
     }
+    logDebug("[API] /dashboard.html: Serving dashboard.html file");
     serveFile("/dashboard.html", "text/html");
   });
 
@@ -273,20 +317,25 @@ void setupWebRoutes() {
 
   // Public landing page: go straight to dashboard (or setup if incomplete)
   server.on("/", HTTP_GET, []() {
+    logDebug("[API] GET / from " + server.client().remoteIP().toString());
     if (!setupState.isComplete()) {
+      logDebug("[API] /: Setup not complete, serving setup.html");
       File sf = FS_IMPL.open("/setup.html", "r");
       if (sf) {
         sf.close();
         serveFile("/setup.html", "text/html");
         return;
       }
+      logWarn("[API] /: setup.html not found");
     }
     File f = FS_IMPL.open("/dashboard.html", "r");
     if (!f) {
+      logError("[API] /: dashboard.html not found");
       server.send(404, "text/plain", "dashboard.html not found");
       return;
     }
     f.close();
+    logDebug("[API] /: Serving dashboard.html");
     serveFile("/dashboard.html", "text/html");
   });
 
@@ -511,8 +560,15 @@ void setupWebRoutes() {
 
   // Auto update toggle
   server.on("/getAutoUpdate", []() {
-    if (!ensureUiAuth()) return;
-    server.send(200, "text/plain", displaySettings.getAutoUpdate() ? "on" : "off");
+    logDebug("[API] GET /getAutoUpdate from " + server.client().remoteIP().toString());
+    if (!ensureUiAuth()) {
+      logWarn("[API] /getAutoUpdate: Auth failed");
+      return;
+    }
+    bool autoUpdate = displaySettings.getAutoUpdate();
+    String result = autoUpdate ? "on" : "off";
+    logDebug("[API] /getAutoUpdate: returning " + result);
+    server.send(200, "text/plain", result);
   });
   server.on("/setAutoUpdate", []() {
     if (!ensureUiAuth()) return;
@@ -533,12 +589,18 @@ void setupWebRoutes() {
 
   // Update channel (stable/early)
   server.on("/api/update/channel", HTTP_GET, []() {
-    if (!ensureUiAuth()) return;
+    logDebug("[API] GET /api/update/channel from " + server.client().remoteIP().toString());
+    if (!ensureUiAuth()) {
+      logWarn("[API] /api/update/channel: Auth failed");
+      return;
+    }
     JsonDocument doc;
-    doc["channel"] = displaySettings.getUpdateChannel();
+    String channel = displaySettings.getUpdateChannel();
+    doc["channel"] = channel;
     doc["default"] = "stable";
     String out;
     serializeJson(doc, out);
+    logDebug("[API] /api/update/channel: returning channel=" + channel);
     server.send(200, "application/json", out);
   });
 
@@ -571,7 +633,11 @@ void setupWebRoutes() {
 
   // Grid variant endpoints
   server.on("/getGridVariant", []() {
-    if (!ensureUiAuth()) return;
+    logDebug("[API] GET /getGridVariant from " + server.client().remoteIP().toString());
+    if (!ensureUiAuth()) {
+      logWarn("[API] /getGridVariant: Auth failed");
+      return;
+    }
     JsonDocument doc;
     GridVariant variant = displaySettings.getGridVariant();
     doc["id"] = gridVariantToId(variant);
@@ -581,9 +647,13 @@ void setupWebRoutes() {
       doc["label"] = info->label;
       doc["language"] = info->language;
       doc["version"] = info->version;
+      logDebug("[API] /getGridVariant: variant=" + String(info->key) + ", label=" + String(info->label));
+    } else {
+      logWarn("[API] /getGridVariant: No info found for variant ID " + String(gridVariantToId(variant)));
     }
     String out;
     serializeJson(doc, out);
+    logDebug("[API] /getGridVariant: response length=" + String(out.length()));
     server.send(200, "application/json", out);
   });
 
@@ -657,14 +727,23 @@ void setupWebRoutes() {
 
   // Fetch log
   server.on("/log", []() {
-    if (!ensureUiAuth()) return;
+    logDebug("[API] GET /log from " + server.client().remoteIP().toString());
+    if (!ensureUiAuth()) {
+      logWarn("[API] /log: Auth failed");
+      return;
+    }
     String logContent = "";
     int i = logIndex;
+    int lineCount = 0;
     for (int count = 0; count < LOG_BUFFER_SIZE; count++) {
       String line = logBuffer[i];
-      if (line.length() > 0) logContent += line + "\n";
+      if (line.length() > 0) {
+        logContent += line + "\n";
+        lineCount++;
+      }
       i = (i + 1) % LOG_BUFFER_SIZE;
     }
+    logDebug("[API] /log: returning " + String(lineCount) + " lines, total length=" + String(logContent.length()));
     server.send(200, "text/plain", logContent);
   });
 
@@ -724,7 +803,11 @@ void setupWebRoutes() {
 
   // Logs summary
   server.on("/api/logs/summary", HTTP_GET, []() {
-    if (!ensureUiAuth()) return;
+    logDebug("[API] GET /api/logs/summary from " + server.client().remoteIP().toString());
+    if (!ensureUiAuth()) {
+      logWarn("[API] /api/logs/summary: Auth failed");
+      return;
+    }
     logFlushFile();
     // Deduplicate per date: keep the largest file for each date to match the list view
     size_t total = 0;
@@ -751,6 +834,8 @@ void setupWebRoutes() {
         entry.close();
       }
       dir.close();
+    } else {
+      logWarn("[API] /api/logs/summary: Failed to open /logs directory");
     }
     for (const auto& kv : bestByDate) {
       total += kv.second;
@@ -761,39 +846,7 @@ void setupWebRoutes() {
     doc["count"] = (uint32_t)count;
     String out;
     serializeJson(doc, out);
-    server.send(200, "application/json", out);
-  });
-
-  // Clear all log files
-  server.on("/api/logs/clear", HTTP_POST, []() {
-    if (!ensureUiAuth()) return;
-    logFlushFile();
-    logCloseFile();
-    size_t deleted = 0;
-    size_t failed = 0;
-    File dir = FS_IMPL.open("/logs");
-    if (dir) {
-      while (true) {
-        File entry = dir.openNextFile();
-        if (!entry) break;
-        if (!entry.isDirectory()) {
-          String name = entry.name();
-          entry.close();
-          if (FS_IMPL.remove(name)) deleted++;
-          else failed++;
-        } else {
-          entry.close();
-        }
-      }
-      dir.close();
-    }
-    // Re-enable file sink (will recreate today's file if needed)
-    logEnableFileSink();
-    JsonDocument doc;
-    doc["deleted"] = (uint32_t)deleted;
-    doc["failed"] = (uint32_t)failed;
-    String out;
-    serializeJson(doc, out);
+    logDebug("[API] /api/logs/summary: returning total_bytes=" + String(total) + ", count=" + String(count));
     server.send(200, "application/json", out);
   });
 
@@ -811,7 +864,11 @@ void setupWebRoutes() {
   });
 
   server.on("/api/device/info", HTTP_GET, []() {
-    if (!ensureUiAuth()) return;
+    logDebug("[API] GET /api/device/info from " + server.client().remoteIP().toString());
+    if (!ensureUiAuth()) {
+      logWarn("[API] /api/device/info: Auth failed");
+      return;
+    }
     unsigned long upMs = millis();
     unsigned long upSec = upMs / 1000UL;
     unsigned long days = upSec / 86400UL;
@@ -838,6 +895,7 @@ void setupWebRoutes() {
 #endif
     String out;
     serializeJson(doc, out);
+    logDebug("[API] /api/device/info: response length=" + String(out.length()) + ", heap_free=" + String(ESP.getFreeHeap()));
     server.send(200, "application/json", out);
   });
 
@@ -884,8 +942,14 @@ void setupWebRoutes() {
 
   // Get status
   server.on("/status", []() {
-    if (!ensureUiAuth()) return;
-    server.send(200, "text/plain", clockEnabled ? "on" : "off");
+    logDebug("[API] GET /status from " + server.client().remoteIP().toString());
+    if (!ensureUiAuth()) {
+      logWarn("[API] /status: Auth failed");
+      return;
+    }
+    String status = clockEnabled ? "on" : "off";
+    logDebug("[API] /status: returning " + status);
+    server.send(200, "text/plain", status);
   });
 
   // Turn on/off
@@ -910,7 +974,12 @@ void setupWebRoutes() {
   // Device restart
   server.on("/restart", []() {
     if (!ensureUiAuth()) return;
-  logInfo("⚠️ Restart requested via dashboard");
+    logInfo("⚠️ Restart requested via dashboard");
+    // Clear all log files before restart
+    logInfo("🗑️ Clearing all log files before restart");
+    clearAllLogFiles();
+    // Give filesystem time to complete the deletion operations
+    delay(500);
     server.send(200, "text/html", R"rawliteral(
       <html>
         <head>
@@ -918,7 +987,7 @@ void setupWebRoutes() {
         </head>
         <body>
           <h1>Wordclock is restarting...</h1>
-          <p>You will be redirected to the dashboard in 5 seconds.</p>
+          <p>All logs have been cleared. You will be redirected to the dashboard in 5 seconds.</p>
         </body>
       </html>
     )rawliteral");
@@ -983,12 +1052,17 @@ void setupWebRoutes() {
 
   // Get current color as RRGGBB (white maps to FFFFFF)
   server.on("/getColor", HTTP_GET, []() {
-    if (!ensureUiAuth()) return;
+    logDebug("[API] GET /getColor from " + server.client().remoteIP().toString());
+    if (!ensureUiAuth()) {
+      logWarn("[API] /getColor: Auth failed");
+      return;
+    }
     uint8_t r, g, b, w;
     ledState.getRGBW(r, g, b, w);
     if (w > 0) { r = g = b = 255; }
     char buf[7];
     snprintf(buf, sizeof(buf), "%02X%02X%02X", r, g, b);
+    logDebug("[API] /getColor: returning " + String(buf) + " (RGBW=" + String(r) + "," + String(g) + "," + String(b) + "," + String(w) + ")");
     server.send(200, "text/plain", String(buf));
   });
   
@@ -1097,8 +1171,14 @@ void setupWebRoutes() {
   });
 
   server.on("/getBrightness", []() {
-    if (!ensureUiAuth()) return;
-    server.send(200, "text/plain", String(ledState.getBrightness()));
+    logDebug("[API] GET /getBrightness from " + server.client().remoteIP().toString());
+    if (!ensureUiAuth()) {
+      logWarn("[API] /getBrightness: Auth failed");
+      return;
+    }
+    uint8_t brightness = ledState.getBrightness();
+    logDebug("[API] /getBrightness: returning " + String(brightness));
+    server.send(200, "text/plain", String(brightness));
   });  
 
   server.on("/setBrightness", []() {
@@ -1124,13 +1204,23 @@ void setupWebRoutes() {
 
   // Expose firmware version
   server.on("/version", []() {
-    if (!ensureUiAuth()) return;
+    logDebug("[API] GET /version from " + server.client().remoteIP().toString());
+    if (!ensureUiAuth()) {
+      logWarn("[API] /version: Auth failed");
+      return;
+    }
+    logDebug("[API] /version: returning " + String(FIRMWARE_VERSION));
     server.send(200, "text/plain", FIRMWARE_VERSION);
   });
 
   // UI version from config
   server.on("/uiversion", []() {
-    if (!ensureUiAuth()) return;
+    logDebug("[API] GET /uiversion from " + server.client().remoteIP().toString());
+    if (!ensureUiAuth()) {
+      logWarn("[API] /uiversion: Auth failed");
+      return;
+    }
+    logDebug("[API] /uiversion: returning " + String(UI_VERSION));
     server.send(200, "text/plain", UI_VERSION);
   });
 
@@ -1163,8 +1253,15 @@ void setupWebRoutes() {
 
   // Word-by-word animation toggle
   server.on("/getAnimate", []() {
-    if (!ensureUiAuth()) return;
-    server.send(200, "text/plain", displaySettings.getAnimateWords() ? "on" : "off");
+    logDebug("[API] GET /getAnimate from " + server.client().remoteIP().toString());
+    if (!ensureUiAuth()) {
+      logWarn("[API] /getAnimate: Auth failed");
+      return;
+    }
+    bool animate = displaySettings.getAnimateWords();
+    String result = animate ? "on" : "off";
+    logDebug("[API] /getAnimate: returning " + result);
+    server.send(200, "text/plain", result);
   });
   server.on("/setAnimate", []() {
     if (!ensureUiAuth()) return;
@@ -1180,9 +1277,15 @@ void setupWebRoutes() {
   });
 
   server.on("/getAnimMode", []() {
-    if (!ensureUiAuth()) return;
+    logDebug("[API] GET /getAnimMode from " + server.client().remoteIP().toString());
+    if (!ensureUiAuth()) {
+      logWarn("[API] /getAnimMode: Auth failed");
+      return;
+    }
     WordAnimationMode mode = displaySettings.getAnimationMode();
-    server.send(200, "text/plain", mode == WordAnimationMode::Smart ? "smart" : "classic");
+    String result = mode == WordAnimationMode::Smart ? "smart" : "classic";
+    logDebug("[API] /getAnimMode: returning " + result);
+    server.send(200, "text/plain", result);
   });
   server.on("/setAnimMode", []() {
     if (!ensureUiAuth()) return;
@@ -1203,7 +1306,12 @@ void setupWebRoutes() {
 
   // Night mode configuration
   server.on("/getNightModeConfig", HTTP_GET, []() {
-    if (!ensureUiAuth()) return;
+    logDebug("[API] GET /getNightModeConfig from " + server.client().remoteIP().toString());
+    if (!ensureUiAuth()) {
+      logWarn("[API] /getNightModeConfig: Auth failed");
+      return;
+    }
+    logDebug("[API] /getNightModeConfig: Sending night mode config");
     sendNightModeConfig();
   });
 
@@ -1330,8 +1438,14 @@ void setupWebRoutes() {
 
   // Het Is duration (0..360 seconds; 0=never, 360=always)
   server.on("/getHetIsDuration", []() {
-    if (!ensureUiAuth()) return;
-    server.send(200, "text/plain", String(displaySettings.getHetIsDurationSec()));
+    logDebug("[API] GET /getHetIsDuration from " + server.client().remoteIP().toString());
+    if (!ensureUiAuth()) {
+      logWarn("[API] /getHetIsDuration: Auth failed");
+      return;
+    }
+    uint16_t duration = displaySettings.getHetIsDurationSec();
+    logDebug("[API] /getHetIsDuration: returning " + String(duration));
+    server.send(200, "text/plain", String(duration));
   });
 
   server.on("/setHetIsDuration", []() {
@@ -1373,7 +1487,11 @@ void setupWebRoutes() {
   });
 
   server.on("/getLogLevel", HTTP_GET, []() {
-    if (!ensureUiAuth()) return;
+    logDebug("[API] GET /getLogLevel from " + server.client().remoteIP().toString());
+    if (!ensureUiAuth()) {
+      logWarn("[API] /getLogLevel: Auth failed");
+      return;
+    }
     // Return current level as string
     String s = "INFO";
     extern LogLevel LOG_LEVEL; // declared in log.cpp
@@ -1383,6 +1501,7 @@ void setupWebRoutes() {
       case LOG_LEVEL_WARN:  s = "WARN";  break;
       case LOG_LEVEL_ERROR: s = "ERROR"; break;
     }
+    logDebug("[API] /getLogLevel: returning " + s);
     server.send(200, "text/plain", s);
   });
 
