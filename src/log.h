@@ -24,6 +24,7 @@ void logln(String msg, int level = LOG_LEVEL_INFO);
 void setLogLevel(LogLevel level);
 void initLogSettings();
 void logEnableFileSink();
+void logCloseFile();
 void logFlushFile();
 String logLatestFilePath();
 void logRewriteUnsynced();

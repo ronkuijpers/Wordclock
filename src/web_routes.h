@@ -768,6 +768,7 @@ void setupWebRoutes() {
   server.on("/api/logs/clear", HTTP_POST, []() {
     if (!ensureUiAuth()) return;
     logFlushFile();
+    logCloseFile();
     size_t deleted = 0;
     size_t failed = 0;
     File dir = FS_IMPL.open("/logs");
@@ -786,6 +787,8 @@ void setupWebRoutes() {
       }
       dir.close();
     }
+    // Re-enable file sink (will recreate today's file if needed)
+    logEnableFileSink();
     JsonDocument doc;
     doc["deleted"] = (uint32_t)deleted;
     doc["failed"] = (uint32_t)failed;
