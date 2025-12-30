@@ -227,10 +227,14 @@
 
       async load(name) {
         const loader = this.loaders.get(name);
-        if (!loader || loader.loading) return;
+        if (!loader || loader.loading) {
+          if (!loader) console.warn('[DataLoader] Loader not found:', name);
+          return;
+        }
 
         loader.loading = true;
         loader.lastError = null;
+        console.log('[DataLoader] Loading:', name);
 
         try {
           const result = await Promise.race([
@@ -241,17 +245,22 @@
           ]);
 
           loader.retryCount = 0;
+          console.log('[DataLoader] Success:', name);
           if (loader.onSuccess) loader.onSuccess(result);
           return result;
         } catch (error) {
           loader.lastError = error;
+          console.error('[DataLoader] Error loading', name + ':', error.message || error);
           if (loader.onError) loader.onError(error);
           
           // Retry logic
           if (loader.retryCount < this.retryDelays.length) {
             const delay = this.retryDelays[loader.retryCount];
             loader.retryCount++;
+            console.log('[DataLoader] Retrying', name, 'in', delay, 'ms (attempt', loader.retryCount + ')');
             setTimeout(() => this.load(name), delay);
+          } else {
+            console.error('[DataLoader] Max retries reached for', name);
           }
         } finally {
           loader.loading = false;
@@ -1096,12 +1105,48 @@
       }
     });
 
-    // Initialize all data loaders
-    dataLoader.loadAll();
+    // Initialize all data loaders when DOM is ready
+    function initializeDashboard() {
+      try {
+        console.log('[Dashboard] Initializing data loaders...');
+        console.log('[Dashboard] Registered loaders:', Array.from(dataLoader.loaders.keys()));
+        console.log('[Dashboard] Total loaders:', dataLoader.loaders.size);
+        
+        if (dataLoader.loaders.size === 0) {
+          console.error('[Dashboard] No loaders registered!');
+          return;
+        }
+        
+        // Initialize all data loaders
+        dataLoader.loadAll().catch(err => {
+          console.error('[Dashboard] Error loading data:', err);
+        });
+        
+        // Start interval loaders
+        dataLoader.startInterval('status');
+        dataLoader.startInterval('logs');
+        
+        console.log('[Dashboard] Initialization complete');
+      } catch (error) {
+        console.error('[Dashboard] Initialization error:', error);
+        console.error('[Dashboard] Stack:', error.stack);
+      }
+    }
     
-    // Start interval loaders
-    dataLoader.startInterval('status');
-    dataLoader.startInterval('logs');
+    // Wait for DOM to be ready
+    try {
+      if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', initializeDashboard);
+        console.log('[Dashboard] Waiting for DOMContentLoaded...');
+      } else {
+        // DOM is already ready
+        console.log('[Dashboard] DOM already ready, initializing...');
+        initializeDashboard();
+      }
+    } catch (error) {
+      console.error('[Dashboard] Setup error:', error);
+      console.error('[Dashboard] Stack:', error.stack);
+    }
 
     // HET IS controls event listeners
     const hetIsDec = document.getElementById('hetIsDec');
