@@ -887,7 +887,7 @@
     });
 
     // Auto Update loader (normale prioriteit)
-    const autoUpdCb = document.getElementById('autoUpdate');
+    // autoUpdCb is al gedeclareerd bij channel loader
     if (autoUpdCb) {
       dataLoader.register('autoUpdate', async () => {
         const res = await fetch('/getAutoUpdate');
