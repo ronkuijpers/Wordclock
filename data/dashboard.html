@@ -1178,23 +1178,24 @@
       });
     }
     if (alwaysCb2) {
-    alwaysCb2.addEventListener('change', () => {
-      if (alwaysCb2.checked) {
-        durSlider2.disabled = true;
-        if (durSlider2) durSlider2.value = 360;
-        if (durValue2) durValue2.textContent = 360;
-        if (durInput) { durInput.disabled = true; durInput.value = 360; }
-        fetch('/setHetIsDuration?seconds=360');
-      } else {
-        // Reset to default 30 seconds and enable input
-        if (durSlider2) durSlider2.disabled = false;
-        if (durInput) durInput.disabled = false;
-        if (durSlider2) durSlider2.value = 30;
-        if (durValue2) durValue2.textContent = 30;
-        if (durInput) durInput.value = 30;
-        fetch('/setHetIsDuration?seconds=30');
-      }
-    });
+      alwaysCb2.addEventListener('change', () => {
+        if (alwaysCb2.checked) {
+          durSlider2.disabled = true;
+          if (durSlider2) durSlider2.value = 360;
+          if (durValue2) durValue2.textContent = 360;
+          if (durInput) { durInput.disabled = true; durInput.value = 360; }
+          fetch('/setHetIsDuration?seconds=360');
+        } else {
+          // Reset to default 30 seconds and enable input
+          if (durSlider2) durSlider2.disabled = false;
+          if (durInput) durInput.disabled = false;
+          if (durSlider2) durSlider2.value = 30;
+          if (durValue2) durValue2.textContent = 30;
+          if (durInput) durInput.value = 30;
+          fetch('/setHetIsDuration?seconds=30');
+        }
+      });
+    }
     if (durInput) {
       durInput.addEventListener('change', () => {
         let sec = parseInt(durInput.value, 10);
