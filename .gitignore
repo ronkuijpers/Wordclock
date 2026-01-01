@@ -28,6 +28,7 @@ build_info.h
 *.bak
 *.tmp
 *.swp
+*.md
 
 # PlatformIO (indien gebruikt)
 .pio/
