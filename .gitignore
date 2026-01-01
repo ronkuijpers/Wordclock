@@ -28,6 +28,7 @@ build_info.h
 *.bak
 *.tmp
 *.swp
+*.md
 
 # PlatformIO (indien gebruikt)
 .pio/
@@ -37,3 +38,6 @@ lib/
 
 # Eventuele logbestanden
 *.log
+FIRMWARE_SIZE_REDUCTION_PLAN.md
+LOGGING_OVERVIEW.md
+LOGGING_STREAMLINING_PROPOSAL.md
