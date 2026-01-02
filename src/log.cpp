@@ -41,6 +41,8 @@ static File logFile;
 static String currentLogTag;
 static unsigned long lastFlushMs = 0;
 static const unsigned long LOG_FLUSH_INTERVAL_MS = 5000;
+static uint32_t LOG_RETENTION_DAYS = 1;
+static bool LOG_DELETE_ON_BOOT = false;
 
 static void closeLogFile() {
   if (logFile) {
@@ -74,10 +76,11 @@ static void ensureLogFile() {
   if (!logFile || tag != currentLogTag) {
     closeLogFile();
     ensureLogDirectory();
-    // Cleanup: keep only the current tag; drop older logs to avoid retention
-    const String currentPath = String("/logs/") + tag + ".log";
+    // Cleanup old logs before opening new file
     File dir = FS_IMPL.open("/logs");
     if (dir) {
+      time_t now = time(nullptr);
+      const time_t cutoff = (LOG_RETENTION_DAYS > 0) ? now - (LOG_RETENTION_DAYS * 86400UL) : 0;
       while (true) {
         File entry = dir.openNextFile();
         if (!entry) break;
@@ -85,9 +88,19 @@ static void ensureLogFile() {
           String name = entry.name();
           if (name.startsWith("/")) name = name.substring(1);
           if (name.startsWith("logs/")) name = name.substring(5);
-          String full = String("/logs/") + name;
-          // Keep only the active day's file; drop everything else (including old unsynced)
-          if (full != currentPath) {
+          bool removeFile = false;
+          if (name.startsWith("unsynced")) {
+            // Remove unsynced logs older than 1 day
+            if (entry.getLastWrite() > 0 && now >= 86400UL && (now - entry.getLastWrite()) > 86400UL) {
+              removeFile = true;
+            }
+          } else if (cutoff > 0 && entry.getLastWrite() > 0) {
+            if (entry.getLastWrite() < cutoff) {
+              removeFile = true;
+            }
+          }
+          if (removeFile) {
+            String full = entry.name();
             entry.close();
             FS_IMPL.remove(full);
             continue;
@@ -184,12 +197,41 @@ void setLogLevel(LogLevel level) {
   prefs.end();
 }
 
+void setLogRetentionDays(uint32_t days) {
+  if (days < 1) days = 1;
+  if (days > 10) days = 10;
+  LOG_RETENTION_DAYS = days;
+  Preferences prefs;
+  prefs.begin("log", false);
+  prefs.putUInt("retention", days);
+  prefs.end();
+}
+
+uint32_t getLogRetentionDays() {
+  return LOG_RETENTION_DAYS;
+}
+
+void setLogDeleteOnBoot(bool enabled) {
+  LOG_DELETE_ON_BOOT = enabled;
+  Preferences prefs;
+  prefs.begin("log", false);
+  prefs.putBool("delOnBoot", enabled);
+  prefs.end();
+}
+
+bool getLogDeleteOnBoot() {
+  return LOG_DELETE_ON_BOOT;
+}
+
 void initLogSettings() {
-  // Load persisted level if available
+  // Load persisted settings if available
   Preferences prefs;
   prefs.begin("log", true);
   uint8_t lvl = prefs.getUChar("level", (uint8_t)DEFAULT_LOG_LEVEL);
+  LOG_RETENTION_DAYS = prefs.getUInt("retention", 1);
+  LOG_DELETE_ON_BOOT = prefs.getBool("delOnBoot", false);
   prefs.end();
+
   if (lvl <= LOG_LEVEL_ERROR) {
     LOG_LEVEL = (LogLevel)lvl;
   } else {
@@ -202,6 +244,25 @@ void initLogSettings() {
 }
 
 void logEnableFileSink() {
+  if (LOG_DELETE_ON_BOOT) {
+    File dir = FS_IMPL.open("/logs");
+    if (dir) {
+      while (true) {
+        File entry = dir.openNextFile();
+        if (!entry) break;
+        if (!entry.isDirectory()) {
+          String full = entry.name();
+          entry.close();
+          FS_IMPL.remove(full);
+        } else {
+          entry.close();
+        }
+      }
+      dir.close();
+    }
+    Serial.println("[log] Deleted all logs on boot as per settings.");
+  }
+
   fileSinkEnabled = true;
   currentLogTag = "";
   ensureLogFile();

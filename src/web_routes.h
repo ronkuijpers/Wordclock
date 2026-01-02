@@ -832,6 +832,31 @@ void setupWebRoutes() {
     server.send(200, "application/json", out);
   });
 
+  server.on("/api/logs/settings", HTTP_GET, []() {
+    if (!ensureUiAuth()) return;
+    JsonDocument doc;
+    doc["retention_days"] = getLogRetentionDays();
+    doc["delete_on_boot"] = getLogDeleteOnBoot();
+    doc["level"] = (uint8_t)LOG_LEVEL;
+    String out;
+    serializeJson(doc, out);
+    server.send(200, "application/json", out);
+  });
+
+  server.on("/api/logs/settings", HTTP_POST, []() {
+    if (!ensureUiAuth()) return;
+    if (server.hasArg("retention_days")) {
+      setLogRetentionDays(server.arg("retention_days").toInt());
+    }
+    if (server.hasArg("delete_on_boot")) {
+      setLogDeleteOnBoot(server.arg("delete_on_boot") == "true" || server.arg("delete_on_boot") == "1");
+    }
+    if (server.hasArg("level")) {
+      setLogLevel((LogLevel)server.arg("level").toInt());
+    }
+    server.send(200, "application/json", "{\"status\":\"ok\"}");
+  });
+
   server.on("/buildinfo", HTTP_GET, []() {
     if (!ensureUiAuth()) return;
     JsonDocument doc;
