@@ -3,8 +3,8 @@
 #define LOG_BUFFER_SIZE 150
 #pragma once
 
-#define FIRMWARE_VERSION "26.1.2-dev"
-#define UI_VERSION "26.1.2-dev"
+#define FIRMWARE_VERSION "26.1.3-dev"
+#define UI_VERSION "26.1.3-dev"
 
 #define DATA_PIN 4
 #define DEFAULT_BRIGHTNESS 5
