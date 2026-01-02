@@ -26,7 +26,7 @@ Firmware for an ESP32-based word clock with OTA updates, a browser dashboard, an
 
 ## Hardware & Wiring
 
-Refer to [docs/BuildInstruction.md](docs/BuildInstruction.md) for wiring notes. At minimum you need:
+Refer to [docs/setup/BuildInstruction.md](docs/setup/BuildInstruction.md) for wiring notes. At minimum you need:
 - ESP32 DevKit or equivalent (4 MB flash recommended)
 - 5 V power supply tied to `VIN` and `GND`
 - NeoPixel/WS2812 LED matrix connected to GPIO `D4`
@@ -61,7 +61,7 @@ Mount the LEDs starting at the upper-right corner, skip the first LED (index 0),
 | `include/`               | Public headers, secrets template, feature flags                            |
 | `lib/`                   | External and custom reusable libraries                                     |
 | `tools/`                 | Utility scripts such as OTA deployment helpers                             |
-| `docs/`                  | Build instructions, quick start sheet, task list                           |
+| `docs/`                  | Comprehensive documentation (release, development, technical, setup)       |
 
 Key modules to inspect first:
 - `src/main.cpp` bootstraps networking, OTA, web, and display subsystems.
@@ -70,9 +70,21 @@ Key modules to inspect first:
 
 ## Documentation
 
-- [QuickStart.md](docs/QuickStart.md): End-user setup walkthrough.
-- [BuildInstruction.md](docs/BuildInstruction.md): Physical assembly notes.
-- [todo](docs/todo): Backlog of open and completed tasks.
+Comprehensive documentation is organized by topic in the `docs/` folder:
+
+### For Users
+- **[QuickStart Guide](docs/setup/QuickStart.md)** - End-user setup walkthrough
+- **[Build Instructions](docs/setup/BuildInstruction.md)** - Physical assembly and wiring
+
+### For Developers & Maintainers
+- **[Release Pipeline](docs/release/START_HERE_RELEASE.md)** ⭐ - Creating and managing releases
+- **[Development Plans](docs/development/)** - Improvement proposals and roadmap
+- **[Technical Docs](docs/technical/)** - Performance, logging, architecture
+
+### Quick Links
+- 🚀 **[Create a Release](docs/release/START_HERE_RELEASE.md)** - Automated release pipeline
+- 📖 **[Full Documentation Index](docs/README.md)** - Complete documentation overview
+- 🔧 **[Release Quick Reference](docs/release/RELEASE_QUICK_START.md)** - Common release tasks
 
 ## Support & Contributions
 
