@@ -23,6 +23,7 @@ upload_params.ini
 uploadfs_ota.py
 build_info.h
 *.txt
+tools/
 
 # Backup- en tijdelijke bestanden
 *.bak
