@@ -23,6 +23,7 @@ upload_params.ini
 uploadfs_ota.py
 build_info.h
 *.txt
+tools/
 
 # Backup- en tijdelijke bestanden
 *.bak
@@ -38,6 +39,4 @@ lib/
 
 # Eventuele logbestanden
 *.log
-FIRMWARE_SIZE_REDUCTION_PLAN.md
-LOGGING_OVERVIEW.md
-LOGGING_STREAMLINING_PROPOSAL.md
+*.md
