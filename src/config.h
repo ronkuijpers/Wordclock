@@ -1,10 +1,10 @@
 // Log buffer and default log level
-#define DEFAULT_LOG_LEVEL LOG_LEVEL_INFO
+#define DEFAULT_LOG_LEVEL LOG_LEVEL_ERROR
 #define LOG_BUFFER_SIZE 150
 #pragma once
 
-#define FIRMWARE_VERSION "2025.12.29"
-#define UI_VERSION "2025.12.29"
+#define FIRMWARE_VERSION "26.1.4-rc.1"
+#define UI_VERSION "26.1.4-rc.1"
 
 #define DATA_PIN 4
 #define DEFAULT_BRIGHTNESS 5

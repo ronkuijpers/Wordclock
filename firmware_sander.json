@@ -1,0 +1,76 @@
+{
+  "version": "2025.12.31",
+  "ui_version": "2025.12.31",
+  "released": "2025-12-31T12:00:00Z",
+
+  "firmware": "https://github.com/ronkuijpers/Wordclock/releases/download/v2025.12.31/wordclock-v2025.12.31.bin",
+  "files": [
+    { "path": "/admin.html",    "url": "https://raw.githubusercontent.com/ronkuijpers/Wordclock/v2025.12.31/data/admin.html",    "sha256": "xxx" },
+    { "path": "/changepw.html", "url": "https://raw.githubusercontent.com/ronkuijpers/Wordclock/v2025.12.31/data/changepw.html", "sha256": "xxx" },
+    { "path": "/dashboard.html","url": "https://raw.githubusercontent.com/ronkuijpers/Wordclock/v2025.12.31/data/dashboard.html","sha256": "xxx" },
+    { "path": "/logs.html",     "url": "https://raw.githubusercontent.com/ronkuijpers/Wordclock/v2025.12.31/data/logs.html",     "sha256": "xxx" },
+    { "path": "/mqtt.html",     "url": "https://raw.githubusercontent.com/ronkuijpers/Wordclock/v2025.12.31/data/mqtt.html",     "sha256": "xxx" },
+    { "path": "/update.html",   "url": "https://raw.githubusercontent.com/ronkuijpers/Wordclock/v2025.12.31/data/update.html",   "sha256": "xxx" },
+    { "path": "/setup.html",    "url": "https://raw.githubusercontent.com/ronkuijpers/Wordclock/v2025.12.31/data/setup.html",    "sha256": "xxx" }
+  ],
+
+  "channels": {
+    "stable": {
+      "version": "26.1.1_develop",
+      "ui_version": "26.1.1_develop",
+      "released": "2026-01-01T12:00:00Z",
+      "firmware": {
+        "version": "26.1.1_develop",
+        "url": "https://github.com/ronkuijpers/Wordclock/releases/download/v26.1.1_develop/wordclock-v26.1.1_develop.bin"
+      },
+      "files": [
+        { "path": "/admin.html",    "url": "https://raw.githubusercontent.com/ronkuijpers/Wordclock/v26.1.1_develop/data/admin.html",    "sha256": "xxx" },
+        { "path": "/changepw.html", "url": "https://raw.githubusercontent.com/ronkuijpers/Wordclock/v26.1.1_develop/data/changepw.html", "sha256": "xxx" },
+        { "path": "/dashboard.html","url": "https://raw.githubusercontent.com/ronkuijpers/Wordclock/v26.1.1_develop/data/dashboard.html","sha256": "xxx" },
+        { "path": "/logs.html",     "url": "https://raw.githubusercontent.com/ronkuijpers/Wordclock/v26.1.1_develop/data/logs.html",     "sha256": "xxx" },
+        { "path": "/mqtt.html",     "url": "https://raw.githubusercontent.com/ronkuijpers/Wordclock/v26.1.1_develop/data/mqtt.html",     "sha256": "xxx" },
+        { "path": "/update.html",   "url": "https://raw.githubusercontent.com/ronkuijpers/Wordclock/v26.1.1_develop/data/update.html",   "sha256": "xxx" },
+        { "path": "/setup.html",    "url": "https://raw.githubusercontent.com/ronkuijpers/Wordclock/v26.1.1_develop/data/setup.html",    "sha256": "xxx" }
+      ],
+      "release_notes": "Dev release 26.1.1_develop"
+    },
+    "early": {
+      "version": "26.1.1_develop",
+      "ui_version": "26.1.1_develop",
+      "released": "2026-01-01T12:00:00Z",
+      "firmware": {
+        "version": "26.1.1_develop",
+        "url": "https://github.com/ronkuijpers/Wordclock/releases/download/v26.1.1_develop/wordclock-v26.1.1_develop.bin"
+      },
+      "files": [
+        { "path": "/admin.html",    "url": "https://raw.githubusercontent.com/ronkuijpers/Wordclock/v26.1.1_develop/data/admin.html",    "sha256": "xxx" },
+        { "path": "/changepw.html", "url": "https://raw.githubusercontent.com/ronkuijpers/Wordclock/v26.1.1_develop/data/changepw.html", "sha256": "xxx" },
+        { "path": "/dashboard.html","url": "https://raw.githubusercontent.com/ronkuijpers/Wordclock/v26.1.1_develop/data/dashboard.html","sha256": "xxx" },
+        { "path": "/logs.html",     "url": "https://raw.githubusercontent.com/ronkuijpers/Wordclock/v26.1.1_develop/data/logs.html",     "sha256": "xxx" },
+        { "path": "/mqtt.html",     "url": "https://raw.githubusercontent.com/ronkuijpers/Wordclock/v26.1.1_develop/data/mqtt.html",     "sha256": "xxx" },
+        { "path": "/update.html",   "url": "https://raw.githubusercontent.com/ronkuijpers/Wordclock/v26.1.1_develop/data/update.html",   "sha256": "xxx" },
+        { "path": "/setup.html",    "url": "https://raw.githubusercontent.com/ronkuijpers/Wordclock/v26.1.1_develop/data/setup.html",    "sha256": "xxx" }
+      ],
+      "release_notes": "Dev release 26.1.1_develop"
+    },
+    "develop": {
+      "version": "26.1.1_develop",
+      "ui_version": "26.1.1_develop",
+      "released": "2026-01-01T12:00:00Z",
+      "firmware": {
+        "version": "26.1.1_develop",
+        "url": "https://github.com/ronkuijpers/Wordclock/releases/download/v26.1.1_develop/wordclock-v26.1.1_develop.bin"
+      },
+      "files": [
+        { "path": "/admin.html",    "url": "https://raw.githubusercontent.com/ronkuijpers/Wordclock/v26.1.1_develop/data/admin.html",    "sha256": "xxx" },
+        { "path": "/changepw.html", "url": "https://raw.githubusercontent.com/ronkuijpers/Wordclock/v26.1.1_develop/data/changepw.html", "sha256": "xxx" },
+        { "path": "/dashboard.html","url": "https://raw.githubusercontent.com/ronkuijpers/Wordclock/v26.1.1_develop/data/dashboard.html","sha256": "xxx" },
+        { "path": "/logs.html",     "url": "https://raw.githubusercontent.com/ronkuijpers/Wordclock/v26.1.1_develop/data/logs.html",     "sha256": "xxx" },
+        { "path": "/mqtt.html",     "url": "https://raw.githubusercontent.com/ronkuijpers/Wordclock/v26.1.1_develop/data/mqtt.html",     "sha256": "xxx" },
+        { "path": "/update.html",   "url": "https://raw.githubusercontent.com/ronkuijpers/Wordclock/v26.1.1_develop/data/update.html",   "sha256": "xxx" },
+        { "path": "/setup.html",    "url": "https://raw.githubusercontent.com/ronkuijpers/Wordclock/v26.1.1_develop/data/setup.html",    "sha256": "xxx" }
+      ],
+      "release_notes": "Dev release 26.1.1_develop"
+    }
+  }
+}

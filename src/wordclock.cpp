@@ -206,15 +206,6 @@ void wordclock_loop() {
   }
   struct tm timeinfo = cachedTime;
 
-  // Debug: log every minute change
-  static int lastLoggedMinute = -1;
-  if (timeinfo.tm_min != lastLoggedMinute) {
-    lastLoggedMinute = timeinfo.tm_min;
-    char buf[20];
-    snprintf(buf, sizeof(buf), "🔄 %02d:%02d", timeinfo.tm_hour, timeinfo.tm_min);
-    logDebug(String(buf));
-  }
-
   // Determine current rounded bucket and extra minutes
   // Apply sell-mode override (forces 10:47)
   struct tm effective = timeinfo;
@@ -256,8 +247,7 @@ void wordclock_loop() {
         lastStepAt = millis();
         animating = true;
         hetIsVisibleUntil = 0; // reset; will be set when animation completes
-        String m = (mode == WordAnimationMode::Smart) ? "smart" : "classic";
-        logDebug(String("🎞️ Start animation to new text (") + m + ")");
+        // Animation started
       }
     } else {
       animating = false;
@@ -323,7 +313,7 @@ void wordclock_loop() {
         hetIsVisibleUntil = millis() + (unsigned long)hisSec * 1000UL;
       }
       g_lastSegments = g_animTargetSegments;
-  logDebug(String("Animation completed; steps=") + g_animFrames.size() + String(", HET IS duration=") + (hisSec>=360?"always": (hisSec==0?"off":String(hisSec)+"s")));
+  // Animation completed
     }
     return;
   }
@@ -343,7 +333,7 @@ void wordclock_loop() {
   } // hisSec>=360 => always show
 
   if (hideHetIs && !lastHetIsHidden) {
-  logDebug("'HET IS' hidden after configured duration");
+  // 'HET IS' hidden after configured duration
   }
   lastHetIsHidden = hideHetIs;
 

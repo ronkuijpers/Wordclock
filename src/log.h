@@ -22,8 +22,14 @@ void logln(String msg, int level = LOG_LEVEL_INFO);
 #define logError(msg) logln(msg, LOG_LEVEL_ERROR)
 
 void setLogLevel(LogLevel level);
+void setLogRetentionDays(uint32_t days);
+uint32_t getLogRetentionDays();
+void setLogDeleteOnBoot(bool enabled);
+bool getLogDeleteOnBoot();
+
 void initLogSettings();
 void logEnableFileSink();
+void logCloseFile();
 void logFlushFile();
 String logLatestFilePath();
 void logRewriteUnsynced();
