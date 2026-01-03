@@ -727,6 +727,19 @@
         }
       });
     }
+    
+    if (autoUpdCb) {
+      autoUpdCb.addEventListener('change', async () => {
+        const desired = autoUpdCb.checked;
+        try {
+          const res = await fetch(`/setAutoUpdate?state=${desired ? 'on' : 'off'}`);
+          if (!res.ok) throw new Error('HTTP ' + res.status);
+        } catch (e) {
+          autoUpdCb.checked = !desired; // revert on failure so UI matches device state
+          if (updateStatusEl) updateStatusEl.textContent = 'Saving automatic updates failed';
+        }
+      });
+    }
 
     const manualUploadForm = document.getElementById('firmwareUploadForm');
     const manualUploadStatusEl = document.getElementById('firmwareUploadStatus');
