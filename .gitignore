@@ -23,11 +23,13 @@ upload_params.ini
 uploadfs_ota.py
 build_info.h
 *.txt
+tools/
 
 # Backup- en tijdelijke bestanden
 *.bak
 *.tmp
 *.swp
+*.md
 
 # PlatformIO (indien gebruikt)
 .pio/
@@ -37,3 +39,4 @@ lib/
 
 # Eventuele logbestanden
 *.log
+*.md
