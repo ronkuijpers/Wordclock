@@ -1209,7 +1209,7 @@ void setupWebRoutes() {
     if (doc["colors"].is<JsonArray>()) {
       JsonArray arr = doc["colors"].as<JsonArray>();
       if (!arr || arr.size() != LOGO_LED_COUNT) {
-        server.send(400, "text/plain", "colors array must contain 25 hex strings");
+        server.send(400, "text/plain", String("colors array must contain ") + LOGO_LED_COUNT + " hex strings");
         return;
       }
       for (uint16_t i = 0; i < LOGO_LED_COUNT; ++i) {

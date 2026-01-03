@@ -61,7 +61,7 @@
         <label class="text-sm">Brightness: <span id="logoBrightnessValue" class="font-mono">-</span></label>
         <input type="range" min="0" max="255" id="logoBrightness" class="w-full">
       </div>
-      <div id="logoGrid" class="grid grid-cols-5 gap-2 mb-3"></div>
+      <div id="logoGrid" class="grid gap-2 mb-3"></div>
       <div class="flex items-center gap-3">
         <input type="color" id="logoAllColor" class="h-10 w-16 p-0 border rounded">
         <button id="logoFillAll" class="px-3 py-2 rounded bg-gray-200 text-gray-800 hover:bg-gray-300 text-sm">Vul alles</button>
@@ -406,10 +406,13 @@
       });
     }
 
+    const DEFAULT_LOGO_COUNT = 50;
     const logoGrid = document.getElementById('logoGrid');
     const logoPickers = [];
-    if (logoGrid) {
-      for (let i = 0; i < 25; i++) {
+    const syncLogoGrid = (count) => {
+      if (!logoGrid) return;
+      const target = Math.max(1, Math.min(500, parseInt(count, 10) || DEFAULT_LOGO_COUNT));
+      while (logoPickers.length < target) {
         const input = document.createElement('input');
         input.type = 'color';
         input.className = 'w-full h-10 p-0 border rounded';
@@ -417,6 +420,17 @@
         logoGrid.appendChild(input);
         logoPickers.push(input);
       }
+      while (logoPickers.length > target) {
+        const input = logoPickers.pop();
+        if (input && input.parentElement === logoGrid) {
+          logoGrid.removeChild(input);
+        }
+      }
+      const cols = Math.max(1, Math.min(10, Math.ceil(target / 5)));
+      logoGrid.style.gridTemplateColumns = `repeat(${cols}, minmax(0, 1fr))`;
+    };
+    if (logoGrid) {
+      syncLogoGrid(DEFAULT_LOGO_COUNT);
     }
     const logoBrightness = document.getElementById('logoBrightness');
     const logoBrightnessValue = document.getElementById('logoBrightnessValue');
@@ -427,6 +441,7 @@
       logoStatus.className = 'text-xs ' + (error ? 'text-red-600' : 'text-gray-600');
     };
     const renderLogoState = (data) => {
+      syncLogoGrid(data && data.count);
       if (logoBrightness && data.brightness !== undefined) {
         logoBrightness.value = data.brightness;
         if (logoBrightnessValue) logoBrightnessValue.textContent = data.brightness;

@@ -5,7 +5,7 @@
 
 #include "grid_layout.h"
 
-constexpr uint16_t LOGO_LED_COUNT = 25;
+constexpr uint16_t LOGO_LED_COUNT = 50;
 
 struct LogoLedColor {
   uint8_t r = 0;
