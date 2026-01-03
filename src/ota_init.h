@@ -20,10 +20,6 @@ inline void initOTA() {
         delay(OTA_UPDATE_COMPLETE_DELAY_MS);
         ESP.restart();
     });
-    ArduinoOTA.onProgress([](unsigned int progress, unsigned int total) {
-        uint8_t pct = (progress * 100) / total;
-        logInfo("📶 OTA Progress: " + String(pct) + "%");
-    });
     ArduinoOTA.onError([](ota_error_t err) {
         String msg = "[OTA] Error: ";
         switch (err) {

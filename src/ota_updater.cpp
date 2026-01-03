@@ -207,12 +207,12 @@ void syncFilesFromManifest() {
   String selectedChannel;
   JsonVariant channelBlock = selectChannelBlock(doc, requestedChannel, selectedChannel);
   if (requestedChannel != selectedChannel) {
-    logInfo(String("Manifest channel fallback: requested ") + requestedChannel + " -> using " + selectedChannel);
+    logDebug(String("Manifest channel fallback: requested ") + requestedChannel + " -> using " + selectedChannel);
   } else {
-    logInfo(String("Manifest channel: ") + selectedChannel);
+    logDebug(String("Manifest channel: ") + selectedChannel);
   }
   if (!channelBlock.isNull() && channelBlock["release_notes"].is<const char*>()) {
-    logInfo(String("Release notes (") + selectedChannel + "): " + channelBlock["release_notes"].as<const char*>());
+    logDebug(String("Release notes (") + selectedChannel + "): " + channelBlock["release_notes"].as<const char*>());
   }
 
   String manifestVersion;
@@ -268,9 +268,9 @@ void checkForFirmwareUpdate() {
   String selectedChannel;
   JsonVariant channelBlock = selectChannelBlock(doc, requestedChannel, selectedChannel);
   if (requestedChannel != selectedChannel) {
-    logInfo(String("Manifest channel fallback: requested ") + requestedChannel + " -> using " + selectedChannel);
+    logDebug(String("Manifest channel fallback: requested ") + requestedChannel + " -> using " + selectedChannel);
   } else {
-    logInfo(String("Manifest channel: ") + selectedChannel);
+    logDebug(String("Manifest channel: ") + selectedChannel);
   }
 
   JsonVariant firmwareBlock;
