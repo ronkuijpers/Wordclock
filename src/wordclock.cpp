@@ -22,9 +22,9 @@ static std::vector<std::vector<uint16_t>> g_animFrames;
 
 static void ensureNoTimeIndicatorLeds() {
   if (!g_noTimeIndicatorLeds.empty()) return;
-  size_t count = EXTRA_MINUTE_LED_COUNT >= 4 ? 4 : EXTRA_MINUTE_LED_COUNT;
-  for (size_t i = 0; i < count; ++i) {
-    g_noTimeIndicatorLeds.push_back(EXTRA_MINUTE_LEDS[i]);
+  // Use grid-specific NO_TIME_INDICATOR_LEDS if available
+  for (size_t i = 0; i < NO_TIME_INDICATOR_LED_COUNT; ++i) {
+    g_noTimeIndicatorLeds.push_back(NO_TIME_INDICATOR_LEDS[i]);
   }
 }
 
@@ -341,9 +341,8 @@ void wordclock_loop() {
     if (hideHetIs && isHetIs(seg)) continue;
     indices.insert(indices.end(), seg.leds.begin(), seg.leds.end());
   }
-  for (int i = 0; i < extra && i < 4; ++i) {
-    indices.push_back(EXTRA_MINUTE_LEDS[i]);
-  }
+  // No extra minute LEDs for 20x20 grids (extra minutes not shown)
+  (void)extra; // Mark as intentionally unused
   showLeds(indices);
   g_lastSegments = baseSegs;
 }

@@ -1,9 +1,7 @@
 #include "grid_variants/en_20x20_v1.h"
 
-// English 20x20 V1 layout
-const uint16_t LED_COUNT_GRID_EN_20x20_V1 = 146;
-const uint16_t LED_COUNT_EXTRA_EN_20x20_V1 = 15;
-const uint16_t LED_COUNT_TOTAL_EN_20x20_V1 = LED_COUNT_GRID_EN_20x20_V1 + LED_COUNT_EXTRA_EN_20x20_V1;
+// English 20x20 V1 layout - no HET/IS words
+const uint16_t LED_COUNT_TOTAL_EN_20x20_V1 = 146;
 
 const char* const LETTER_GRID_EN_20x20_V1[] = {
   "HETBISWYBRC",
@@ -19,16 +17,8 @@ const char* const LETTER_GRID_EN_20x20_V1[] = {
   "..-.-.-.-.."
 };
 
-const uint16_t EXTRA_MINUTES_EN_20x20_V1[] = {
-  static_cast<uint16_t>(LED_COUNT_GRID_EN_20x20_V1 + 7),
-  static_cast<uint16_t>(LED_COUNT_GRID_EN_20x20_V1 + 9),
-  static_cast<uint16_t>(LED_COUNT_GRID_EN_20x20_V1 + 11),
-  static_cast<uint16_t>(LED_COUNT_GRID_EN_20x20_V1 + 13)
-};
-
 const WordPosition WORDS_EN_20x20_V1[] = {
-  { "HET",         { 1, 2, 3 } },
-  { "IS",          { 5, 6 } },
+  // No HET/IS in 20x20 grid
   { "VIJF_M",      { 31, 32, 33, 34 } },
   { "TIEN_M",      { 25, 24, 23, 22 } },
   { "OVER",        { 56, 55, 54, 53 } },
@@ -51,5 +41,10 @@ const WordPosition WORDS_EN_20x20_V1[] = {
 };
 
 const size_t WORDS_EN_20x20_V1_COUNT = sizeof(WORDS_EN_20x20_V1) / sizeof(WORDS_EN_20x20_V1[0]);
-const size_t EXTRA_MINUTES_EN_20x20_V1_COUNT = sizeof(EXTRA_MINUTES_EN_20x20_V1) / sizeof(EXTRA_MINUTES_EN_20x20_V1[0]);
 
+// LEDs to blink when no time is available (e.g. NTP sync failed)
+// Define 4 corner LEDs or any LEDs you want to use as indicator
+const uint16_t NO_TIME_INDICATOR_LEDS_EN_20x20_V1[] = {
+  1, 9, 97, 105  // Example: 4 corner LEDs (top-left, top-right, bottom-left, bottom-right)
+};
+const size_t NO_TIME_INDICATOR_LEDS_EN_20x20_V1_COUNT = sizeof(NO_TIME_INDICATOR_LEDS_EN_20x20_V1) / sizeof(NO_TIME_INDICATOR_LEDS_EN_20x20_V1[0]);

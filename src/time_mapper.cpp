@@ -91,10 +91,8 @@ std::vector<uint16_t> get_led_indices_for_time(struct tm* timeinfo) {
       break;
   }
 
-  // Add extra minute LEDs if needed
-  for (int i = 0; i < extra_minutes && i < 4; ++i) {
-    leds.push_back(EXTRA_MINUTE_LEDS[i]);
-  }
+  // No extra minute LEDs for 20x20 grids
+  (void)extra_minutes; // Mark as intentionally unused
 
   return leds;
 }

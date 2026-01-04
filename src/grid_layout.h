@@ -24,8 +24,8 @@ struct GridVariantInfo {
 extern const char* const* LETTER_GRID;
 extern const WordPosition* ACTIVE_WORDS;
 extern size_t ACTIVE_WORD_COUNT;
-extern const uint16_t* EXTRA_MINUTE_LEDS;
-extern size_t EXTRA_MINUTE_LED_COUNT;
+extern const uint16_t* NO_TIME_INDICATOR_LEDS;
+extern size_t NO_TIME_INDICATOR_LED_COUNT;
 
 // Variant management helpers
 GridVariant getActiveGridVariant();
@@ -41,7 +41,5 @@ const GridVariantInfo* getGridVariantInfo(GridVariant variant);
 // Lightweight lookup instead of unordered_map
 const WordPosition* find_word(const char* name);
 
-// Active LED counts per variant
-uint16_t getActiveLedCountGrid();
-uint16_t getActiveLedCountExtra();
+// Active LED count
 uint16_t getActiveLedCountTotal();

@@ -8,71 +8,38 @@
 
 namespace {
 
-enum class MinuteLayout {
-  AfterGrid,
-  MixedIntoGrid
-};
-
 struct GridVariantData {
   GridVariant variant;
   const char* key;
   const char* label;
   const char* language;
   const char* version;
-  uint16_t ledCountGrid;
-  uint16_t ledCountExtra;
   uint16_t ledCountTotal;
   const char* const* letterGrid;
   const WordPosition* words;
   size_t wordCount;
-  const uint16_t* minuteLeds;
-  size_t minuteCount;
-  MinuteLayout minuteLayout;
+  const uint16_t* noTimeLeds;
+  size_t noTimeCount;
 };
 
 // Helper to compute array length at compile time
 template <typename T, size_t N>
 constexpr size_t countof(const T (&)[N]) { return N; }
 
-uint16_t computeTotalLedCount(const GridVariantData* data) {
-  if (!data) return 0;
-  if (data->minuteLayout == MinuteLayout::AfterGrid) {
-    return data->ledCountTotal;
-  }
-  uint16_t maxLed = data->ledCountGrid;
-  for (size_t i = 0; i < data->minuteCount; ++i) {
-    if (data->minuteLeds[i] > maxLed) {
-      maxLed = data->minuteLeds[i];
-    }
-  }
-  return maxLed;
-}
-
-uint16_t computeExtraLedCount(const GridVariantData* data) {
-  if (!data) return 0;
-  if (data->minuteLayout == MinuteLayout::AfterGrid) {
-    return data->ledCountExtra;
-  }
-  uint16_t total = computeTotalLedCount(data);
-  return total > data->ledCountGrid ? static_cast<uint16_t>(total - data->ledCountGrid) : 0;
-}
-
 static const GridVariantData GRID_VARIANTS[] = {
-  { GridVariant::NL_20x20_V1, "NL_20x20_V1", "Nederlands 20x20 V1", "nl", "v1", LED_COUNT_GRID_NL_20x20_V1, LED_COUNT_EXTRA_NL_20x20_V1, LED_COUNT_TOTAL_NL_20x20_V1, LETTER_GRID_NL_20x20_V1, WORDS_NL_20x20_V1, WORDS_NL_20x20_V1_COUNT, EXTRA_MINUTES_NL_20x20_V1, EXTRA_MINUTES_NL_20x20_V1_COUNT, MinuteLayout::AfterGrid },
-  { GridVariant::EN_20x20_V1, "EN_20x20_V1", "English 20x20 V1", "en", "v1", LED_COUNT_GRID_EN_20x20_V1, LED_COUNT_EXTRA_EN_20x20_V1, LED_COUNT_TOTAL_EN_20x20_V1, LETTER_GRID_EN_20x20_V1, WORDS_EN_20x20_V1, WORDS_EN_20x20_V1_COUNT, EXTRA_MINUTES_EN_20x20_V1, EXTRA_MINUTES_EN_20x20_V1_COUNT, MinuteLayout::AfterGrid }
+  { GridVariant::NL_20x20_V1, "NL_20x20_V1", "Nederlands 20x20 V1", "nl", "v1", LED_COUNT_TOTAL_NL_20x20_V1, LETTER_GRID_NL_20x20_V1, WORDS_NL_20x20_V1, WORDS_NL_20x20_V1_COUNT, NO_TIME_INDICATOR_LEDS_NL_20x20_V1, NO_TIME_INDICATOR_LEDS_NL_20x20_V1_COUNT },
+  { GridVariant::EN_20x20_V1, "EN_20x20_V1", "English 20x20 V1", "en", "v1", LED_COUNT_TOTAL_EN_20x20_V1, LETTER_GRID_EN_20x20_V1, WORDS_EN_20x20_V1, WORDS_EN_20x20_V1_COUNT, NO_TIME_INDICATOR_LEDS_EN_20x20_V1, NO_TIME_INDICATOR_LEDS_EN_20x20_V1_COUNT }
 };
 
 static const GridVariantData* activeVariant = &GRID_VARIANTS[0];
-static MinuteLayout activeMinuteLayout = MinuteLayout::AfterGrid;
 
 void applyActiveVariant(const GridVariantData* data) {
   activeVariant = data;
   LETTER_GRID = data->letterGrid;
   ACTIVE_WORDS = data->words;
   ACTIVE_WORD_COUNT = data->wordCount;
-  EXTRA_MINUTE_LEDS = data->minuteLeds;
-  EXTRA_MINUTE_LED_COUNT = data->minuteCount;
-  activeMinuteLayout = data->minuteLayout;
+  NO_TIME_INDICATOR_LEDS = data->noTimeLeds;
+  NO_TIME_INDICATOR_LED_COUNT = data->noTimeCount;
 }
 
 const GridVariantData* findVariant(GridVariant variant) {
@@ -100,8 +67,8 @@ const GridVariantData* findVariantByKey(const char* key) {
 const char* const* LETTER_GRID = LETTER_GRID_NL_20x20_V1;
 const WordPosition* ACTIVE_WORDS = WORDS_NL_20x20_V1;
 size_t ACTIVE_WORD_COUNT = WORDS_NL_20x20_V1_COUNT;
-const uint16_t* EXTRA_MINUTE_LEDS = EXTRA_MINUTES_NL_20x20_V1;
-size_t EXTRA_MINUTE_LED_COUNT = EXTRA_MINUTES_NL_20x20_V1_COUNT;
+const uint16_t* NO_TIME_INDICATOR_LEDS = NO_TIME_INDICATOR_LEDS_NL_20x20_V1;
+size_t NO_TIME_INDICATOR_LED_COUNT = NO_TIME_INDICATOR_LEDS_NL_20x20_V1_COUNT;
 
 GridVariant getActiveGridVariant() {
   return activeVariant->variant;
@@ -151,16 +118,8 @@ uint8_t gridVariantToId(GridVariant variant) {
   return 0;
 }
 
-uint16_t getActiveLedCountGrid() {
-  return activeVariant->ledCountGrid;
-}
-
-uint16_t getActiveLedCountExtra() {
-  return computeExtraLedCount(activeVariant);
-}
-
 uint16_t getActiveLedCountTotal() {
-  return computeTotalLedCount(activeVariant);
+  return activeVariant ? activeVariant->ledCountTotal : 0;
 }
 
 const GridVariantInfo* getGridVariantInfos(size_t& count) {
