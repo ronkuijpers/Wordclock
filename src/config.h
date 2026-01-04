@@ -6,7 +6,11 @@
 #define FIRMWARE_VERSION "26.1.5-rc.1"
 #define UI_VERSION "26.1.5-rc.1"
 
-#define DATA_PIN 4
+// Hardware Configuration
+// DATA_PIN: GPIO for NeoPixel data output
+// ESP32-C3-Mini compatible (GPIOs 0-21 available)
+// GPIO4 is a safe general-purpose pin for LED data
+#define DATA_PIN 5
 #define DEFAULT_BRIGHTNESS 5
 
 #define CLOCK_NAME "Wordclock"

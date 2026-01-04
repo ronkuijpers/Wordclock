@@ -28,10 +28,15 @@ Firmware for an ESP32-based word clock with OTA updates, a browser dashboard, an
 
 Refer to [docs/setup/BuildInstruction.md](docs/setup/BuildInstruction.md) for wiring notes. At minimum you need:
 - ESP32 DevKit or equivalent (4 MB flash recommended)
+- **ESP32-C3-Mini also supported** - see [ESP32-C3 Support Guide](docs/setup/ESP32-C3_Support.md)
 - 5 V power supply tied to `VIN` and `GND`
-- NeoPixel/WS2812 LED matrix connected to GPIO `D4`
+- NeoPixel/WS2812 LED matrix connected to GPIO `4` (D4)
 
 Mount the LEDs starting at the upper-right corner, skip the first LED (index 0), and leave four LED gaps when turning a corner.
+
+### Supported Boards
+- ESP32 (Xtensa dual-core) - `env:esp32dev`
+- ESP32-C3-Mini (RISC-V single-core) - `env:esp32-c3-mini`
 
 ## Firmware Options
 
@@ -75,6 +80,7 @@ Comprehensive documentation is organized by topic in the `docs/` folder:
 ### For Users
 - **[QuickStart Guide](docs/setup/QuickStart.md)** - End-user setup walkthrough
 - **[Build Instructions](docs/setup/BuildInstruction.md)** - Physical assembly and wiring
+- **[ESP32-C3 Support](docs/setup/ESP32-C3_Support.md)** - Using ESP32-C3-Mini chip
 
 ### For Developers & Maintainers
 - **[Release Pipeline](docs/release/START_HERE_RELEASE.md)** ⭐ - Creating and managing releases
