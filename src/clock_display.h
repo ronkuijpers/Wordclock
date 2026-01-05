@@ -39,6 +39,22 @@ public:
      */
     void reset();
     
+    // ========================================================================
+    // Public Static Helper Methods (useful for testing and external use)
+    // ========================================================================
+    
+    static bool isHetIs(const WordSegment& seg);
+    static void stripHetIsIfDisabled(std::vector<WordSegment>& segs, uint16_t hetIsDurationSec);
+    static std::vector<uint16_t> flattenSegments(const std::vector<WordSegment>& segs);
+    static const WordSegment* findSegment(const std::vector<WordSegment>& segs, const char* key);
+    static void removeLeds(std::vector<uint16_t>& base, const std::vector<uint16_t>& toRemove);
+    static bool hetIsCurrentlyVisible(uint16_t hetIsDurationSec, unsigned long hetIsVisibleUntil, unsigned long nowMs);
+    static void buildClassicFrames(const std::vector<WordSegment>& segs, std::vector<std::vector<uint16_t>>& frames);
+    static void buildSmartFrames(const std::vector<WordSegment>& prevSegments,
+                                const std::vector<WordSegment>& nextSegments,
+                                bool hetIsVisible,
+                                std::vector<std::vector<uint16_t>>& frames);
+    
 private:
     // State management structures
     struct AnimationState {
@@ -107,19 +123,6 @@ private:
     void displayStaticTime(const DisplayTime& dt);
     bool shouldHideHetIs(unsigned long nowMs);
     void updateHetIsVisibility(unsigned long nowMs);
-    
-    // Helper methods (static-like, extracted from wordclock.cpp)
-    static bool isHetIs(const WordSegment& seg);
-    static void stripHetIsIfDisabled(std::vector<WordSegment>& segs, uint16_t hetIsDurationSec);
-    static std::vector<uint16_t> flattenSegments(const std::vector<WordSegment>& segs);
-    static const WordSegment* findSegment(const std::vector<WordSegment>& segs, const char* key);
-    static void removeLeds(std::vector<uint16_t>& base, const std::vector<uint16_t>& toRemove);
-    static bool hetIsCurrentlyVisible(uint16_t hetIsDurationSec, unsigned long hetIsVisibleUntil, unsigned long nowMs);
-    static void buildClassicFrames(const std::vector<WordSegment>& segs, std::vector<std::vector<uint16_t>>& frames);
-    static void buildSmartFrames(const std::vector<WordSegment>& prevSegments,
-                                const std::vector<WordSegment>& nextSegments,
-                                bool hetIsVisible,
-                                std::vector<std::vector<uint16_t>>& frames);
 };
 
 // Global instance

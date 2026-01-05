@@ -55,6 +55,30 @@ public:
         return data_ == (cstr ? cstr : "");
     }
     
+    bool operator!=(const String& other) const {
+        return data_ != other.data_;
+    }
+    
+    bool operator!=(const char* cstr) const {
+        return data_ != (cstr ? cstr : "");
+    }
+    
+    void toLowerCase() {
+        for (char& c : data_) {
+            if (c >= 'A' && c <= 'Z') {
+                c = c - 'A' + 'a';
+            }
+        }
+    }
+    
+    void toUpperCase() {
+        for (char& c : data_) {
+            if (c >= 'a' && c <= 'z') {
+                c = c - 'a' + 'A';
+            }
+        }
+    }
+    
     void trim() {
         size_t start = data_.find_first_not_of(" \t\n\r");
         size_t end = data_.find_last_not_of(" \t\n\r");
