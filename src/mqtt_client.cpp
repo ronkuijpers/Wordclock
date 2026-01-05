@@ -1,4 +1,5 @@
 #include "mqtt_client.h"
+#include "mqtt_command_handler.h"
 #include <WiFi.h>
 #include <PubSubClient.h>
 #include <ArduinoJson.h>
@@ -314,7 +315,8 @@ static void publishAvailability(const char* st) {
   mqtt.publish(availTopic.c_str(), st, true);
 }
 
-static void publishLightState() {
+// Publisher functions (now non-static so they can be accessed by command handlers)
+void publishLightState() {
   JsonDocument doc;
   uint8_t r, g, b, w; ledState.getRGBW(r,g,b,w);
   doc["state"] = clockEnabled ? "ON" : "OFF";
@@ -325,16 +327,16 @@ static void publishLightState() {
   mqtt.publish(tLightState.c_str(), out.c_str(), true);
 }
 
-static void publishSwitch(const String& topic, bool on) {
+void publishSwitch(const String& topic, bool on) {
   mqtt.publish(topic.c_str(), on ? "ON" : "OFF", true);
 }
 
-static void publishNumber(const String& topic, int v) {
+void publishNumber(const String& topic, int v) {
   char buf[16]; snprintf(buf, sizeof(buf), "%d", v);
   mqtt.publish(topic.c_str(), buf, true);
 }
 
-static void publishSelect(const String& topic) {
+void publishSelect(const String& topic) {
   extern LogLevel LOG_LEVEL;
   const char* s = "INFO";
   switch (LOG_LEVEL) {
@@ -346,7 +348,7 @@ static void publishSelect(const String& topic) {
   mqtt.publish(topic.c_str(), s, true);
 }
 
-static void publishNightOverrideState() {
+void publishNightOverrideState() {
   const char* s = "AUTO";
   switch (nightMode.getOverride()) {
     case NightModeOverride::ForceOn:  s = "ON"; break;
@@ -357,20 +359,20 @@ static void publishNightOverrideState() {
   mqtt.publish(tNightOverrideState.c_str(), s, true);
 }
 
-static void publishNightActiveState() {
+void publishNightActiveState() {
   mqtt.publish(tNightActiveState.c_str(), nightMode.isActive() ? "ON" : "OFF", true);
 }
 
-static void publishNightEffectState() {
+void publishNightEffectState() {
   const char* s = (nightMode.getEffect() == NightModeEffect::Off) ? "OFF" : "DIM";
   mqtt.publish(tNightEffectState.c_str(), s, true);
 }
 
-static void publishNightDimState() {
+void publishNightDimState() {
   publishNumber(tNightDimState, nightMode.getDimPercent());
 }
 
-static void publishNightScheduleState() {
+void publishNightScheduleState() {
   String start = nightMode.formatMinutes(nightMode.getStartMinutes());
   String end = nightMode.formatMinutes(nightMode.getEndMinutes());
   mqtt.publish(tNightStartState.c_str(), start.c_str(), true);
@@ -467,113 +469,133 @@ static void publishBirth() {
   mqtt.publish(tBirth.c_str(), out.c_str(), true);
 }
 
-static void handleMessage(char* topic, byte* payload, unsigned int length) {
-  String msg;
-  for (unsigned int i = 0; i < length; i++) msg += (char)payload[i];
-
-  auto is = [&](const String& t){ return strcmp(topic, t.c_str())==0; };
-
-  if (is(tLightSet)) {
-    // Expect JSON payload {state, brightness, color:{r,g,b}}
-    JsonDocument doc;
-    DeserializationError err = deserializeJson(doc, msg);
-    if (!err) {
-      if (doc["state"].is<const char*>()) {
-        const char* st = doc["state"];
-        clockEnabled = (strcmp(st, "ON")==0);
-      }
-      if (doc["brightness"].is<int>()) {
-        int br = doc["brightness"].as<int>(); br = constrain(br, 0, 255); ledState.setBrightness(br);
-      }
-      if (doc["color"].is<JsonObject>()) {
-        uint8_t r = doc["color"]["r"] | 0; uint8_t g = doc["color"]["g"] | 0; uint8_t b = doc["color"]["b"] | 0;
-        ledState.setRGB(r,g,b);
-      }
-      // Apply display immediately
-      struct tm timeinfo; if (getLocalTime(&timeinfo)) { auto idx = get_led_indices_for_time(&timeinfo); showLeds(idx); }
-      publishLightState();
-    }
-  } else if (is(tClockSet)) {
-    bool on = (msg == "ON" || msg == "on" || msg == "1");
-    clockEnabled = on;
-    publishSwitch(tClockState, on);
-  } else if (is(tAnimSet)) {
-    bool on = (msg == "ON" || msg == "on" || msg == "1");
-    displaySettings.setAnimateWords(on);
-    publishSwitch(tAnimState, on);
-  } else if (is(tAutoUpdSet)) {
-    bool on = (msg == "ON" || msg == "on" || msg == "1");
-    displaySettings.setAutoUpdate(on);
-    publishSwitch(tAutoUpdState, on);
-  } else if (is(tHetIsSet)) {
-    int v = msg.toInt(); v = constrain(v, 0, 360); displaySettings.setHetIsDurationSec((uint16_t)v);
-    publishNumber(tHetIsState, v);
-  } else if (is(tNightEnabledSet)) {
-    bool on = (msg == "ON" || msg == "on" || msg == "1" || msg == "true" || msg == "True");
-    nightMode.setEnabled(on);
-    publishSwitch(tNightEnabledState, nightMode.isEnabled());
-  } else if (is(tNightOverrideSet)) {
-    String lower = msg;
-    lower.toUpperCase();
-    if (lower == "AUTO") {
-      nightMode.setOverride(NightModeOverride::Auto);
-    } else if (lower == "ON") {
-      nightMode.setOverride(NightModeOverride::ForceOn);
-    } else if (lower == "OFF") {
-      nightMode.setOverride(NightModeOverride::ForceOff);
-    } else {
-      logWarn(String("MQTT night override invalid payload: ") + msg);
-      return;
-    }
-    publishNightOverrideState();
-    publishNightActiveState();
-  } else if (is(tNightEffectSet)) {
-    String eff = msg;
-    eff.toUpperCase();
-    if (eff == "OFF") {
-      nightMode.setEffect(NightModeEffect::Off);
-    } else if (eff == "DIM") {
-      nightMode.setEffect(NightModeEffect::Dim);
-    } else {
-      logWarn(String("MQTT night effect invalid payload: ") + msg);
-      return;
-    }
-    publishNightEffectState();
-  } else if (is(tNightDimSet)) {
-    int pct = msg.toInt();
-    pct = constrain(pct, 0, 100);
-    nightMode.setDimPercent((uint8_t)pct);
-    publishNightDimState();
-  } else if (is(tNightStartSet)) {
-    String startStr = msg;
-    uint16_t minutes = 0;
-    if (!NightMode::parseTimeString(startStr, minutes)) {
-      logWarn(String("MQTT night start invalid payload: ") + msg);
-      return;
-    }
-    nightMode.setSchedule(minutes, nightMode.getEndMinutes());
-    publishNightScheduleState();
-  } else if (is(tNightEndSet)) {
-    String endStr = msg;
-    uint16_t minutes = 0;
-    if (!NightMode::parseTimeString(endStr, minutes)) {
-      logWarn(String("MQTT night end invalid payload: ") + msg);
-      return;
-    }
-    nightMode.setSchedule(nightMode.getStartMinutes(), minutes);
-    publishNightScheduleState();
-  } else if (is(tLogLvlSet)) {
-    LogLevel level = LOG_LEVEL_INFO;
-    if (msg == "DEBUG") level = LOG_LEVEL_DEBUG; else if (msg == "INFO") level = LOG_LEVEL_INFO; else if (msg == "WARN") level = LOG_LEVEL_WARN; else if (msg == "ERROR") level = LOG_LEVEL_ERROR;
-    setLogLevel(level);
-    publishSelect(tLogLvlState);
-  } else if (is(tRestartCmd)) {
+/**
+ * @brief Initialize MQTT command handlers
+ * 
+ * Registers all command handlers with the command registry.
+ * This replaces the large if-else chain that was in handleMessage().
+ */
+static void initCommandHandlers() {
+  auto& registry = MqttCommandRegistry::instance();
+  
+  // Light (complex JSON)
+  registry.registerHandler(tLightSet, new LightCommandHandler());
+  
+  // Simple switches
+  registry.registerHandler(tClockSet, new SwitchCommandHandler(
+    "clock",
+    [](bool on) { clockEnabled = on; },
+    []() { publishSwitch(tClockState, clockEnabled); }
+  ));
+  
+  registry.registerHandler(tAnimSet, new SwitchCommandHandler(
+    "animate",
+    [](bool on) { displaySettings.setAnimateWords(on); },
+    []() { publishSwitch(tAnimState, displaySettings.getAnimateWords()); }
+  ));
+  
+  registry.registerHandler(tAutoUpdSet, new SwitchCommandHandler(
+    "auto_update",
+    [](bool on) { displaySettings.setAutoUpdate(on); },
+    []() { publishSwitch(tAutoUpdState, displaySettings.getAutoUpdate()); }
+  ));
+  
+  registry.registerHandler(tNightEnabledSet, new SwitchCommandHandler(
+    "night_enabled",
+    [](bool on) { nightMode.setEnabled(on); },
+    []() { publishSwitch(tNightEnabledState, nightMode.isEnabled()); }
+  ));
+  
+  // Number handlers
+  registry.registerHandler(tHetIsSet, new NumberCommandHandler(
+    0, 360,
+    [](int v) { displaySettings.setHetIsDurationSec((uint16_t)v); },
+    []() { publishNumber(tHetIsState, displaySettings.getHetIsDurationSec()); }
+  ));
+  
+  registry.registerHandler(tNightDimSet, new NumberCommandHandler(
+    0, 100,
+    [](int v) { nightMode.setDimPercent((uint8_t)v); },
+    []() { publishNightDimState(); }
+  ));
+  
+  // Select handlers
+  registry.registerHandler(tNightOverrideSet, new SelectCommandHandler(
+    {"AUTO", "ON", "OFF"},
+    [](const String& val) {
+      if (val == "AUTO") nightMode.setOverride(NightModeOverride::Auto);
+      else if (val == "ON") nightMode.setOverride(NightModeOverride::ForceOn);
+      else if (val == "OFF") nightMode.setOverride(NightModeOverride::ForceOff);
+    },
+    []() { publishNightOverrideState(); publishNightActiveState(); }
+  ));
+  
+  registry.registerHandler(tNightEffectSet, new SelectCommandHandler(
+    {"DIM", "OFF"},
+    [](const String& val) {
+      if (val == "DIM") nightMode.setEffect(NightModeEffect::Dim);
+      else if (val == "OFF") nightMode.setEffect(NightModeEffect::Off);
+    },
+    []() { publishNightEffectState(); }
+  ));
+  
+  registry.registerHandler(tLogLvlSet, new SelectCommandHandler(
+    {"DEBUG", "INFO", "WARN", "ERROR"},
+    [](const String& val) {
+      LogLevel level = LOG_LEVEL_INFO;
+      if (val == "DEBUG") level = LOG_LEVEL_DEBUG;
+      else if (val == "INFO") level = LOG_LEVEL_INFO;
+      else if (val == "WARN") level = LOG_LEVEL_WARN;
+      else if (val == "ERROR") level = LOG_LEVEL_ERROR;
+      setLogLevel(level);
+    },
+    []() { publishSelect(tLogLvlState); }
+  ));
+  
+  // Time string handlers
+  registry.registerHandler(tNightStartSet, new TimeStringCommandHandler(
+    NightMode::parseTimeString,
+    [](uint16_t minutes) { nightMode.setSchedule(minutes, nightMode.getEndMinutes()); },
+    []() { publishNightScheduleState(); },
+    "night_start"
+  ));
+  
+  registry.registerHandler(tNightEndSet, new TimeStringCommandHandler(
+    NightMode::parseTimeString,
+    [](uint16_t minutes) { nightMode.setSchedule(nightMode.getStartMinutes(), minutes); },
+    []() { publishNightScheduleState(); },
+    "night_end"
+  ));
+  
+  // Simple button commands (no response needed)
+  registry.registerLambda(tRestartCmd, [](const String&) {
     safeRestart();
-  } else if (is(tSeqCmd)) {
-    extern StartupSequence startupSequence; startupSequence.start();
-  } else if (is(tUpdateCmd)) {
+  });
+  
+  registry.registerLambda(tSeqCmd, [](const String&) {
+    extern StartupSequence startupSequence;
+    startupSequence.start();
+  });
+  
+  registry.registerLambda(tUpdateCmd, [](const String&) {
     checkForFirmwareUpdate();
+  });
+}
+
+/**
+ * @brief Handle incoming MQTT message
+ * 
+ * Simplified handler that delegates to the command registry.
+ * Replaced the 107-line if-else chain with this clean implementation.
+ */
+static void handleMessage(char* topic, byte* payload, unsigned int length) {
+  String topicStr(topic);
+  String payloadStr;
+  for (unsigned int i = 0; i < length; i++) {
+    payloadStr += (char)payload[i];
   }
+  
+  MqttCommandRegistry::instance().handleMessage(topicStr, payloadStr);
 }
 
 static bool mqtt_connect() {
@@ -612,6 +634,9 @@ static bool mqtt_connect() {
   publishAvailability("online");
   publishBirth();
   publishDiscovery();
+  
+  // Initialize command handlers (register all topics)
+  initCommandHandlers();
 
   // Subscriptions
   mqtt.subscribe(tLightSet.c_str());
