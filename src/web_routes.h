@@ -505,14 +505,6 @@ void setupWebRoutes() {
     server.send(200, "application/json", json);
   });
 
-  // Force MQTT reconnection (clears abort state)
-  server.on("/api/mqtt/reconnect", HTTP_POST, []() {
-    if (!ensureUiAuth()) return;
-    logInfo("🔄 Force MQTT reconnect requested via web UI");
-    mqtt_force_reconnect();
-    server.send(200, "text/plain", "MQTT reconnection triggered");
-  });
-
   // MQTT connection test (does not save). Accepts form-encoded: host, port, user?, pass?
   server.on("/api/mqtt/test", HTTP_POST, []() {
     if (!ensureUiAuth()) return;
