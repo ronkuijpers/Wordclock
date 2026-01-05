@@ -31,7 +31,8 @@ echo "Generating coverage reports..."
 
 # Find all .gcda files (check both native and native_coverage)
 BUILD_DIR=".pio/build/$TEST_ENV"
-if ! find "$BUILD_DIR" -name "*.gcda" -type f > /dev/null 2>&1; then
+GCDA_COUNT=$(find "$BUILD_DIR" -name "*.gcda" -type f 2>/dev/null | wc -l)
+if [[ $GCDA_COUNT -eq 0 ]]; then
     echo "⚠️  No coverage data found in $BUILD_DIR"
     
     if [[ "$TEST_ENV" == "native" ]]; then
