@@ -29,7 +29,6 @@ tools/
 *.bak
 *.tmp
 *.swp
-*.md
 
 # PlatformIO (indien gebruikt)
 .pio/
@@ -39,4 +38,11 @@ lib/
 
 # Eventuele logbestanden
 *.log
+
+# Ignore all markdown docs
 *.md
+
+# But keep essential repo files
+!README.md
+!CHANGELOG.md
+!CONTRIBUTING.md
