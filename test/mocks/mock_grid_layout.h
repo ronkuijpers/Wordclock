@@ -61,6 +61,7 @@ size_t EXTRA_MINUTE_LED_COUNT = EXTRA_MINUTES_TEST_COUNT;
 
 // Helper to find a word in the test grid
 inline const WordPosition* find_word(const char* name) {
+    if (!name) return nullptr;  // Handle nullptr input
     for (size_t i = 0; i < ACTIVE_WORD_COUNT; ++i) {
         if (strcmp(ACTIVE_WORDS[i].word, name) == 0) {
             return &ACTIVE_WORDS[i];

@@ -1,0 +1,192 @@
+name: Release Build
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'  # Trigger on version tags like v27.0.0
+  workflow_dispatch:  # Allow manual triggering
+    inputs:
+      tag:
+        description: 'Tag to build (e.g., v27.0.0)'
+        required: true
+        type: string
+
+jobs:
+  test:
+    name: Run Tests
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Cache PlatformIO
+      uses: actions/cache@v3
+      with:
+        path: |
+          ~/.platformio
+          .pio
+        key: ${{ runner.os }}-pio-${{ hashFiles('**/platformio.ini') }}
+        restore-keys: |
+          ${{ runner.os }}-pio-
+    
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+    
+    - name: Install PlatformIO
+      run: |
+        python -m pip install --upgrade pip
+        pip install platformio
+    
+    - name: Run unit tests
+      run: |
+        echo "Running unit test suite..."
+        pio test -e native -v
+    
+    - name: Test Results Summary
+      if: always()
+      run: |
+        echo "## 🧪 Test Results" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        if [ $? -eq 0 ]; then
+          echo "✅ All 135 tests passed!" >> $GITHUB_STEP_SUMMARY
+        else
+          echo "❌ Some tests failed. Release cannot proceed." >> $GITHUB_STEP_SUMMARY
+        fi
+
+  build:
+    name: Build Firmware
+    runs-on: ubuntu-latest
+    needs: test  # Only build if tests pass
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Cache PlatformIO
+      uses: actions/cache@v3
+      with:
+        path: |
+          ~/.platformio
+          .pio
+        key: ${{ runner.os }}-pio-build-${{ hashFiles('**/platformio.ini') }}
+        restore-keys: |
+          ${{ runner.os }}-pio-build-
+    
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+    
+    - name: Install PlatformIO
+      run: |
+        python -m pip install --upgrade pip
+        pip install platformio
+    
+    - name: Extract version from tag
+      id: version
+      run: |
+        if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+          VERSION="${{ github.event.inputs.tag }}"
+        else
+          VERSION="${GITHUB_REF#refs/tags/}"
+        fi
+        echo "version=$VERSION" >> $GITHUB_OUTPUT
+        echo "Building version: $VERSION"
+    
+    - name: Build firmware
+      run: |
+        echo "Building firmware for ESP32..."
+        pio run --environment esp32dev
+    
+    - name: Prepare artifacts
+      run: |
+        mkdir -p dist
+        VERSION="${{ steps.version.outputs.version }}"
+        cp .pio/build/esp32dev/firmware.bin dist/wordclock-$VERSION.bin
+        
+        # Generate checksums
+        cd dist
+        sha256sum wordclock-$VERSION.bin > wordclock-$VERSION.bin.sha256
+        
+        # Show build info
+        ls -lh wordclock-$VERSION.bin
+    
+    - name: Upload firmware artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: firmware-${{ steps.version.outputs.version }}
+        path: |
+          dist/*.bin
+          dist/*.sha256
+        retention-days: 90
+    
+    - name: Build Summary
+      run: |
+        VERSION="${{ steps.version.outputs.version }}"
+        echo "## 🚀 Build Complete" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "**Version:** $VERSION" >> $GITHUB_STEP_SUMMARY
+        echo "**Platform:** ESP32" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "### 📦 Artifacts" >> $GITHUB_STEP_SUMMARY
+        echo "- \`wordclock-$VERSION.bin\`" >> $GITHUB_STEP_SUMMARY
+        echo "- \`wordclock-$VERSION.bin.sha256\`" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "Firmware is ready for release!" >> $GITHUB_STEP_SUMMARY
+
+  release:
+    name: Create GitHub Release
+    runs-on: ubuntu-latest
+    needs: build  # Only release if build succeeds
+    if: startsWith(github.ref, 'refs/tags/')  # Only for tag pushes, not manual
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Download firmware artifact
+      uses: actions/download-artifact@v4
+      with:
+        name: firmware-${{ github.ref_name }}
+        path: dist/
+    
+    - name: Determine release type
+      id: release_type
+      run: |
+        VERSION="${GITHUB_REF#refs/tags/v}"
+        if [[ "$VERSION" =~ (alpha|dev) ]]; then
+          echo "prerelease=true" >> $GITHUB_OUTPUT
+          echo "latest=false" >> $GITHUB_OUTPUT
+        elif [[ "$VERSION" =~ (beta|rc) ]]; then
+          echo "prerelease=true" >> $GITHUB_OUTPUT
+          echo "latest=false" >> $GITHUB_OUTPUT
+        else
+          echo "prerelease=false" >> $GITHUB_OUTPUT
+          echo "latest=true" >> $GITHUB_OUTPUT
+        fi
+    
+    - name: Create GitHub Release
+      uses: softprops/action-gh-release@v1
+      with:
+        files: |
+          dist/*.bin
+          dist/*.sha256
+        generate_release_notes: true
+        prerelease: ${{ steps.release_type.outputs.prerelease }}
+        make_latest: ${{ steps.release_type.outputs.latest }}
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    
+    - name: Release Summary
+      run: |
+        echo "## 🎉 Release Published" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "**Tag:** ${{ github.ref_name }}" >> $GITHUB_STEP_SUMMARY
+        echo "**Pre-release:** ${{ steps.release_type.outputs.prerelease }}" >> $GITHUB_STEP_SUMMARY
+        echo "**Latest:** ${{ steps.release_type.outputs.latest }}" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "View release: ${{ github.server_url }}/${{ github.repository }}/releases/tag/${{ github.ref_name }}" >> $GITHUB_STEP_SUMMARY
+
