@@ -642,15 +642,18 @@ static bool mqtt_connect() {
   mqtt_publish_state(true);
   g_connected = true;
   
+  // Log successful recovery - especially important if recovering from abort state
+  if (reconnectAborted) {
+    logInfo(String("✅ MQTT reconnected successfully after slow retry mode! Previous error: ") + 
+            (g_lastErr.length() ? g_lastErr : String("unknown")));
+  } else if (g_lastErr.length() > 0) {
+    logInfo(String("✅ MQTT reconnected successfully after error: ") + g_lastErr);
+  }
+  
   // Reset reconnection state on success
   reconnectAttempts = 0;
   reconnectDelayMs = RECONNECT_DELAY_MIN_MS;
   reconnectAborted = false;
-  
-  // Log successful recovery if there was a previous error
-  if (g_lastErr.length() > 0) {
-    logInfo(String("✅ MQTT reconnected successfully after error: ") + g_lastErr);
-  }
   g_lastErr = "";
   
   return true;
@@ -694,11 +697,14 @@ void mqtt_loop() {
     return;
   }
   mqttConfiguredLogged = false;
-  if (reconnectAborted) return;
+  
+  // When reconnectAborted is true, still attempt periodic reconnection
+  // but with a longer interval (5 minutes) to allow network recovery
+  unsigned long effectiveReconnectDelay = reconnectAborted ? 300000UL : reconnectDelayMs;  // 5 min when aborted
 
   if (!mqtt.connected()) {
     unsigned long now = millis();
-    if (now - lastReconnectAttempt >= reconnectDelayMs) {
+    if (now - lastReconnectAttempt >= effectiveReconnectDelay) {
       lastReconnectAttempt = now;
       if (!mqtt_connect()) {
         g_connected = false;
@@ -711,12 +717,13 @@ void mqtt_loop() {
         if (jittered > RECONNECT_DELAY_MAX_MS) jittered = RECONNECT_DELAY_MAX_MS;
         reconnectDelayMs = jittered;
         if (reconnectDelayMs >= RECONNECT_DELAY_MAX_MS) {
-          String errMsg = String("⏸️ MQTT reconnect paused after reaching max backoff (") +
+          String errMsg = String("⏸️ MQTT reconnect entering slow retry mode after reaching max backoff (") +
                           RECONNECT_DELAY_MAX_MS + " ms); last error: " +
                           (g_lastErr.length() ? g_lastErr : String("unknown")) +
-                          String(". Will retry on network recovery, config change, or manual reconnect.");
+                          String(". Will retry every 5 minutes, or immediately on config change/manual reconnect.");
           logWarn(errMsg);
           reconnectAborted = true;
+          reconnectDelayMs = 300000UL;  // Switch to 5-minute retry interval
           // Note: reconnectAborted will be cleared on:
           // 1. Successful connection (mqtt_connect success path)
           // 2. Configuration change (mqtt_apply_settings)
