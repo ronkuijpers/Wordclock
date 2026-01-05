@@ -29,7 +29,6 @@ tools/
 *.bak
 *.tmp
 *.swp
-*.md
 
 # PlatformIO (indien gebruikt)
 .pio/
@@ -39,4 +38,3 @@ lib/
 
 # Eventuele logbestanden
 *.log
-*.md
