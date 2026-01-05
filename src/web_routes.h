@@ -27,6 +27,7 @@
 #include "night_mode.h"
 #include "build_info.h"
 #include "setup_state.h"
+#include "system_utils.h"
 #include <WiFi.h>
 #include <Arduino.h>
 
@@ -1003,7 +1004,7 @@ void setupWebRoutes() {
       </html>
     )rawliteral");
     delay(100);  // Small delay to finish the HTTP response
-    ESP.restart();
+    safeRestart();
   });
 
   server.on("/resetwifi", []() {
@@ -1092,7 +1093,7 @@ void setupWebRoutes() {
       server.send(200, "text/plain", Update.hasError() ? "Firmware update failed" : "Firmware update successful. Rebooting...");
       if (!Update.hasError()) {
         delay(1000);
-        ESP.restart();
+        safeRestart();
       }
     },
     []() {
@@ -1133,7 +1134,7 @@ void setupWebRoutes() {
       server.send(200, "text/plain", Update.hasError() ? "SPIFFS update failed" : "SPIFFS update successful. Rebooting...");
       if (!Update.hasError()) {
         delay(1000);
-        ESP.restart();
+        safeRestart();
       }
     },
     []() {

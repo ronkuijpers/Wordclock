@@ -192,7 +192,7 @@ void setLogLevel(LogLevel level) {
   LOG_LEVEL = level;
   // Persist new level
   Preferences prefs;
-  prefs.begin("log", false);
+  prefs.begin("wc_log", false);
   prefs.putUChar("level", (uint8_t)level);
   prefs.end();
 }
@@ -202,7 +202,7 @@ void setLogRetentionDays(uint32_t days) {
   if (days > 10) days = 10;
   LOG_RETENTION_DAYS = days;
   Preferences prefs;
-  prefs.begin("log", false);
+  prefs.begin("wc_log", false);
   prefs.putUInt("retention", days);
   prefs.end();
 }
@@ -214,7 +214,7 @@ uint32_t getLogRetentionDays() {
 void setLogDeleteOnBoot(bool enabled) {
   LOG_DELETE_ON_BOOT = enabled;
   Preferences prefs;
-  prefs.begin("log", false);
+  prefs.begin("wc_log", false);
   prefs.putBool("delOnBoot", enabled);
   prefs.end();
 }
@@ -226,7 +226,7 @@ bool getLogDeleteOnBoot() {
 void initLogSettings() {
   // Load persisted settings if available
   Preferences prefs;
-  prefs.begin("log", true);
+  prefs.begin("wc_log", true);
   uint8_t lvl = prefs.getUChar("level", (uint8_t)DEFAULT_LOG_LEVEL);
   LOG_RETENTION_DAYS = prefs.getUInt("retention", 1);
   LOG_DELETE_ON_BOOT = prefs.getBool("delOnBoot", false);

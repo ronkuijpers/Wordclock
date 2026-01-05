@@ -14,6 +14,7 @@
 #include <esp_system.h>
 #include <Preferences.h>
 #include "night_mode.h"
+#include "system_utils.h"
 
 extern DisplaySettings displaySettings;
 extern bool clockEnabled;
@@ -576,7 +577,7 @@ static void handleMessage(char* topic, byte* payload, unsigned int length) {
     setLogLevel(level);
     publishSelect(tLogLvlState);
   } else if (is(tRestartCmd)) {
-    ESP.restart();
+    safeRestart();
   } else if (is(tSeqCmd)) {
     extern StartupSequence startupSequence; startupSequence.start();
   } else if (is(tUpdateCmd)) {
