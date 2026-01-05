@@ -136,51 +136,51 @@
       "release_notes": "Early channel currently 1 version ahead of stable."
     },
     "develop": {
-      "version": "26.1.5-dev",
-      "ui_version": "26.1.5-dev",
-      "released": "2026-01-03T20:58:19Z",
+      "version": "26.2.0-dev",
+      "ui_version": "26.2.0-dev",
+      "released": "2026-01-05T12:01:30Z",
       "firmware": {
-        "version": "26.1.5-dev",
-        "url": "https://github.com/ronkuijpers/Wordclock/releases/download/v26.1.5-dev/wordclock-v26.1.5-dev.bin"
+        "version": "26.2.0-dev",
+        "url": "https://github.com/ronkuijpers/Wordclock/releases/download/v26.2.0-dev/wordclock-v26.2.0-dev.bin"
       },
       "files": [
         {
           "path": "/admin.html",
-          "url": "https://raw.githubusercontent.com/ronkuijpers/Wordclock/v26.1.5-dev/data/admin.html",
+          "url": "https://raw.githubusercontent.com/ronkuijpers/Wordclock/v26.2.0-dev/data/admin.html",
           "sha256": "d6c6a295245c0da5b4783e99b3fe464b2b06281464b9a8d9291a142374e11d74"
         },
         {
           "path": "/changepw.html",
-          "url": "https://raw.githubusercontent.com/ronkuijpers/Wordclock/v26.1.5-dev/data/changepw.html",
+          "url": "https://raw.githubusercontent.com/ronkuijpers/Wordclock/v26.2.0-dev/data/changepw.html",
           "sha256": "4eca474197b774878b0d56bdda7bc63af2bda08e7eeabc2413b46399351a977a"
         },
         {
           "path": "/dashboard.html",
-          "url": "https://raw.githubusercontent.com/ronkuijpers/Wordclock/v26.1.5-dev/data/dashboard.html",
+          "url": "https://raw.githubusercontent.com/ronkuijpers/Wordclock/v26.2.0-dev/data/dashboard.html",
           "sha256": "f7058a9f75211927c8802013094a3201ad4ebd0d59e117a0e272c0a62046d8b7"
         },
         {
           "path": "/logs.html",
-          "url": "https://raw.githubusercontent.com/ronkuijpers/Wordclock/v26.1.5-dev/data/logs.html",
+          "url": "https://raw.githubusercontent.com/ronkuijpers/Wordclock/v26.2.0-dev/data/logs.html",
           "sha256": "bd225018bf0697d693cc3c983c8f668623aad43dada9a55a653fe9efe203e868"
         },
         {
           "path": "/mqtt.html",
-          "url": "https://raw.githubusercontent.com/ronkuijpers/Wordclock/v26.1.5-dev/data/mqtt.html",
+          "url": "https://raw.githubusercontent.com/ronkuijpers/Wordclock/v26.2.0-dev/data/mqtt.html",
           "sha256": "4a95962fe2aae81f53084ade962e0044fd8472b16cf4b615d89633da65e4829c"
         },
         {
           "path": "/setup.html",
-          "url": "https://raw.githubusercontent.com/ronkuijpers/Wordclock/v26.1.5-dev/data/setup.html",
+          "url": "https://raw.githubusercontent.com/ronkuijpers/Wordclock/v26.2.0-dev/data/setup.html",
           "sha256": "6d3e35ee659c17a8a230c0060a1fb51847952e23a0954af3e6b86dcb1ff265e3"
         },
         {
           "path": "/update.html",
-          "url": "https://raw.githubusercontent.com/ronkuijpers/Wordclock/v26.1.5-dev/data/update.html",
+          "url": "https://raw.githubusercontent.com/ronkuijpers/Wordclock/v26.2.0-dev/data/update.html",
           "sha256": "0b71af60ce0346ca3afbba3164054723413b2d0921530a63cecf208fd7f1c90b"
         }
       ],
-      "release_notes": "\u26a0 Ontwikkel-build: kan de klok onbruikbaar maken; herstel niet gegarandeerd."
+      "release_notes": "# MQTT Reconnect Fix - Implementation Complete\n### 1. Added Force Reconnect API\n\n### 2. Enhanced Success Path Logging\n\n### 3. Improved Configuration Change Handler\n\n### 4. Enhanced Abort Message\n\n### 5. Added Force Reconnect Function"
     }
   }
 }
