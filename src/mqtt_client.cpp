@@ -36,7 +36,6 @@ static String tLightState, tLightSet;
 static String tClockState, tClockSet;
 static String tAnimState, tAnimSet;
 static String tAutoUpdState, tAutoUpdSet;
-static String tSellState, tSellSet;
 static String tHetIsState, tHetIsSet;
 static String tLogLvlState, tLogLvlSet;
 static String tRestartCmd, tSeqCmd, tUpdateCmd;
@@ -72,8 +71,6 @@ static void buildTopics() {
   tAnimSet      = base + "/animate/set";
   tAutoUpdState = base + "/autoupdate/state";
   tAutoUpdSet   = base + "/autoupdate/set";
-  tSellState    = base + "/sell/state";
-  tSellSet      = base + "/sell/set";
   tHetIsState   = base + "/hetis/state";
   tHetIsSet     = base + "/hetis/set";
   tNightEnabledState = base + "/nightmode/enabled/state";
@@ -137,7 +134,7 @@ static void publishDiscovery() {
     pubCfg("light", nodeId + "_light", cfg);
   }
 
-  // Switches: animate, autoupdate, sellmode
+  // Switches: animate, autoupdate
   auto publishSwitch = [&](const char* name, const String& st, const String& set, const String& id){
     JsonDocument cfg;
     cfg["name"] = name;
@@ -154,7 +151,6 @@ static void publishDiscovery() {
   };
   publishSwitch("Animate words", tAnimState, tAnimSet, nodeId + String("_anim"));
   publishSwitch("Auto update", tAutoUpdState, tAutoUpdSet, nodeId + String("_autoupd"));
-  publishSwitch("Sell mode", tSellState, tSellSet, nodeId + String("_sell"));
   publishSwitch("Night mode enabled", tNightEnabledState, tNightEnabledSet, nodeId + String("_night_enabled"));
 
   // Select: night mode effect
@@ -420,7 +416,6 @@ void mqtt_publish_state(bool force) {
   publishLightState();
   publishSwitch(tAnimState, displaySettings.getAnimateWords());
   publishSwitch(tAutoUpdState, displaySettings.getAutoUpdate());
-  publishSwitch(tSellState, displaySettings.isSellMode());
   publishNumber(tHetIsState, displaySettings.getHetIsDurationSec());
   publishSwitch(tNightEnabledState, nightMode.isEnabled());
   publishNightEffectState();
@@ -510,10 +505,6 @@ static void handleMessage(char* topic, byte* payload, unsigned int length) {
     bool on = (msg == "ON" || msg == "on" || msg == "1");
     displaySettings.setAutoUpdate(on);
     publishSwitch(tAutoUpdState, on);
-  } else if (is(tSellSet)) {
-    bool on = (msg == "ON" || msg == "on" || msg == "1");
-    displaySettings.setSellMode(on);
-    publishSwitch(tSellState, on);
   } else if (is(tHetIsSet)) {
     int v = msg.toInt(); v = constrain(v, 0, 360); displaySettings.setHetIsDurationSec((uint16_t)v);
     publishNumber(tHetIsState, v);
@@ -627,7 +618,6 @@ static bool mqtt_connect() {
   mqtt.subscribe(tClockSet.c_str());
   mqtt.subscribe(tAnimSet.c_str());
   mqtt.subscribe(tAutoUpdSet.c_str());
-  mqtt.subscribe(tSellSet.c_str());
   mqtt.subscribe(tHetIsSet.c_str());
   mqtt.subscribe(tNightEnabledSet.c_str());
   mqtt.subscribe(tNightOverrideSet.c_str());
