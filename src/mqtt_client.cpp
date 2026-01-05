@@ -710,7 +710,7 @@ void mqtt_loop() {
         unsigned long jittered = nextDelay + jitter;
         if (jittered > RECONNECT_DELAY_MAX_MS) jittered = RECONNECT_DELAY_MAX_MS;
         reconnectDelayMs = jittered;
-        if (reconnectDelayMs >= RECONNECT_DELAY_MAX_MS) {
+        if (!reconnectAborted && reconnectDelayMs >= RECONNECT_DELAY_MAX_MS) {
           String errMsg = String("⏸️ MQTT reconnect paused after reaching max backoff (") +
                           RECONNECT_DELAY_MAX_MS + " ms); last error: " +
                           (g_lastErr.length() ? g_lastErr : String("unknown")) +
