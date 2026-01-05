@@ -35,13 +35,7 @@ public:
 NightMode nightMode;
 #endif
 
-// Mock config - only if not defined
-#ifndef CONFIG_H
-#define CONFIG_H
-#ifndef DATA_PIN
-#define DATA_PIN 5
-#endif
-#endif
+// Note: Using production DATA_PIN value (4) from src/config.h
 
 // Include production code
 #include "../../src/led_controller.cpp"
