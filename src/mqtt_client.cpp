@@ -641,10 +641,18 @@ static bool mqtt_connect() {
 
   mqtt_publish_state(true);
   g_connected = true;
-  g_lastErr = "";
+  
+  // Reset reconnection state on success
   reconnectAttempts = 0;
   reconnectDelayMs = RECONNECT_DELAY_MIN_MS;
   reconnectAborted = false;
+  
+  // Log successful recovery if there was a previous error
+  if (g_lastErr.length() > 0) {
+    logInfo(String("✅ MQTT reconnected successfully after error: ") + g_lastErr);
+  }
+  g_lastErr = "";
+  
   return true;
 }
 
@@ -703,11 +711,16 @@ void mqtt_loop() {
         if (jittered > RECONNECT_DELAY_MAX_MS) jittered = RECONNECT_DELAY_MAX_MS;
         reconnectDelayMs = jittered;
         if (reconnectDelayMs >= RECONNECT_DELAY_MAX_MS) {
-          String errMsg = String("MQTT reconnect aborted after reaching max backoff (") +
+          String errMsg = String("⏸️ MQTT reconnect paused after reaching max backoff (") +
                           RECONNECT_DELAY_MAX_MS + " ms); last error: " +
-                          (g_lastErr.length() ? g_lastErr : String("unknown"));
-          logError(errMsg);
+                          (g_lastErr.length() ? g_lastErr : String("unknown")) +
+                          String(". Will retry on network recovery, config change, or manual reconnect.");
+          logWarn(errMsg);
           reconnectAborted = true;
+          // Note: reconnectAborted will be cleared on:
+          // 1. Successful connection (mqtt_connect success path)
+          // 2. Configuration change (mqtt_apply_settings)
+          // 3. Manual reconnect (mqtt_force_reconnect)
           return;
         } else if (g_lastErr != "MQTT not configured") {
           String warnMsg = String("MQTT reconnect failed (") + (g_lastErr.length() ? g_lastErr : String("unknown")) +
@@ -746,6 +759,11 @@ void mqtt_apply_settings(const MqttSettings& s) {
 
   // Recompute topics based on new base/discovery
   buildTopics();
+  
+  // Reset reconnection state and enable reconnection attempts
+  if (reconnectAborted) {
+    logInfo("🔄 MQTT reconnection re-enabled after configuration change");
+  }
   reconnectDelayMs = RECONNECT_DELAY_MIN_MS;
   reconnectAttempts = 0;
   reconnectAborted = false;
@@ -759,4 +777,29 @@ void mqtt_apply_settings(const MqttSettings& s) {
   } else {
     mqttConfiguredLogged = false;
   }
+}
+
+/**
+ * @brief Force MQTT reconnection attempt, clearing abort state
+ * 
+ * Useful for manual reconnection via web UI or MQTT command after
+ * prolonged network outages that triggered reconnection abort.
+ */
+void mqtt_force_reconnect() {
+  if (mqtt.connected()) {
+    logInfo("MQTT already connected");
+    return;
+  }
+  
+  if (reconnectAborted) {
+    logInfo("🔄 MQTT reconnection re-enabled by force reconnect");
+  }
+  
+  // Reset all reconnection state
+  reconnectAborted = false;
+  reconnectAttempts = 0;
+  reconnectDelayMs = RECONNECT_DELAY_MIN_MS;
+  lastReconnectAttempt = 0;  // Trigger immediate attempt in next mqtt_loop()
+  
+  g_lastErr = "";
 }
