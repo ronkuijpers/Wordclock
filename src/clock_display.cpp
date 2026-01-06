@@ -344,7 +344,9 @@ void ClockDisplay::executeAnimationStep(unsigned long nowMs) {
             msg += "ms (Δ";
             msg += (int)frame.size() - (int)prevSize;
             msg += " leds)";
-            if (deltaMs > 700) {
+            // Warn if actual delay is > 20% longer than configured delay
+            uint16_t thresholdMs = frameDelayMs + (frameDelayMs / 5); // frameDelayMs * 1.2
+            if (deltaMs > thresholdMs) {
                 msg += " ⚠️ slow";
                 logWarn(msg);
             } else {
