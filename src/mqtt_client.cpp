@@ -244,6 +244,19 @@ void publishNightEffectState() {
   mqtt.publish(tNightEffectState.c_str(), s, true);
 }
 
+void publishAnimSpeedState() {
+  AnimationSpeed speed = displaySettings.getAnimationSpeed();
+  const char* s = "normal";
+  switch (speed) {
+    case AnimationSpeed::Slow: s = "slow"; break;
+    case AnimationSpeed::Normal: s = "normal"; break;
+    case AnimationSpeed::Fast: s = "fast"; break;
+    case AnimationSpeed::Custom: s = "custom"; break;
+    default: s = "normal"; break;
+  }
+  mqtt.publish(tAnimSpeedState.c_str(), s, true);
+}
+
 void publishNightDimState() {
   publishNumber(tNightDimState, nightMode.getDimPercent());
 }
@@ -293,16 +306,7 @@ void mqtt_publish_state(bool force) {
 
   publishLightState();
   publishSwitch(tAnimState, displaySettings.getAnimateWords());
-  AnimationSpeed speed = displaySettings.getAnimationSpeed();
-  String speedStr;
-  switch (speed) {
-    case AnimationSpeed::Slow: speedStr = "slow"; break;
-    case AnimationSpeed::Normal: speedStr = "normal"; break;
-    case AnimationSpeed::Fast: speedStr = "fast"; break;
-    case AnimationSpeed::Custom: speedStr = "custom"; break;
-    default: speedStr = "normal"; break;
-  }
-  publishSelect(tAnimSpeedState, speedStr);
+  publishAnimSpeedState();
   publishNumber(tCustomSpeedMsState, displaySettings.getCustomSpeedMs());
   publishSwitch(tAutoUpdState, displaySettings.getAutoUpdate());
   publishNumber(tHetIsState, displaySettings.getHetIsDurationSec());
@@ -390,24 +394,13 @@ static void initCommandHandlers() {
       else if (val == "custom") speed = AnimationSpeed::Custom;
       displaySettings.setAnimationSpeed(speed);
     },
-    []() {
-      AnimationSpeed speed = displaySettings.getAnimationSpeed();
-      String speedStr;
-      switch (speed) {
-        case AnimationSpeed::Slow: speedStr = "slow"; break;
-        case AnimationSpeed::Normal: speedStr = "normal"; break;
-        case AnimationSpeed::Fast: speedStr = "fast"; break;
-        case AnimationSpeed::Custom: speedStr = "custom"; break;
-        default: speedStr = "normal"; break;
-      }
-      publishSelect(tAnimSpeedState, speedStr);
-    }
+    []() { publishAnimSpeedState(); }
   ));
   
   registry.registerHandler(tCustomSpeedMsSet, new NumberCommandHandler(
-    [](float val) {
-      uint16_t ms = (uint16_t)val;
-      displaySettings.setCustomSpeedMs(ms);
+    100, 2000,
+    [](int v) {
+      displaySettings.setCustomSpeedMs((uint16_t)v);
     },
     []() { publishNumber(tCustomSpeedMsState, displaySettings.getCustomSpeedMs()); }
   ));
