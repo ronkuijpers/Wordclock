@@ -13,6 +13,13 @@ enum class AnimationSpeed : uint8_t {
   Custom = 3     // User-defined milliseconds
 };
 
+enum class FadeEffect : uint8_t {
+  None = 0,       // Instant (current behavior)
+  FadeIn = 1,     // Words fade in
+  FadeOut = 2,    // Words fade out
+  FadeInOut = 3   // Both fade in and out
+};
+
 class DisplaySettings {
 public:
   void begin() {
@@ -36,6 +43,17 @@ public:
     customSpeedMs_ = prefs_.getUShort("anim_speed_ms", 500);
     if (customSpeedMs_ < 100) customSpeedMs_ = 100;
     if (customSpeedMs_ > 2000) customSpeedMs_ = 2000;
+    
+    // Fade effects (new feature)
+    uint8_t storedFade = prefs_.getUChar("fade_effect", static_cast<uint8_t>(FadeEffect::None));
+    if (storedFade > static_cast<uint8_t>(FadeEffect::FadeInOut)) {
+      storedFade = static_cast<uint8_t>(FadeEffect::None);
+    }
+    fadeEffect_ = static_cast<FadeEffect>(storedFade);
+    fadeDurationMs_ = prefs_.getUShort("fade_dur_ms", 200);
+    if (fadeDurationMs_ < 50) fadeDurationMs_ = 50;
+    if (fadeDurationMs_ > 500) fadeDurationMs_ = 500;
+    
     autoUpdate_ = prefs_.getBool("auto_upd", true);
     const uint8_t defaultVariantId = gridVariantToId(FIRMWARE_DEFAULT_GRID_VARIANT);
     const bool hasGridKey = prefs_.isKey("grid_id");
@@ -97,6 +115,9 @@ public:
     }
   }
   uint16_t getCustomSpeedMs() const { return customSpeedMs_; }
+  FadeEffect getFadeEffect() const { return fadeEffect_; }
+  uint8_t getFadeEffectId() const { return static_cast<uint8_t>(fadeEffect_); }
+  uint16_t getFadeDurationMs() const { return fadeDurationMs_; }
   bool getAutoUpdate() const { return autoUpdate_; }
   String getUpdateChannel() const { return updateChannel_; }
   bool hasStoredChannel() const { return hasStoredUpdateChannel_; }
@@ -154,6 +175,27 @@ public:
     if (ms > 2000) ms = 2000;
     if (customSpeedMs_ == ms) return;
     customSpeedMs_ = ms;
+    markDirty();
+  }
+
+  void setFadeEffect(FadeEffect effect) {
+    if (fadeEffect_ == effect) return;
+    fadeEffect_ = effect;
+    markDirty();
+  }
+
+  void setFadeEffectById(uint8_t id) {
+    if (id > static_cast<uint8_t>(FadeEffect::FadeInOut)) {
+      id = static_cast<uint8_t>(FadeEffect::None);
+    }
+    setFadeEffect(static_cast<FadeEffect>(id));
+  }
+
+  void setFadeDurationMs(uint16_t ms) {
+    if (ms < 50) ms = 50;
+    if (ms > 500) ms = 500;
+    if (fadeDurationMs_ == ms) return;
+    fadeDurationMs_ = ms;
     markDirty();
   }
 
@@ -216,6 +258,8 @@ public:
     prefs_.putUChar("anim_mode", static_cast<uint8_t>(animationMode_));
     prefs_.putUChar("anim_speed", static_cast<uint8_t>(animationSpeed_));
     prefs_.putUShort("anim_speed_ms", customSpeedMs_);
+    prefs_.putUChar("fade_effect", static_cast<uint8_t>(fadeEffect_));
+    prefs_.putUShort("fade_dur_ms", fadeDurationMs_);
     prefs_.putBool("auto_upd", autoUpdate_);
     prefs_.putString("upd_ch", updateChannel_);
     prefs_.putUChar("grid_id", gridVariantToId(gridVariant_));
@@ -255,6 +299,8 @@ private:
   WordAnimationMode animationMode_ = WordAnimationMode::Classic;
   AnimationSpeed animationSpeed_ = AnimationSpeed::Normal; // default Normal (500ms)
   uint16_t customSpeedMs_ = 500; // For Custom speed mode
+  FadeEffect fadeEffect_ = FadeEffect::None; // default None (instant)
+  uint16_t fadeDurationMs_ = 200; // default 200ms fade duration
   bool autoUpdate_ = true;    // default ON to keep current behavior
   String updateChannel_ = "stable";
   GridVariant gridVariant_ = FIRMWARE_DEFAULT_GRID_VARIANT;

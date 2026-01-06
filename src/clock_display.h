@@ -5,6 +5,7 @@
 #include <vector>
 #include "time_mapper.h"
 #include "display_settings.h"
+#include "fade_controller.h"
 
 /**
  * @brief Manages word clock display state and animation
@@ -33,6 +34,23 @@ public:
      * @param time The time to animate
      */
     void forceAnimationForTime(const struct tm& time);
+    
+    /**
+     * @brief Start animation preview for a specific time
+     * @param time The time to preview
+     * @param loopCount Number of times to loop (0 = infinite)
+     */
+    void startPreview(const struct tm& time, int loopCount = 1);
+    
+    /**
+     * @brief Stop animation preview
+     */
+    void stopPreview();
+    
+    /**
+     * @brief Check if preview is currently active
+     */
+    bool isPreviewActive() const;
     
     /**
      * @brief Reset display state to initial conditions
@@ -93,6 +111,15 @@ private:
     bool forceAnimation_ = false;
     struct tm forcedTime_ = {};
     bool loggedInitialTimeFailure_ = false;
+    
+    // Fade controller for animation effects
+    FadeController fadeController_;
+    
+    // Preview state
+    bool previewActive_ = false;
+    struct tm previewTime_ = {};
+    int previewLoopCount_ = 0;
+    unsigned long previewStartMs_ = 0;
     
     // Helper struct for display time calculation
     struct DisplayTime {

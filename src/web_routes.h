@@ -22,6 +22,7 @@
 #include "display_settings.h"
 #include "ui_auth.h"
 #include "wordclock.h"
+#include "clock_display.h"
 #include "mqtt_settings.h"
 #include "mqtt_client.h"
 #include "night_mode.h"
@@ -1338,6 +1339,131 @@ void setupWebRoutes() {
     displaySettings.setCustomSpeedMs(ms);
     logInfo(String("⚙️ Custom animation speed set to ") + ms + "ms");
     server.send(200, "text/plain", "OK");
+  });
+
+  // Fade effect endpoints
+  server.on("/getFadeEffect", []() {
+    if (!ensureUiAuth()) {
+      logWarn("[API] /getFadeEffect: Auth failed");
+      return;
+    }
+    FadeEffect effect = displaySettings.getFadeEffect();
+    String result;
+    switch (effect) {
+      case FadeEffect::None: result = "none"; break;
+      case FadeEffect::FadeIn: result = "fadein"; break;
+      case FadeEffect::FadeOut: result = "fadeout"; break;
+      case FadeEffect::FadeInOut: result = "fadeinout"; break;
+      default: result = "none"; break;
+    }
+    server.send(200, "text/plain", result);
+  });
+
+  server.on("/setFadeEffect", []() {
+    if (!ensureUiAuth()) return;
+    if (!server.hasArg("effect")) {
+      server.send(400, "text/plain", "Missing effect");
+      return;
+    }
+    String effectStr = server.arg("effect");
+    effectStr.toLowerCase();
+    FadeEffect effect;
+    if (effectStr == "fadein") {
+      effect = FadeEffect::FadeIn;
+    } else if (effectStr == "fadeout") {
+      effect = FadeEffect::FadeOut;
+    } else if (effectStr == "fadeinout") {
+      effect = FadeEffect::FadeInOut;
+    } else {
+      effect = FadeEffect::None;
+    }
+    displaySettings.setFadeEffect(effect);
+    logInfo(String("✨ Fade effect set to ") + effectStr);
+    server.send(200, "text/plain", "OK");
+  });
+
+  server.on("/getFadeDurationMs", []() {
+    if (!ensureUiAuth()) {
+      logWarn("[API] /getFadeDurationMs: Auth failed");
+      return;
+    }
+    uint16_t ms = displaySettings.getFadeDurationMs();
+    server.send(200, "text/plain", String(ms));
+  });
+
+  server.on("/setFadeDurationMs", []() {
+    if (!ensureUiAuth()) return;
+    if (!server.hasArg("ms")) {
+      server.send(400, "text/plain", "Missing ms");
+      return;
+    }
+    uint16_t ms = server.arg("ms").toInt();
+    displaySettings.setFadeDurationMs(ms);
+    logInfo(String("✨ Fade duration set to ") + ms + "ms");
+    server.send(200, "text/plain", "OK");
+  });
+
+  // Animation preview endpoints
+  server.on("/previewAnimation", HTTP_POST, []() {
+    if (!ensureUiAuth()) return;
+    if (!server.hasHeader("Content-Type") || 
+        server.header("Content-Type").indexOf("application/json") == -1) {
+      server.send(400, "text/plain", "Content-Type must be application/json");
+      return;
+    }
+    
+    String body = server.arg("plain");
+    if (body.length() == 0) {
+      server.send(400, "text/plain", "Missing JSON body");
+      return;
+    }
+    
+    JsonDocument doc;
+    DeserializationError error = deserializeJson(doc, body);
+    if (error) {
+      server.send(400, "text/plain", "Invalid JSON");
+      return;
+    }
+    
+    struct tm previewTime = {};
+    if (doc["time"].is<String>()) {
+      String timeStr = doc["time"].as<String>();
+      // Parse HH:MM format
+      int hour = 0, minute = 0;
+      if (sscanf(timeStr.c_str(), "%d:%d", &hour, &minute) == 2) {
+        previewTime.tm_hour = hour;
+        previewTime.tm_min = minute;
+      } else {
+        // Use current time
+        getLocalTime(&previewTime);
+      }
+    } else {
+      // Use current time
+      getLocalTime(&previewTime);
+    }
+    
+    int loopCount = doc["loop"] | 1;
+    if (loopCount < 0) loopCount = 0; // 0 = infinite
+    
+    clockDisplay.startPreview(previewTime, loopCount);
+    logInfo(String("🎬 Animation preview started for ") + previewTime.tm_hour + ":" + previewTime.tm_min);
+    server.send(200, "text/plain", "OK");
+  });
+
+  server.on("/stopPreview", HTTP_POST, []() {
+    if (!ensureUiAuth()) return;
+    clockDisplay.stopPreview();
+    logInfo("⏹️ Animation preview stopped");
+    server.send(200, "text/plain", "OK");
+  });
+
+  server.on("/getPreviewStatus", []() {
+    if (!ensureUiAuth()) {
+      logWarn("[API] /getPreviewStatus: Auth failed");
+      return;
+    }
+    bool active = clockDisplay.isPreviewActive();
+    server.send(200, "text/plain", active ? "active" : "inactive");
   });
 
   server.on("/getAnimMode", []() {

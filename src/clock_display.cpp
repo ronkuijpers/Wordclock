@@ -8,6 +8,7 @@
 #include "log.h"
 #include <algorithm>
 #include <cstring>
+#include <map>
 
 // Global instance
 ClockDisplay clockDisplay;
@@ -33,6 +34,10 @@ void ClockDisplay::reset() {
     targetSegments_.clear();
     forceAnimation_ = false;
     loggedInitialTimeFailure_ = false;
+    fadeController_.clear();
+    previewActive_ = false;
+    previewLoopCount_ = 0;
+    previewStartMs_ = 0;
 }
 
 // ============================================================================
@@ -58,6 +63,11 @@ bool ClockDisplay::update() {
     
     // Check if we need to start animation
     triggerAnimationIfNeeded(dt, nowMs);
+    
+    // Update fade effects (if any active)
+    if (fadeController_.hasActiveFades()) {
+        fadeController_.updateFades(nowMs);
+    }
     
     // Execute animation or display static
     if (animation_.active) {
@@ -257,7 +267,44 @@ void ClockDisplay::executeAnimationStep(unsigned long nowMs) {
                 logDebug(msg);
             }
             
-            showLeds(frame);
+            // Apply fade effects if enabled
+            FadeEffect fadeEffect = displaySettings.getFadeEffect();
+            if (fadeEffect != FadeEffect::None) {
+                uint16_t fadeDuration = displaySettings.getFadeDurationMs();
+                fadeController_.setFadeEffect(fadeEffect);
+                
+                // Get previous frame to determine new LEDs
+                std::vector<uint16_t> prevFrame;
+                if (stepIndex > 0) {
+                    prevFrame = animation_.frames[stepIndex - 1];
+                }
+                
+                // Find new LEDs in current frame
+                std::vector<uint16_t> newLeds;
+                for (uint16_t led : frame) {
+                    if (std::find(prevFrame.begin(), prevFrame.end(), led) == prevFrame.end()) {
+                        newLeds.push_back(led);
+                    }
+                }
+                
+                // Start fades for new LEDs
+                for (uint16_t led : newLeds) {
+                    fadeController_.startFade(led, 255, fadeDuration, fadeEffect);
+                }
+                
+                // Build brightness multipliers for all LEDs in frame
+                std::vector<uint8_t> brightnessMultipliers;
+                for (uint16_t led : frame) {
+                    brightnessMultipliers.push_back(fadeController_.getCurrentBrightness(led));
+                }
+                
+                // Show LEDs with fade effects
+                showLedsWithBrightness(frame, brightnessMultipliers);
+            } else {
+                // No fade - instant display
+                showLeds(frame);
+            }
+            
             animation_.lastStepAt = nowMs;
         }
         
@@ -268,7 +315,18 @@ void ClockDisplay::executeAnimationStep(unsigned long nowMs) {
         }
     } else if (animation_.currentStep > 0 && animation_.currentStep <= (int)animation_.frames.size()) {
         // Re-display current frame (called between animation steps)
-        showLeds(animation_.frames[animation_.currentStep - 1]);
+        // Apply fade effects if enabled
+        FadeEffect fadeEffect = displaySettings.getFadeEffect();
+        if (fadeEffect != FadeEffect::None) {
+            const auto& frame = animation_.frames[animation_.currentStep - 1];
+            std::vector<uint8_t> brightnessMultipliers;
+            for (uint16_t led : frame) {
+                brightnessMultipliers.push_back(fadeController_.getCurrentBrightness(led));
+            }
+            showLedsWithBrightness(frame, brightnessMultipliers);
+        } else {
+            showLeds(animation_.frames[animation_.currentStep - 1]);
+        }
     }
 }
 
@@ -333,6 +391,28 @@ void ClockDisplay::updateHetIsVisibility(unsigned long nowMs) {
 void ClockDisplay::forceAnimationForTime(const struct tm& time) {
     forcedTime_ = time;
     forceAnimation_ = true;
+}
+
+// ============================================================================
+// Preview System
+// ============================================================================
+
+void ClockDisplay::startPreview(const struct tm& time, int loopCount) {
+    previewActive_ = true;
+    previewTime_ = time;
+    previewStartMs_ = millis();
+    previewLoopCount_ = loopCount;
+    forceAnimationForTime(time);
+}
+
+void ClockDisplay::stopPreview() {
+    previewActive_ = false;
+    previewLoopCount_ = 0;
+    fadeController_.clear();
+}
+
+bool ClockDisplay::isPreviewActive() const {
+    return previewActive_;
 }
 
 // ============================================================================
