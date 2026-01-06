@@ -114,7 +114,7 @@ static void publishDiscovery() {
                                nodeId, base, availTopic);
   
   // Set device information
-  builder.setDeviceInfo(CLOCK_NAME, "WordClock", "Custom", FIRMWARE_VERSION);
+  builder.setDeviceInfo(CLOCK_NAME, "Chronolett Wordclock", "Lumetric", FIRMWARE_VERSION);
   
   // Light entity
   builder.addLight(tLightState, tLightSet);
