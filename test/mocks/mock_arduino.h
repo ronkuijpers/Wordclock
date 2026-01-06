@@ -110,6 +110,35 @@ public:
         return std::atoi(data_.c_str());
     }
     
+    // ArduinoJson compatibility methods
+    size_t write(uint8_t c) {
+        data_ += static_cast<char>(c);
+        return 1;
+    }
+    
+    size_t write(const uint8_t* buffer, size_t size) {
+        data_.append(reinterpret_cast<const char*>(buffer), size);
+        return size;
+    }
+    
+    // Additional overload for ArduinoJson Writer template
+    size_t write(const char* buffer, size_t size) {
+        if (buffer && size > 0) {
+            data_.append(buffer, size);
+        }
+        return size;
+    }
+    
+    // Conversion to std::string for ArduinoJson
+    operator std::string() const {
+        return data_;
+    }
+    
+    // Get underlying std::string
+    const std::string& str() const {
+        return data_;
+    }
+    
 private:
     std::string data_;
 };
@@ -118,6 +147,9 @@ private:
 static unsigned long mockMillis = 0;
 inline unsigned long millis() { return mockMillis; }
 inline void setMockMillis(unsigned long value) { mockMillis = value; }
+
+// Mock delay (no-op in tests)
+inline void delay(unsigned long ms) { (void)ms; }
 
 #endif // MOCK_ARDUINO_H
 

@@ -1,9 +1,5 @@
 #pragma once
-#ifndef LOG_H_INCLUDED
-#define LOG_H_INCLUDED
 
-// This file redirects log.h includes to our mock implementation for testing
+// In test environment, use mock log instead of real log.h
+// This file is found first because test/mocks is in the include path
 #include "mock_log.h"
-
-#endif // LOG_H_INCLUDED
-

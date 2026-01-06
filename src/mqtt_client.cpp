@@ -1,5 +1,6 @@
 #include "mqtt_client.h"
 #include "mqtt_command_handler.h"
+#include "mqtt_discovery_builder.h"
 #include <WiFi.h>
 #include <PubSubClient.h>
 #include <ArduinoJson.h>
@@ -107,208 +108,72 @@ static void buildTopics() {
 }
 
 static void publishDiscovery() {
-  // Increase buffer size to accommodate discovery payloads
-  mqtt.setBufferSize(1024);
   String nodeId = uniqId;
-  String devIds = String("{\"ids\":[\"") + nodeId + "\"]}";
-
-  auto pubCfg = [&](const String& comp, const String& objId, JsonDocument& cfg){
-    String topic = String(g_mqttCfg.discoveryPrefix) + "/" + comp + "/" + objId + "/config";
-    String out; serializeJson(cfg, out);
-    mqtt.publish(topic.c_str(), out.c_str(), true);
-  };
-
-  // Light entity (JSON schema)
-  {
-    JsonDocument cfg;
-    cfg["name"] = CLOCK_NAME;
-    cfg["uniq_id"] = (nodeId + "_light");
-    cfg["schema"] = "json";
-    cfg["brightness"] = true;
-    cfg["rgb"] = true;
-    cfg["cmd_t"] = tLightSet;
-    cfg["stat_t"] = tLightState;
-    cfg["avty_t"] = availTopic;
-    JsonObject dev = cfg["dev"].to<JsonObject>();
-    dev["name"] = CLOCK_NAME;
-    dev["ids"].add(nodeId);
-    pubCfg("light", nodeId + "_light", cfg);
-  }
-
-  // Switches: animate, autoupdate
-  auto publishSwitch = [&](const char* name, const String& st, const String& set, const String& id){
-    JsonDocument cfg;
-    cfg["name"] = name;
-    cfg["uniq_id"] = id;
-    cfg["cmd_t"] = set;
-    cfg["stat_t"] = st;
-    cfg["pl_on"] = "ON";
-    cfg["pl_off"] = "OFF";
-    cfg["avty_t"] = availTopic;
-    JsonObject dev = cfg["dev"].to<JsonObject>();
-    dev["name"] = CLOCK_NAME;
-    dev["ids"].add(nodeId);
-    pubCfg("switch", id, cfg);
-  };
-  publishSwitch("Animate words", tAnimState, tAnimSet, nodeId + String("_anim"));
-  publishSwitch("Auto update", tAutoUpdState, tAutoUpdSet, nodeId + String("_autoupd"));
-  publishSwitch("Night mode enabled", tNightEnabledState, tNightEnabledSet, nodeId + String("_night_enabled"));
-
-  // Select: night mode effect
-  {
-    JsonDocument cfg;
-    cfg["name"] = "Night mode effect";
-    cfg["uniq_id"] = (nodeId + "_night_effect");
-    cfg["cmd_t"] = tNightEffectSet;
-    cfg["stat_t"] = tNightEffectState;
-    JsonArray opts = cfg["options"].to<JsonArray>();
-    opts.add("DIM");
-    opts.add("OFF");
-    cfg["avty_t"] = availTopic;
-    JsonObject dev = cfg["dev"].to<JsonObject>();
-    dev["name"] = CLOCK_NAME;
-    dev["ids"].add(nodeId);
-    pubCfg("select", nodeId + "_night_effect", cfg);
-  }
-
-  // Number: Night mode dim percentage
-  {
-    JsonDocument cfg;
-    cfg["name"] = "Night mode dim %";
-    cfg["uniq_id"] = (nodeId + "_night_dim");
-    cfg["cmd_t"] = tNightDimSet;
-    cfg["stat_t"] = tNightDimState;
-    cfg["min"] = 0;
-    cfg["max"] = 100;
-    cfg["step"] = 1;
-    cfg["unit_of_meas"] = "%";
-    cfg["avty_t"] = availTopic;
-    JsonObject dev = cfg["dev"].to<JsonObject>();
-    dev["name"] = CLOCK_NAME;
-    dev["ids"].add(nodeId);
-    pubCfg("number", nodeId + "_night_dim", cfg);
-  }
-
-  // Number: Het Is duration
-  {
-    JsonDocument cfg;
-    cfg["name"] = "'HET IS' seconds";
-    cfg["uniq_id"] = (nodeId + "_hetis");
-    cfg["cmd_t"] = tHetIsSet;
-    cfg["stat_t"] = tHetIsState;
-    cfg["min"] = 0; cfg["max"] = 360; cfg["step"] = 1;
-    cfg["avty_t"] = availTopic;
-    JsonObject dev = cfg["dev"].to<JsonObject>();
-    dev["name"] = CLOCK_NAME;
-    dev["ids"].add(nodeId);
-    pubCfg("number", nodeId + "_hetis", cfg);
-  }
-
-  // Select: night mode override
-  {
-    JsonDocument cfg;
-    cfg["name"] = "Night mode override";
-    cfg["uniq_id"] = (nodeId + "_night_override");
-    cfg["cmd_t"] = tNightOverrideSet;
-    cfg["stat_t"] = tNightOverrideState;
-    JsonArray opts = cfg["options"].to<JsonArray>();
-    opts.add("AUTO");
-    opts.add("ON");
-    opts.add("OFF");
-    cfg["avty_t"] = availTopic;
-    JsonObject dev = cfg["dev"].to<JsonObject>();
-    dev["name"] = CLOCK_NAME;
-    dev["ids"].add(nodeId);
-    pubCfg("select", nodeId + "_night_override", cfg);
-  }
-
-  // Select: log level
-  {
-    JsonDocument cfg;
-    cfg["name"] = "Log level";
-    cfg["uniq_id"] = (nodeId + "_loglevel");
-    cfg["cmd_t"] = tLogLvlSet;
-    cfg["stat_t"] = tLogLvlState;
-    JsonArray opts = cfg["options"].to<JsonArray>();
-    opts.add("DEBUG"); opts.add("INFO"); opts.add("WARN"); opts.add("ERROR");
-    cfg["avty_t"] = availTopic;
-    JsonObject dev = cfg["dev"].to<JsonObject>();
-    dev["name"] = CLOCK_NAME;
-    dev["ids"].add(nodeId);
-    pubCfg("select", nodeId + "_loglevel", cfg);
-  }
-
-  // Binary sensor: Night mode active state
-  {
-    JsonDocument cfg;
-    cfg["name"] = "Night mode active";
-    cfg["uniq_id"] = (nodeId + "_night_active");
-    cfg["stat_t"] = tNightActiveState;
-    cfg["pl_on"] = "ON";
-    cfg["pl_off"] = "OFF";
-    cfg["avty_t"] = availTopic;
-    JsonObject dev = cfg["dev"].to<JsonObject>();
-    dev["name"] = CLOCK_NAME;
-    dev["ids"].add(nodeId);
-    pubCfg("binary_sensor", nodeId + "_night_active", cfg);
-  }
-
-  // Buttons: restart, start sequence, check for update
-  auto publishButton = [&](const char* name, const String& cmd, const String& id){
-    JsonDocument cfg;
-    cfg["name"] = name;
-    cfg["uniq_id"] = id;
-    cfg["cmd_t"] = cmd;
-    cfg["avty_t"] = availTopic;
-    JsonObject dev = cfg["dev"].to<JsonObject>();
-    dev["name"] = CLOCK_NAME;
-    dev["ids"].add(nodeId);
-    pubCfg("button", id, cfg);
-  };
-  publishButton("Restart", tRestartCmd, nodeId + String("_restart"));
-  publishButton("Start sequence", tSeqCmd, nodeId + String("_sequence"));
-  publishButton("Check for update", tUpdateCmd, nodeId + String("_update"));
-
-  // Sensors: version, ui version, ip, rssi, startup time
-  auto publishSensor = [&](const char* name, const String& st, const String& id){
-    JsonDocument cfg;
-    cfg["name"] = name;
-    cfg["uniq_id"] = id;
-    cfg["stat_t"] = st;
-    cfg["avty_t"] = availTopic;
-    JsonObject dev = cfg["dev"].to<JsonObject>();
-    dev["name"] = CLOCK_NAME;
-    dev["ids"].add(nodeId);
-    pubCfg("sensor", id, cfg);
-  };
-  publishSensor("Firmware Version", tVersion, nodeId + String("_version"));
-  publishSensor("UI Version", tUiVersion, nodeId + String("_uiversion"));
-  publishSensor("IP Address", tIp, nodeId + String("_ip"));
-  publishSensor("WiFi RSSI", tRssi, nodeId + String("_rssi"));
-  publishSensor("Last Startup", tUptime, nodeId + String("_uptime"));
-  publishSensor("Free Heap (bytes)", tHeap, nodeId + String("_heap"));
-  publishSensor("WiFi Channel", tWifiChan, nodeId + String("_wifichan"));
-  publishSensor("Boot Reason", tBootReason, nodeId + String("_bootreason"));
-  publishSensor("Reset Count", tResetCount, nodeId + String("_resetcount"));
-
-  auto publishText = [&](const char* name, const String& st, const String& set, const String& id){
-    JsonDocument cfg;
-    cfg["name"] = name;
-    cfg["uniq_id"] = id;
-    cfg["stat_t"] = st;
-    cfg["cmd_t"] = set;
-    cfg["mode"] = "text";
-    cfg["min"] = 5;
-    cfg["max"] = 5;
-    cfg["pattern"] = "^([01][0-9]|2[0-3]):[0-5][0-9]$";
-    cfg["avty_t"] = availTopic;
-    JsonObject dev = cfg["dev"].to<JsonObject>();
-    dev["name"] = CLOCK_NAME;
-    dev["ids"].add(nodeId);
-    pubCfg("text", id, cfg);
-  };
-  publishText("Night mode start", tNightStartState, tNightStartSet, nodeId + String("_night_start"));
-  publishText("Night mode end", tNightEndState, tNightEndSet, nodeId + String("_night_end"));
+  
+  MqttDiscoveryBuilder builder(mqtt, g_mqttCfg.discoveryPrefix, 
+                               nodeId, base, availTopic);
+  
+  // Set device information
+  builder.setDeviceInfo(CLOCK_NAME, "WordClock", "Custom", FIRMWARE_VERSION);
+  
+  // Light entity
+  builder.addLight(tLightState, tLightSet);
+  
+  // Switches
+  builder.addSwitch("Animate words", nodeId + "_anim", tAnimState, tAnimSet);
+  builder.addSwitch("Auto update", nodeId + "_autoupd", tAutoUpdState, tAutoUpdSet);
+  builder.addSwitch("Night mode enabled", nodeId + "_night_enabled", 
+                   tNightEnabledState, tNightEnabledSet);
+  
+  // Select entities
+  builder.addSelect("Night mode effect", nodeId + "_night_effect",
+                   tNightEffectState, tNightEffectSet,
+                   {"DIM", "OFF"});
+  builder.addSelect("Night mode override", nodeId + "_night_override",
+                   tNightOverrideState, tNightOverrideSet,
+                   {"AUTO", "ON", "OFF"});
+  builder.addSelect("Log level", nodeId + "_loglevel",
+                   tLogLvlState, tLogLvlSet,
+                   {"DEBUG", "INFO", "WARN", "ERROR"});
+  
+  // Number entities
+  builder.addNumber("Night mode dim %", nodeId + "_night_dim",
+                   tNightDimState, tNightDimSet,
+                   0, 100, 1, "%");
+  builder.addNumber("'HET IS' seconds", nodeId + "_hetis",
+                   tHetIsState, tHetIsSet,
+                   0, 360, 1, "s");
+  
+  // Binary sensor
+  builder.addBinarySensor("Night mode active", nodeId + "_night_active",
+                         tNightActiveState);
+  
+  // Buttons
+  builder.addButton("Restart", nodeId + "_restart", tRestartCmd, "restart");
+  builder.addButton("Start sequence", nodeId + "_sequence", tSeqCmd);
+  builder.addButton("Check for update", nodeId + "_update", tUpdateCmd, "update");
+  
+  // Sensors
+  builder.addSensor("Firmware Version", nodeId + "_version", tVersion);
+  builder.addSensor("UI Version", nodeId + "_uiversion", tUiVersion);
+  builder.addSensor("IP Address", nodeId + "_ip", tIp);
+  builder.addSensor("WiFi RSSI", nodeId + "_rssi", tRssi, "dBm", "signal_strength");
+  builder.addSensor("Last Startup", nodeId + "_uptime", tUptime, "s");
+  builder.addSensor("Free Heap (bytes)", nodeId + "_heap", tHeap, "bytes");
+  builder.addSensor("WiFi Channel", nodeId + "_wifichan", tWifiChan);
+  builder.addSensor("Boot Reason", nodeId + "_bootreason", tBootReason);
+  builder.addSensor("Reset Count", nodeId + "_resetcount", tResetCount);
+  
+  // Text entities (time inputs)
+  builder.addText("Night mode start", nodeId + "_night_start",
+                 tNightStartState, tNightStartSet,
+                 5, 5, "^([01][0-9]|2[0-3]):[0-5][0-9]$");
+  builder.addText("Night mode end", nodeId + "_night_end",
+                 tNightEndState, tNightEndSet,
+                 5, 5, "^([01][0-9]|2[0-3]):[0-5][0-9]$");
+  
+  // Publish all entities
+  builder.publish();
 }
 
 static void publishAvailability(const char* st) {

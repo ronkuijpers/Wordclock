@@ -4,13 +4,16 @@
 #include "mock_arduino.h"
 #include <iostream>
 
-// Mock log level enum
+// Mock log level enum - only define if not already defined
+#ifndef LOG_LEVEL_ENUM_DEFINED
+#define LOG_LEVEL_ENUM_DEFINED
 enum LogLevel {
   LOG_LEVEL_DEBUG = 0,
   LOG_LEVEL_INFO,
   LOG_LEVEL_WARN,
   LOG_LEVEL_ERROR
 };
+#endif
 
 // Global log level
 extern LogLevel LOG_LEVEL;
