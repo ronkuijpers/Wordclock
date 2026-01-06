@@ -339,11 +339,7 @@ void ClockDisplay::executeAnimationStep(unsigned long nowMs) {
         }
         
         if (animation_.currentStep >= (int)animation_.frames.size()) {
-            animation_.active = false;
-            updateHetIsVisibility(nowMs);
-            lastSegments_ = targetSegments_;
-            
-            // Apply fade effects to final frame if enabled
+            // Display final frame with fade effects before ending animation
             FadeEffect fadeEffect = displaySettings.getFadeEffect();
             if (fadeEffect != FadeEffect::None && !animation_.frames.empty()) {
                 const auto& finalFrame = animation_.frames.back();
@@ -362,7 +358,18 @@ void ClockDisplay::executeAnimationStep(unsigned long nowMs) {
                         fadeController_.startFade(led, 255, fadeDuration, fadeEffect);
                     }
                 }
+                
+                // Display final frame with fade effects
+                std::vector<uint8_t> brightnessMultipliers;
+                for (uint16_t led : finalFrame) {
+                    brightnessMultipliers.push_back(fadeController_.getCurrentBrightness(led));
+                }
+                showLedsWithBrightness(finalFrame, brightnessMultipliers);
             }
+            
+            animation_.active = false;
+            updateHetIsVisibility(nowMs);
+            lastSegments_ = targetSegments_;
         }
     } else if (animation_.currentStep > 0 && animation_.currentStep <= (int)animation_.frames.size()) {
         // Re-display current frame (called between animation steps)
@@ -417,6 +424,7 @@ void ClockDisplay::displayStaticTime(const DisplayTime& dt) {
         fadeController_.setFadeEffect(fadeEffect);
         
         // Get previous display state to find new LEDs
+        // Build previous indices from lastSegments_ and check what was shown before
         std::vector<uint16_t> prevIndices;
         if (!lastSegments_.empty()) {
             for (const auto& seg : lastSegments_) {
@@ -425,14 +433,24 @@ void ClockDisplay::displayStaticTime(const DisplayTime& dt) {
             }
         }
         
-        // Start fades for new LEDs (including extra minute LEDs)
+        // Also check if we just finished animation - use the final animation frame
+        if (!animation_.frames.empty() && !animation_.active) {
+            const auto& finalFrame = animation_.frames.back();
+            for (uint16_t led : finalFrame) {
+                if (std::find(prevIndices.begin(), prevIndices.end(), led) == prevIndices.end()) {
+                    prevIndices.push_back(led);
+                }
+            }
+        }
+        
+        // Start fades for new LEDs (including extra minute LEDs that weren't in animation)
         for (uint16_t led : indices) {
             if (std::find(prevIndices.begin(), prevIndices.end(), led) == prevIndices.end()) {
                 fadeController_.startFade(led, 255, fadeDuration, fadeEffect);
             }
         }
         
-        // Build brightness multipliers for all LEDs
+        // Build brightness multipliers for all LEDs (respecting ongoing fades)
         std::vector<uint8_t> brightnessMultipliers;
         for (uint16_t led : indices) {
             brightnessMultipliers.push_back(fadeController_.getCurrentBrightness(led));
