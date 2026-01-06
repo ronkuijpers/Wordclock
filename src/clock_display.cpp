@@ -226,7 +226,10 @@ void ClockDisplay::buildAnimationFrames(const DisplayTime& dt, unsigned long now
 void ClockDisplay::executeAnimationStep(unsigned long nowMs) {
     unsigned long deltaMs = (animation_.currentStep == 0) ? 0 : (nowMs - animation_.lastStepAt);
     
-    if (animation_.currentStep == 0 || deltaMs >= 500) {
+    // Get configurable animation speed from settings
+    uint16_t frameDelayMs = displaySettings.getAnimationSpeedMs();
+    
+    if (animation_.currentStep == 0 || deltaMs >= frameDelayMs) {
         if (animation_.currentStep < (int)animation_.frames.size()) {
             const auto& frame = animation_.frames[animation_.currentStep];
             

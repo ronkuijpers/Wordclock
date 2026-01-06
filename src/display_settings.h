@@ -6,6 +6,12 @@
 
 constexpr GridVariant FIRMWARE_DEFAULT_GRID_VARIANT = GridVariant::NL_V4;
 enum class WordAnimationMode : uint8_t { Classic = 0, Smart = 1 };
+enum class AnimationSpeed : uint8_t {
+  Slow = 0,      // 1000ms per frame
+  Normal = 1,    // 500ms per frame (default)
+  Fast = 2,      // 250ms per frame
+  Custom = 3     // User-defined milliseconds
+};
 
 class DisplaySettings {
 public:
@@ -20,6 +26,16 @@ public:
       storedAnimMode = static_cast<uint8_t>(WordAnimationMode::Classic);
     }
     animationMode_ = static_cast<WordAnimationMode>(storedAnimMode);
+    
+    // Animation speed (new feature)
+    uint8_t storedSpeed = prefs_.getUChar("anim_speed", static_cast<uint8_t>(AnimationSpeed::Normal));
+    if (storedSpeed > static_cast<uint8_t>(AnimationSpeed::Custom)) {
+      storedSpeed = static_cast<uint8_t>(AnimationSpeed::Normal);
+    }
+    animationSpeed_ = static_cast<AnimationSpeed>(storedSpeed);
+    customSpeedMs_ = prefs_.getUShort("anim_speed_ms", 500);
+    if (customSpeedMs_ < 100) customSpeedMs_ = 100;
+    if (customSpeedMs_ > 2000) customSpeedMs_ = 2000;
     autoUpdate_ = prefs_.getBool("auto_upd", true);
     const uint8_t defaultVariantId = gridVariantToId(FIRMWARE_DEFAULT_GRID_VARIANT);
     const bool hasGridKey = prefs_.isKey("grid_id");
@@ -69,6 +85,18 @@ public:
   bool getAnimateWords() const { return animateWords_; }
   WordAnimationMode getAnimationMode() const { return animationMode_; }
   uint8_t getAnimationModeId() const { return static_cast<uint8_t>(animationMode_); }
+  AnimationSpeed getAnimationSpeed() const { return animationSpeed_; }
+  uint8_t getAnimationSpeedId() const { return static_cast<uint8_t>(animationSpeed_); }
+  uint16_t getAnimationSpeedMs() const {
+    switch (animationSpeed_) {
+      case AnimationSpeed::Slow: return 1000;
+      case AnimationSpeed::Normal: return 500;
+      case AnimationSpeed::Fast: return 250;
+      case AnimationSpeed::Custom: return customSpeedMs_;
+      default: return 500;
+    }
+  }
+  uint16_t getCustomSpeedMs() const { return customSpeedMs_; }
   bool getAutoUpdate() const { return autoUpdate_; }
   String getUpdateChannel() const { return updateChannel_; }
   bool hasStoredChannel() const { return hasStoredUpdateChannel_; }
@@ -106,6 +134,27 @@ public:
       id = static_cast<uint8_t>(WordAnimationMode::Classic);
     }
     setAnimationMode(static_cast<WordAnimationMode>(id));
+  }
+
+  void setAnimationSpeed(AnimationSpeed speed) {
+    if (animationSpeed_ == speed) return;
+    animationSpeed_ = speed;
+    markDirty();
+  }
+
+  void setAnimationSpeedById(uint8_t id) {
+    if (id > static_cast<uint8_t>(AnimationSpeed::Custom)) {
+      id = static_cast<uint8_t>(AnimationSpeed::Normal);
+    }
+    setAnimationSpeed(static_cast<AnimationSpeed>(id));
+  }
+
+  void setCustomSpeedMs(uint16_t ms) {
+    if (ms < 100) ms = 100;
+    if (ms > 2000) ms = 2000;
+    if (customSpeedMs_ == ms) return;
+    customSpeedMs_ = ms;
+    markDirty();
   }
 
   void setAutoUpdate(bool on) {
@@ -165,6 +214,8 @@ public:
     prefs_.putBool("sell_on", sellMode_);
     prefs_.putBool("anim_on", animateWords_);
     prefs_.putUChar("anim_mode", static_cast<uint8_t>(animationMode_));
+    prefs_.putUChar("anim_speed", static_cast<uint8_t>(animationSpeed_));
+    prefs_.putUShort("anim_speed_ms", customSpeedMs_);
     prefs_.putBool("auto_upd", autoUpdate_);
     prefs_.putString("upd_ch", updateChannel_);
     prefs_.putUChar("grid_id", gridVariantToId(gridVariant_));
@@ -202,6 +253,8 @@ private:
   bool sellMode_ = false;
   bool animateWords_ = false; // default OFF
   WordAnimationMode animationMode_ = WordAnimationMode::Classic;
+  AnimationSpeed animationSpeed_ = AnimationSpeed::Normal; // default Normal (500ms)
+  uint16_t customSpeedMs_ = 500; // For Custom speed mode
   bool autoUpdate_ = true;    // default ON to keep current behavior
   String updateChannel_ = "stable";
   GridVariant gridVariant_ = FIRMWARE_DEFAULT_GRID_VARIANT;

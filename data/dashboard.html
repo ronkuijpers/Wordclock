@@ -156,6 +156,27 @@
         </select>
         <p class="text-xs text-gray-500 mt-1">Slim laat ongewijzigde woorden staan en animeert alleen 'HET/IS' en de wijzigingen.</p>
       </div>
+      <div class="mb-3">
+        <label for="animSpeed" class="block text-sm mb-1">Animation Speed</label>
+        <select id="animSpeed" class="w-full border rounded p-2 text-sm">
+          <option value="slow">🐌 Slow (1000ms)</option>
+          <option value="normal" selected>⚡ Normal (500ms)</option>
+          <option value="fast">🚀 Fast (250ms)</option>
+          <option value="custom">⚙️ Custom</option>
+        </select>
+      </div>
+      <div id="customSpeedContainer" class="mb-3" style="display:none;">
+        <label for="customSpeedMs" class="block text-sm mb-1">
+          Custom Speed: <span id="customSpeedValue">500</span>ms
+        </label>
+        <div class="flex items-center gap-3">
+          <input type="range" id="customSpeedMs" min="100" max="2000" step="50" 
+                 value="500" class="flex-1">
+          <input type="number" id="customSpeedMsInput" min="100" max="2000" step="50" 
+                 value="500" class="w-24 border rounded p-1 text-sm">
+        </div>
+        <p class="text-xs text-gray-500 mt-1">Range: 100ms (very fast) to 2000ms (very slow)</p>
+      </div>
       <label class="inline-flex items-center space-x-2 mb-2">
         <input type="checkbox" id="hetIsAlways2" class="form-checkbox">
         <span>Always show 'HET IS'</span>
@@ -961,6 +982,63 @@
       });
     }
 
+    // Animation Speed loaders
+    const animSpeedSel = document.getElementById('animSpeed');
+    const customSpeedContainer = document.getElementById('customSpeedContainer');
+    const customSpeedSlider = document.getElementById('customSpeedMs');
+    const customSpeedInput = document.getElementById('customSpeedMsInput');
+    const customSpeedValue = document.getElementById('customSpeedValue');
+
+    const updateCustomSpeedVisibility = () => {
+      if (customSpeedContainer && animSpeedSel) {
+        customSpeedContainer.style.display = 
+          (animSpeedSel.value === 'custom') ? 'block' : 'none';
+      }
+    };
+
+    if (animSpeedSel) {
+      dataLoader.register('animSpeed', async () => {
+        const res = await fetch('/getAnimSpeed');
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        return res.text();
+      }, {
+        priority: 5,
+        onSuccess: (speed) => {
+          const s = (speed || '').trim().toLowerCase();
+          if (animSpeedSel) {
+            animSpeedSel.value = s || 'normal';
+            updateCustomSpeedVisibility();
+          }
+        },
+        onError: (error) => {
+          if (animSpeedSel) animSpeedSel.value = 'normal';
+          updateCustomSpeedVisibility();
+        }
+      });
+    }
+
+    if (customSpeedSlider && customSpeedInput && customSpeedValue) {
+      dataLoader.register('customSpeedMs', async () => {
+        const res = await fetch('/getCustomSpeedMs');
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        return res.text();
+      }, {
+        priority: 5,
+        onSuccess: (ms) => {
+          const msVal = parseInt(ms, 10) || 500;
+          if (customSpeedSlider) customSpeedSlider.value = msVal;
+          if (customSpeedInput) customSpeedInput.value = msVal;
+          if (customSpeedValue) customSpeedValue.textContent = msVal;
+        },
+        onError: (error) => {
+          const defaultMs = 500;
+          if (customSpeedSlider) customSpeedSlider.value = defaultMs;
+          if (customSpeedInput) customSpeedInput.value = defaultMs;
+          if (customSpeedValue) customSpeedValue.textContent = defaultMs;
+        }
+      });
+    }
+
     // HET IS Duration loader (normale prioriteit)
     const durSlider2 = document.getElementById('hetIsDuration2');
     const durValue2 = document.getElementById('hetIsDurationValue2');
@@ -1174,6 +1252,39 @@
       animModeSel.addEventListener('change', () => {
         const val = animModeSel.value || 'classic';
         fetch('/setAnimMode?mode=' + encodeURIComponent(val));
+      });
+    }
+
+    // Animation Speed event listeners
+    if (animSpeedSel) {
+      animSpeedSel.addEventListener('change', () => {
+        const speed = animSpeedSel.value || 'normal';
+        fetch('/setAnimSpeed?speed=' + encodeURIComponent(speed));
+        updateCustomSpeedVisibility();
+      });
+    }
+
+    if (customSpeedSlider) {
+      customSpeedSlider.addEventListener('input', () => {
+        const ms = parseInt(customSpeedSlider.value, 10);
+        if (customSpeedInput) customSpeedInput.value = ms;
+        if (customSpeedValue) customSpeedValue.textContent = ms;
+      });
+      customSpeedSlider.addEventListener('change', () => {
+        const ms = parseInt(customSpeedSlider.value, 10);
+        fetch('/setCustomSpeedMs?ms=' + ms);
+      });
+    }
+
+    if (customSpeedInput) {
+      customSpeedInput.addEventListener('change', () => {
+        let ms = parseInt(customSpeedInput.value, 10);
+        if (isNaN(ms)) ms = 500;
+        ms = Math.max(100, Math.min(2000, ms));
+        customSpeedInput.value = ms;
+        if (customSpeedSlider) customSpeedSlider.value = ms;
+        if (customSpeedValue) customSpeedValue.textContent = ms;
+        fetch('/setCustomSpeedMs?ms=' + ms);
       });
     }
     if (durSlider2) {

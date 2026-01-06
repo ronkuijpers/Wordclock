@@ -37,6 +37,8 @@ static String g_lastErr;
 static String tLightState, tLightSet;
 static String tClockState, tClockSet;
 static String tAnimState, tAnimSet;
+static String tAnimSpeedState, tAnimSpeedSet;
+static String tCustomSpeedMsState, tCustomSpeedMsSet;
 static String tAutoUpdState, tAutoUpdSet;
 static String tHetIsState, tHetIsSet;
 static String tLogLvlState, tLogLvlSet;
@@ -71,6 +73,10 @@ static void buildTopics() {
   tClockSet     = base + "/clock/set";
   tAnimState    = base + "/animate/state";
   tAnimSet      = base + "/animate/set";
+  tAnimSpeedState = base + "/animation/speed/state";
+  tAnimSpeedSet   = base + "/animation/speed/set";
+  tCustomSpeedMsState = base + "/animation/custom_speed/state";
+  tCustomSpeedMsSet   = base + "/animation/custom_speed/set";
   tAutoUpdState = base + "/autoupdate/state";
   tAutoUpdSet   = base + "/autoupdate/set";
   tHetIsState   = base + "/hetis/state";
@@ -121,6 +127,11 @@ static void publishDiscovery() {
   
   // Switches
   builder.addSwitch("Animate words", nodeId + "_anim", tAnimState, tAnimSet);
+  builder.addSelect("Animation speed", nodeId + "_anim_speed", tAnimSpeedState, tAnimSpeedSet,
+                    {"slow", "normal", "fast", "custom"});
+  builder.addNumber("Custom animation speed (ms)", nodeId + "_custom_speed_ms",
+                    tCustomSpeedMsState, tCustomSpeedMsSet,
+                    100, 2000, 50, "ms");
   builder.addSwitch("Auto update", nodeId + "_autoupd", tAutoUpdState, tAutoUpdSet);
   builder.addSwitch("Night mode enabled", nodeId + "_night_enabled", 
                    tNightEnabledState, tNightEnabledSet);
@@ -282,6 +293,17 @@ void mqtt_publish_state(bool force) {
 
   publishLightState();
   publishSwitch(tAnimState, displaySettings.getAnimateWords());
+  AnimationSpeed speed = displaySettings.getAnimationSpeed();
+  String speedStr;
+  switch (speed) {
+    case AnimationSpeed::Slow: speedStr = "slow"; break;
+    case AnimationSpeed::Normal: speedStr = "normal"; break;
+    case AnimationSpeed::Fast: speedStr = "fast"; break;
+    case AnimationSpeed::Custom: speedStr = "custom"; break;
+    default: speedStr = "normal"; break;
+  }
+  publishSelect(tAnimSpeedState, speedStr);
+  publishNumber(tCustomSpeedMsState, displaySettings.getCustomSpeedMs());
   publishSwitch(tAutoUpdState, displaySettings.getAutoUpdate());
   publishNumber(tHetIsState, displaySettings.getHetIsDurationSec());
   publishSwitch(tNightEnabledState, nightMode.isEnabled());
@@ -357,6 +379,37 @@ static void initCommandHandlers() {
     "animate",
     [](bool on) { displaySettings.setAnimateWords(on); },
     []() { publishSwitch(tAnimState, displaySettings.getAnimateWords()); }
+  ));
+  
+  registry.registerHandler(tAnimSpeedSet, new SelectCommandHandler(
+    {"slow", "normal", "fast", "custom"},
+    [](const String& val) {
+      AnimationSpeed speed = AnimationSpeed::Normal;
+      if (val == "slow") speed = AnimationSpeed::Slow;
+      else if (val == "fast") speed = AnimationSpeed::Fast;
+      else if (val == "custom") speed = AnimationSpeed::Custom;
+      displaySettings.setAnimationSpeed(speed);
+    },
+    []() {
+      AnimationSpeed speed = displaySettings.getAnimationSpeed();
+      String speedStr;
+      switch (speed) {
+        case AnimationSpeed::Slow: speedStr = "slow"; break;
+        case AnimationSpeed::Normal: speedStr = "normal"; break;
+        case AnimationSpeed::Fast: speedStr = "fast"; break;
+        case AnimationSpeed::Custom: speedStr = "custom"; break;
+        default: speedStr = "normal"; break;
+      }
+      publishSelect(tAnimSpeedState, speedStr);
+    }
+  ));
+  
+  registry.registerHandler(tCustomSpeedMsSet, new NumberCommandHandler(
+    [](float val) {
+      uint16_t ms = (uint16_t)val;
+      displaySettings.setCustomSpeedMs(ms);
+    },
+    []() { publishNumber(tCustomSpeedMsState, displaySettings.getCustomSpeedMs()); }
   ));
   
   registry.registerHandler(tAutoUpdSet, new SwitchCommandHandler(
@@ -507,6 +560,8 @@ static bool mqtt_connect() {
   mqtt.subscribe(tLightSet.c_str());
   mqtt.subscribe(tClockSet.c_str());
   mqtt.subscribe(tAnimSet.c_str());
+  mqtt.subscribe(tAnimSpeedSet.c_str());
+  mqtt.subscribe(tCustomSpeedMsSet.c_str());
   mqtt.subscribe(tAutoUpdSet.c_str());
   mqtt.subscribe(tHetIsSet.c_str());
   mqtt.subscribe(tNightEnabledSet.c_str());

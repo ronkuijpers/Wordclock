@@ -1278,6 +1278,68 @@ void setupWebRoutes() {
     server.send(200, "text/plain", "OK");
   });
 
+  // Animation Speed endpoints
+  server.on("/getAnimSpeed", []() {
+    if (!ensureUiAuth()) {
+      logWarn("[API] /getAnimSpeed: Auth failed");
+      return;
+    }
+    AnimationSpeed speed = displaySettings.getAnimationSpeed();
+    String result;
+    switch (speed) {
+      case AnimationSpeed::Slow: result = "slow"; break;
+      case AnimationSpeed::Normal: result = "normal"; break;
+      case AnimationSpeed::Fast: result = "fast"; break;
+      case AnimationSpeed::Custom: result = "custom"; break;
+      default: result = "normal"; break;
+    }
+    server.send(200, "text/plain", result);
+  });
+
+  server.on("/setAnimSpeed", []() {
+    if (!ensureUiAuth()) return;
+    if (!server.hasArg("speed")) {
+      server.send(400, "text/plain", "Missing speed");
+      return;
+    }
+    String speedStr = server.arg("speed");
+    speedStr.toLowerCase();
+    AnimationSpeed speed;
+    if (speedStr == "slow") {
+      speed = AnimationSpeed::Slow;
+    } else if (speedStr == "fast") {
+      speed = AnimationSpeed::Fast;
+    } else if (speedStr == "custom") {
+      speed = AnimationSpeed::Custom;
+    } else {
+      speed = AnimationSpeed::Normal;
+    }
+    displaySettings.setAnimationSpeed(speed);
+    logInfo(String("⚡ Animation speed set to ") + speedStr);
+    server.send(200, "text/plain", "OK");
+  });
+
+  server.on("/getCustomSpeedMs", []() {
+    if (!ensureUiAuth()) {
+      logWarn("[API] /getCustomSpeedMs: Auth failed");
+      return;
+    }
+    uint16_t ms = displaySettings.getCustomSpeedMs();
+    server.send(200, "text/plain", String(ms));
+  });
+
+  server.on("/setCustomSpeedMs", []() {
+    if (!ensureUiAuth()) return;
+    if (!server.hasArg("ms")) {
+      server.send(400, "text/plain", "Missing ms");
+      return;
+    }
+    uint16_t ms = server.arg("ms").toInt();
+    displaySettings.setCustomSpeedMs(ms);
+    logInfo(String("⚙️ Custom animation speed set to ") + ms + "ms");
+    server.send(200, "text/plain", "OK");
+  });
+
   server.on("/getAnimMode", []() {
     if (!ensureUiAuth()) {
       logWarn("[API] /getAnimMode: Auth failed");
