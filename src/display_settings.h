@@ -12,6 +12,14 @@ enum class AnimationSpeed : uint8_t {
   Fast = 2,      // 250ms per frame
   Custom = 3     // User-defined milliseconds
 };
+enum class AnimationDirection : uint8_t {
+  LeftToRight = 0,   // Default
+  RightToLeft = 1,
+  TopToBottom = 2,
+  BottomToTop = 3,
+  CenterOut = 4,     // Spiral from center
+  Random = 5
+};
 
 class DisplaySettings {
 public:
@@ -36,6 +44,13 @@ public:
     customSpeedMs_ = prefs_.getUShort("anim_speed_ms", 500);
     if (customSpeedMs_ < 100) customSpeedMs_ = 100;
     if (customSpeedMs_ > 2000) customSpeedMs_ = 2000;
+    
+    // Animation direction (new feature)
+    uint8_t storedDir = prefs_.getUChar("anim_dir", static_cast<uint8_t>(AnimationDirection::LeftToRight));
+    if (storedDir > static_cast<uint8_t>(AnimationDirection::Random)) {
+      storedDir = static_cast<uint8_t>(AnimationDirection::LeftToRight);
+    }
+    animationDirection_ = static_cast<AnimationDirection>(storedDir);
     autoUpdate_ = prefs_.getBool("auto_upd", true);
     const uint8_t defaultVariantId = gridVariantToId(FIRMWARE_DEFAULT_GRID_VARIANT);
     const bool hasGridKey = prefs_.isKey("grid_id");
@@ -97,6 +112,8 @@ public:
     }
   }
   uint16_t getCustomSpeedMs() const { return customSpeedMs_; }
+  AnimationDirection getAnimationDirection() const { return animationDirection_; }
+  uint8_t getAnimationDirectionId() const { return static_cast<uint8_t>(animationDirection_); }
   bool getAutoUpdate() const { return autoUpdate_; }
   String getUpdateChannel() const { return updateChannel_; }
   bool hasStoredChannel() const { return hasStoredUpdateChannel_; }
@@ -155,6 +172,19 @@ public:
     if (customSpeedMs_ == ms) return;
     customSpeedMs_ = ms;
     markDirty();
+  }
+
+  void setAnimationDirection(AnimationDirection direction) {
+    if (animationDirection_ == direction) return;
+    animationDirection_ = direction;
+    markDirty();
+  }
+
+  void setAnimationDirectionById(uint8_t id) {
+    if (id > static_cast<uint8_t>(AnimationDirection::Random)) {
+      id = static_cast<uint8_t>(AnimationDirection::LeftToRight);
+    }
+    setAnimationDirection(static_cast<AnimationDirection>(id));
   }
 
   void setAutoUpdate(bool on) {
@@ -216,6 +246,7 @@ public:
     prefs_.putUChar("anim_mode", static_cast<uint8_t>(animationMode_));
     prefs_.putUChar("anim_speed", static_cast<uint8_t>(animationSpeed_));
     prefs_.putUShort("anim_speed_ms", customSpeedMs_);
+    prefs_.putUChar("anim_dir", static_cast<uint8_t>(animationDirection_));
     prefs_.putBool("auto_upd", autoUpdate_);
     prefs_.putString("upd_ch", updateChannel_);
     prefs_.putUChar("grid_id", gridVariantToId(gridVariant_));
@@ -255,6 +286,7 @@ private:
   WordAnimationMode animationMode_ = WordAnimationMode::Classic;
   AnimationSpeed animationSpeed_ = AnimationSpeed::Normal; // default Normal (500ms)
   uint16_t customSpeedMs_ = 500; // For Custom speed mode
+  AnimationDirection animationDirection_ = AnimationDirection::LeftToRight; // default Left-to-Right
   bool autoUpdate_ = true;    // default ON to keep current behavior
   String updateChannel_ = "stable";
   GridVariant gridVariant_ = FIRMWARE_DEFAULT_GRID_VARIANT;

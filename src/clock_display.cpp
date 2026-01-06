@@ -6,6 +6,7 @@
 #include "time_sync.h"
 #include "grid_layout.h"
 #include "log.h"
+#include "display_settings.h"
 #include <algorithm>
 #include <cstring>
 
@@ -185,12 +186,96 @@ void ClockDisplay::triggerAnimationIfNeeded(const DisplayTime& dt, unsigned long
     }
 }
 
+// Helper function to reorder segments based on animation direction
+static void reorderSegmentsByDirection(std::vector<WordSegment>& segments, AnimationDirection direction) {
+    if (segments.empty() || direction == AnimationDirection::LeftToRight) {
+        return; // Already in correct order
+    }
+    
+    switch (direction) {
+        case AnimationDirection::RightToLeft:
+            // Reverse the order
+            std::reverse(segments.begin(), segments.end());
+            break;
+            
+        case AnimationDirection::TopToBottom:
+            // Sort by first LED index (lower index = higher on grid typically)
+            std::sort(segments.begin(), segments.end(), [](const WordSegment& a, const WordSegment& b) {
+                if (a.leds.empty()) return false;
+                if (b.leds.empty()) return true;
+                return a.leds[0] < b.leds[0];
+            });
+            break;
+            
+        case AnimationDirection::BottomToTop:
+            // Sort by first LED index (higher index = lower on grid typically)
+            std::sort(segments.begin(), segments.end(), [](const WordSegment& a, const WordSegment& b) {
+                if (a.leds.empty()) return false;
+                if (b.leds.empty()) return true;
+                return a.leds[0] > b.leds[0];
+            });
+            break;
+            
+        case AnimationDirection::CenterOut: {
+            // Sort by average LED index (closer to center = earlier)
+            // Estimate center as middle of LED range
+            uint16_t maxLed = 0;
+            for (const auto& seg : segments) {
+                for (uint16_t idx : seg.leds) {
+                    if (idx > maxLed) maxLed = idx;
+                }
+            }
+            uint16_t centerEstimate = maxLed / 2;
+            
+            std::sort(segments.begin(), segments.end(), [centerEstimate](const WordSegment& a, const WordSegment& b) {
+                if (a.leds.empty()) return false;
+                if (b.leds.empty()) return true;
+                
+                // Calculate average LED index for each segment
+                uint32_t sumA = 0, sumB = 0;
+                for (uint16_t idx : a.leds) sumA += idx;
+                for (uint16_t idx : b.leds) sumB += idx;
+                uint16_t avgA = a.leds.empty() ? 0 : (sumA / a.leds.size());
+                uint16_t avgB = b.leds.empty() ? 0 : (sumB / b.leds.size());
+                
+                // Distance from center (absolute difference)
+                uint16_t distA = (avgA > centerEstimate) ? (avgA - centerEstimate) : (centerEstimate - avgA);
+                uint16_t distB = (avgB > centerEstimate) ? (avgB - centerEstimate) : (centerEstimate - avgB);
+                
+                return distA < distB;
+            });
+            break;
+        }
+        
+        case AnimationDirection::Random: {
+            // Shuffle segments randomly
+            // Use a simple pseudo-random based on segment count
+            static unsigned long seed = 0;
+            if (seed == 0) seed = millis();
+            
+            for (size_t i = segments.size() - 1; i > 0; --i) {
+                seed = (seed * 1103515245 + 12345) & 0x7fffffff;
+                size_t j = seed % (i + 1);
+                std::swap(segments[i], segments[j]);
+            }
+            break;
+        }
+        
+        default:
+            break;
+    }
+}
+
 void ClockDisplay::buildAnimationFrames(const DisplayTime& dt, unsigned long nowMs) {
     struct tm effectiveTime = dt.effective;
     targetSegments_ = get_word_segments_with_keys(&effectiveTime);
     
     uint16_t hisSec = displaySettings.getHetIsDurationSec();
     stripHetIsIfDisabled(targetSegments_, hisSec);
+    
+    // Apply direction reordering before building frames
+    AnimationDirection direction = displaySettings.getAnimationDirection();
+    reorderSegmentsByDirection(targetSegments_, direction);
     
     bool animate = displaySettings.getAnimateWords();
     WordAnimationMode mode = displaySettings.getAnimationMode();
@@ -199,7 +284,18 @@ void ClockDisplay::buildAnimationFrames(const DisplayTime& dt, unsigned long now
         bool hetIsVisible = hetIsCurrentlyVisible(hisSec, hetIs_.visibleUntil, nowMs);
         
         if (mode == WordAnimationMode::Smart && !lastSegments_.empty()) {
-            buildSmartFrames(lastSegments_, targetSegments_, hetIsVisible, animation_.frames);
+            // For smart mode: compare original segments, but display with direction
+            // Get original segments (before direction reordering) for change detection
+            std::vector<WordSegment> originalTarget = get_word_segments_with_keys(&effectiveTime);
+            stripHetIsIfDisabled(originalTarget, hisSec);
+            
+            // Build smart frames using original order for accurate change detection
+            buildSmartFrames(lastSegments_, originalTarget, hetIsVisible, animation_.frames);
+            
+            // Note: Smart mode with direction is simplified - it detects changes correctly
+            // but the animation order follows the direction. For full direction support
+            // in smart mode, we would need to reorder the incremental frame changes,
+            // which is complex. For now, direction primarily affects classic mode.
         } else {
             buildClassicFrames(targetSegments_, animation_.frames);
         }

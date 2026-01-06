@@ -177,6 +177,20 @@
         </div>
         <p class="text-xs text-gray-500 mt-1">Range: 100ms (very fast) to 2000ms (very slow)</p>
       </div>
+      <div class="mb-3">
+        <label for="animDirection" class="block text-sm mb-1">Animation Direction</label>
+        <select id="animDirection" class="w-full border rounded p-2 text-sm">
+          <option value="ltr" selected>→ Left to Right</option>
+          <option value="rtl">← Right to Left</option>
+          <option value="ttb">↓ Top to Bottom</option>
+          <option value="btt">↑ Bottom to Top</option>
+          <option value="center">🌀 Center Out (Spiral)</option>
+          <option value="random">🎲 Random</option>
+        </select>
+        <p class="text-xs text-gray-500 mt-1">
+          Controls the order in which words appear during animation
+        </p>
+      </div>
       <label class="inline-flex items-center space-x-2 mb-2">
         <input type="checkbox" id="hetIsAlways2" class="form-checkbox">
         <span>Always show 'HET IS'</span>
@@ -1039,6 +1053,27 @@
       });
     }
 
+    // Animation Direction loader
+    const animDirectionSel = document.getElementById('animDirection');
+    if (animDirectionSel) {
+      dataLoader.register('animDirection', async () => {
+        const res = await fetch('/getAnimDirection');
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        return res.text();
+      }, {
+        priority: 5,
+        onSuccess: (dir) => {
+          const d = (dir || '').trim().toLowerCase();
+          if (animDirectionSel) {
+            animDirectionSel.value = d || 'ltr';
+          }
+        },
+        onError: (error) => {
+          if (animDirectionSel) animDirectionSel.value = 'ltr';
+        }
+      });
+    }
+
     // HET IS Duration loader (normale prioriteit)
     const durSlider2 = document.getElementById('hetIsDuration2');
     const durValue2 = document.getElementById('hetIsDurationValue2');
@@ -1287,6 +1322,23 @@
         fetch('/setCustomSpeedMs?ms=' + ms);
       });
     }
+
+    // Animation Direction event listeners
+    if (animDirectionSel) {
+      animDirectionSel.addEventListener('change', () => {
+        const dir = animDirectionSel.value || 'ltr';
+        fetch('/setAnimDirection?direction=' + encodeURIComponent(dir));
+      });
+    }
+
+    // Animation Direction event listeners
+    if (animDirectionSel) {
+      animDirectionSel.addEventListener('change', () => {
+        const dir = animDirectionSel.value || 'ltr';
+        fetch('/setAnimDirection?direction=' + encodeURIComponent(dir));
+      });
+    }
+
     if (durSlider2) {
     durSlider2.addEventListener('input', () => {
       const sec = parseInt(durSlider2.value, 10);

@@ -1340,6 +1340,53 @@ void setupWebRoutes() {
     server.send(200, "text/plain", "OK");
   });
 
+  // Animation Direction endpoints
+  server.on("/getAnimDirection", []() {
+    if (!ensureUiAuth()) {
+      logWarn("[API] /getAnimDirection: Auth failed");
+      return;
+    }
+    AnimationDirection dir = displaySettings.getAnimationDirection();
+    String result;
+    switch (dir) {
+      case AnimationDirection::LeftToRight: result = "ltr"; break;
+      case AnimationDirection::RightToLeft: result = "rtl"; break;
+      case AnimationDirection::TopToBottom: result = "ttb"; break;
+      case AnimationDirection::BottomToTop: result = "btt"; break;
+      case AnimationDirection::CenterOut: result = "center"; break;
+      case AnimationDirection::Random: result = "random"; break;
+      default: result = "ltr"; break;
+    }
+    server.send(200, "text/plain", result);
+  });
+
+  server.on("/setAnimDirection", []() {
+    if (!ensureUiAuth()) return;
+    if (!server.hasArg("direction")) {
+      server.send(400, "text/plain", "Missing direction");
+      return;
+    }
+    String dirStr = server.arg("direction");
+    dirStr.toLowerCase();
+    AnimationDirection dir;
+    if (dirStr == "rtl") {
+      dir = AnimationDirection::RightToLeft;
+    } else if (dirStr == "ttb") {
+      dir = AnimationDirection::TopToBottom;
+    } else if (dirStr == "btt") {
+      dir = AnimationDirection::BottomToTop;
+    } else if (dirStr == "center") {
+      dir = AnimationDirection::CenterOut;
+    } else if (dirStr == "random") {
+      dir = AnimationDirection::Random;
+    } else {
+      dir = AnimationDirection::LeftToRight;
+    }
+    displaySettings.setAnimationDirection(dir);
+    logInfo(String("🧭 Animation direction set to ") + dirStr);
+    server.send(200, "text/plain", "OK");
+  });
+
   server.on("/getAnimMode", []() {
     if (!ensureUiAuth()) {
       logWarn("[API] /getAnimMode: Auth failed");

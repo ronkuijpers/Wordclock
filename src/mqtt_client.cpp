@@ -39,6 +39,7 @@ static String tClockState, tClockSet;
 static String tAnimState, tAnimSet;
 static String tAnimSpeedState, tAnimSpeedSet;
 static String tCustomSpeedMsState, tCustomSpeedMsSet;
+static String tAnimDirectionState, tAnimDirectionSet;
 static String tAutoUpdState, tAutoUpdSet;
 static String tHetIsState, tHetIsSet;
 static String tLogLvlState, tLogLvlSet;
@@ -77,6 +78,8 @@ static void buildTopics() {
   tAnimSpeedSet   = base + "/animation/speed/set";
   tCustomSpeedMsState = base + "/animation/custom_speed/state";
   tCustomSpeedMsSet   = base + "/animation/custom_speed/set";
+  tAnimDirectionState = base + "/animation/direction/state";
+  tAnimDirectionSet   = base + "/animation/direction/set";
   tAutoUpdState = base + "/autoupdate/state";
   tAutoUpdSet   = base + "/autoupdate/set";
   tHetIsState   = base + "/hetis/state";
@@ -132,6 +135,8 @@ static void publishDiscovery() {
   builder.addNumber("Custom animation speed (ms)", nodeId + "_custom_speed_ms",
                     tCustomSpeedMsState, tCustomSpeedMsSet,
                     100, 2000, 50, "ms");
+  builder.addSelect("Animation direction", nodeId + "_anim_direction", tAnimDirectionState, tAnimDirectionSet,
+                    {"ltr", "rtl", "ttb", "btt", "center", "random"});
   builder.addSwitch("Auto update", nodeId + "_autoupd", tAutoUpdState, tAutoUpdSet);
   builder.addSwitch("Night mode enabled", nodeId + "_night_enabled", 
                    tNightEnabledState, tNightEnabledSet);
@@ -257,6 +262,21 @@ void publishAnimSpeedState() {
   mqtt.publish(tAnimSpeedState.c_str(), s, true);
 }
 
+void publishAnimDirectionState() {
+  AnimationDirection dir = displaySettings.getAnimationDirection();
+  const char* s = "ltr";
+  switch (dir) {
+    case AnimationDirection::LeftToRight: s = "ltr"; break;
+    case AnimationDirection::RightToLeft: s = "rtl"; break;
+    case AnimationDirection::TopToBottom: s = "ttb"; break;
+    case AnimationDirection::BottomToTop: s = "btt"; break;
+    case AnimationDirection::CenterOut: s = "center"; break;
+    case AnimationDirection::Random: s = "random"; break;
+    default: s = "ltr"; break;
+  }
+  mqtt.publish(tAnimDirectionState.c_str(), s, true);
+}
+
 void publishNightDimState() {
   publishNumber(tNightDimState, nightMode.getDimPercent());
 }
@@ -308,6 +328,7 @@ void mqtt_publish_state(bool force) {
   publishSwitch(tAnimState, displaySettings.getAnimateWords());
   publishAnimSpeedState();
   publishNumber(tCustomSpeedMsState, displaySettings.getCustomSpeedMs());
+  publishAnimDirectionState();
   publishSwitch(tAutoUpdState, displaySettings.getAutoUpdate());
   publishNumber(tHetIsState, displaySettings.getHetIsDurationSec());
   publishSwitch(tNightEnabledState, nightMode.isEnabled());
@@ -403,6 +424,20 @@ static void initCommandHandlers() {
       displaySettings.setCustomSpeedMs((uint16_t)v);
     },
     []() { publishNumber(tCustomSpeedMsState, displaySettings.getCustomSpeedMs()); }
+  ));
+  
+  registry.registerHandler(tAnimDirectionSet, new SelectCommandHandler(
+    {"ltr", "rtl", "ttb", "btt", "center", "random"},
+    [](const String& val) {
+      AnimationDirection dir = AnimationDirection::LeftToRight;
+      if (val == "rtl") dir = AnimationDirection::RightToLeft;
+      else if (val == "ttb") dir = AnimationDirection::TopToBottom;
+      else if (val == "btt") dir = AnimationDirection::BottomToTop;
+      else if (val == "center") dir = AnimationDirection::CenterOut;
+      else if (val == "random") dir = AnimationDirection::Random;
+      displaySettings.setAnimationDirection(dir);
+    },
+    []() { publishAnimDirectionState(); }
   ));
   
   registry.registerHandler(tAutoUpdSet, new SwitchCommandHandler(
@@ -555,6 +590,7 @@ static bool mqtt_connect() {
   mqtt.subscribe(tAnimSet.c_str());
   mqtt.subscribe(tAnimSpeedSet.c_str());
   mqtt.subscribe(tCustomSpeedMsSet.c_str());
+  mqtt.subscribe(tAnimDirectionSet.c_str());
   mqtt.subscribe(tAutoUpdSet.c_str());
   mqtt.subscribe(tHetIsSet.c_str());
   mqtt.subscribe(tNightEnabledSet.c_str());
