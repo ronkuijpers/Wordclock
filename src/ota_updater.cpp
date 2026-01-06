@@ -10,6 +10,7 @@
 #include "secrets.h"
 #include "ota_updater.h"
 #include "display_settings.h"
+#include "system_utils.h"
 
 static const char* FS_VERSION_FILE = "/.fs_version"; // marker
 
@@ -358,7 +359,7 @@ void checkForFirmwareUpdate() {
   if (Update.isFinished()) {
     logInfo("✅ Firmware updated, rebooting...");
     delay(500);
-    ESP.restart();
+    safeRestart();
   } else {
     logError("❌ Update not finished");
   }

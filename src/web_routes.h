@@ -27,6 +27,7 @@
 #include "night_mode.h"
 #include "build_info.h"
 #include "setup_state.h"
+#include "system_utils.h"
 #include <WiFi.h>
 #include <Arduino.h>
 
@@ -503,6 +504,14 @@ void setupWebRoutes() {
     String json = String("{\"connected\":") + (c ? "true" : "false") + 
                   ",\"last_error\":\"" + mqtt_last_error() + "\"}";
     server.send(200, "application/json", json);
+  });
+
+  // Force MQTT reconnection (clears abort state)
+  server.on("/api/mqtt/reconnect", HTTP_POST, []() {
+    if (!ensureUiAuth()) return;
+    logInfo("🔄 Force MQTT reconnect requested via web UI");
+    mqtt_force_reconnect();
+    server.send(200, "text/plain", "MQTT reconnection triggered");
   });
 
   // MQTT connection test (does not save). Accepts form-encoded: host, port, user?, pass?
@@ -995,7 +1004,7 @@ void setupWebRoutes() {
       </html>
     )rawliteral");
     delay(100);  // Small delay to finish the HTTP response
-    ESP.restart();
+    safeRestart();
   });
 
   server.on("/resetwifi", []() {
@@ -1084,7 +1093,7 @@ void setupWebRoutes() {
       server.send(200, "text/plain", Update.hasError() ? "Firmware update failed" : "Firmware update successful. Rebooting...");
       if (!Update.hasError()) {
         delay(1000);
-        ESP.restart();
+        safeRestart();
       }
     },
     []() {
@@ -1125,7 +1134,7 @@ void setupWebRoutes() {
       server.send(200, "text/plain", Update.hasError() ? "SPIFFS update failed" : "SPIFFS update successful. Rebooting...");
       if (!Update.hasError()) {
         delay(1000);
-        ESP.restart();
+        safeRestart();
       }
     },
     []() {
