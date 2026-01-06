@@ -39,7 +39,6 @@ void ClockDisplay::reset() {
     previewLoopCount_ = 0;
     previewStartMs_ = 0;
     previewNeedsTrigger_ = false;
-    lastExtraMinutes_ = -1;
 }
 
 // ============================================================================
@@ -252,32 +251,6 @@ void ClockDisplay::buildAnimationFrames(const DisplayTime& dt, unsigned long now
             animation_.currentStep = 0;
             animation_.lastStepAt = millis();
             hetIs_.visibleUntil = 0;  // Reset; will be set when animation completes
-            
-            // Handle fade effects for LEDs that changed (including minute stripes)
-            FadeEffect fadeEffect = displaySettings.getFadeEffect();
-            if (fadeEffect != FadeEffect::None) {
-                // Get the final frame (with minute stripes if any)
-                std::vector<uint16_t> newFinalFrame = animation_.frames.back();
-                
-                // Clear fades for LEDs that are no longer needed
-                fadeController_.clearFadesNotIn(newFinalFrame);
-                
-                // Handle minute stripe changes: fade out stripes that are no longer needed
-                if (lastExtraMinutes_ >= 0 && lastExtraMinutes_ != dt.extra) {
-                    uint16_t fadeDuration = displaySettings.getFadeDurationMs();
-                    // Fade out minute stripes that were on before but shouldn't be now
-                    for (int i = dt.extra; i < lastExtraMinutes_ && i < 4; ++i) {
-                        uint16_t minuteLed = EXTRA_MINUTE_LEDS[i];
-                        uint8_t currentBrightness = fadeController_.getCurrentBrightness(minuteLed);
-                        if (currentBrightness > 0) {
-                            fadeController_.startFade(minuteLed, 0, fadeDuration, FadeEffect::FadeOut);
-                        }
-                    }
-                }
-            }
-            
-            // Update last extra minutes count
-            lastExtraMinutes_ = dt.extra;
         } else {
             animation_.active = false;
         }
@@ -472,27 +445,12 @@ void ClockDisplay::displayStaticTime(const DisplayTime& dt) {
             }
         }
         
-        // Handle minute stripe changes in static display
-        if (lastExtraMinutes_ >= 0 && lastExtraMinutes_ != dt.extra) {
-            // Fade out minute stripes that are no longer needed
-            for (int i = dt.extra; i < lastExtraMinutes_ && i < 4; ++i) {
-                uint16_t minuteLed = EXTRA_MINUTE_LEDS[i];
-                uint8_t currentBrightness = fadeController_.getCurrentBrightness(minuteLed);
-                if (currentBrightness > 0) {
-                    fadeController_.startFade(minuteLed, 0, fadeDuration, FadeEffect::FadeOut);
-                }
-            }
-        }
-        
         // Start fades for new LEDs (including extra minute LEDs that weren't in animation)
         for (uint16_t led : indices) {
             if (std::find(prevIndices.begin(), prevIndices.end(), led) == prevIndices.end()) {
                 fadeController_.startFade(led, 255, fadeDuration, fadeEffect);
             }
         }
-        
-        // Update last extra minutes count
-        lastExtraMinutes_ = dt.extra;
         
         // Build brightness multipliers for all LEDs (respecting ongoing fades)
         std::vector<uint8_t> brightnessMultipliers;

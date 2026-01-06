@@ -102,14 +102,3 @@ void FadeController::clear() {
     activeFades_.clear();
 }
 
-void FadeController::clearFadesNotIn(const std::vector<uint16_t>& keepLeds) {
-    // Remove fades for LEDs that are not in the keep list
-    activeFades_.erase(
-        std::remove_if(activeFades_.begin(), activeFades_.end(),
-                      [&keepLeds](const FadeState& f) {
-                          return std::find(keepLeds.begin(), keepLeds.end(), f.ledIndex) == keepLeds.end();
-                      }),
-        activeFades_.end()
-    );
-}
-

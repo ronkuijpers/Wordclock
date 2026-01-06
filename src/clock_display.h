@@ -111,7 +111,6 @@ private:
     bool forceAnimation_ = false;
     struct tm forcedTime_ = {};
     bool loggedInitialTimeFailure_ = false;
-    int lastExtraMinutes_ = -1;  // Track previous extra minute count for fade handling
     
     // Fade controller for animation effects
     FadeController fadeController_;

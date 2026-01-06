@@ -59,12 +59,6 @@ public:
     void clear();
 
     /**
-     * @brief Clear fades for LEDs that are not in the provided list
-     * @param keepLeds LEDs that should keep their fades
-     */
-    void clearFadesNotIn(const std::vector<uint16_t>& keepLeds);
-
-    /**
      * @brief Check if any fades are active
      */
     bool hasActiveFades() const { return !activeFades_.empty(); }
