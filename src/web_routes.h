@@ -1406,15 +1406,16 @@ void setupWebRoutes() {
   // Animation preview endpoints
   server.on("/previewAnimation", HTTP_POST, []() {
     if (!ensureUiAuth()) return;
-    if (!server.hasHeader("Content-Type") || 
-        server.header("Content-Type").indexOf("application/json") == -1) {
-      server.send(400, "text/plain", "Content-Type must be application/json");
+    
+    // Check for JSON body (similar to other POST endpoints)
+    if (!server.hasArg("plain")) {
+      server.send(400, "text/plain", "Missing JSON body");
       return;
     }
     
     String body = server.arg("plain");
     if (body.length() == 0) {
-      server.send(400, "text/plain", "Missing JSON body");
+      server.send(400, "text/plain", "Empty JSON body");
       return;
     }
     
