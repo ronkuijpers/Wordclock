@@ -120,6 +120,7 @@ private:
     struct tm previewTime_ = {};
     int previewLoopCount_ = 0;
     unsigned long previewStartMs_ = 0;
+    bool previewNeedsTrigger_ = false;
     
     // Helper struct for display time calculation
     struct DisplayTime {

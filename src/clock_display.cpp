@@ -38,6 +38,7 @@ void ClockDisplay::reset() {
     previewActive_ = false;
     previewLoopCount_ = 0;
     previewStartMs_ = 0;
+    previewNeedsTrigger_ = false;
 }
 
 // ============================================================================
@@ -165,7 +166,13 @@ void ClockDisplay::resetNoTimeIndicator() {
 
 ClockDisplay::DisplayTime ClockDisplay::prepareDisplayTime() {
     ClockDisplay::DisplayTime dt;
-    dt.effective = time_.cached;
+    
+    // Use preview time if preview is active, otherwise use cached time
+    if (previewActive_) {
+        dt.effective = previewTime_;
+    } else {
+        dt.effective = time_.cached;
+    }
     
     // Apply sell-mode override (forces 10:47)
     if (displaySettings.isSellMode()) {
@@ -184,9 +191,24 @@ ClockDisplay::DisplayTime ClockDisplay::prepareDisplayTime() {
 // ============================================================================
 
 void ClockDisplay::triggerAnimationIfNeeded(const DisplayTime& dt, unsigned long nowMs) {
-    // Start animation when the rounded bucket changes or when forced externally
-    if (dt.rounded != time_.lastRoundedMinute || forceAnimation_) {
-        time_.lastRoundedMinute = dt.rounded;
+    // Start animation when the rounded bucket changes, when forced externally, or when preview starts
+    bool shouldAnimate = false;
+    
+    if (previewActive_) {
+        // In preview mode, trigger animation when forced or when preview just started
+        if (forceAnimation_ || previewNeedsTrigger_) {
+            shouldAnimate = true;
+            previewNeedsTrigger_ = false;
+        }
+    } else {
+        // Normal mode: trigger on bucket change or force
+        shouldAnimate = (dt.rounded != time_.lastRoundedMinute || forceAnimation_);
+    }
+    
+    if (shouldAnimate) {
+        if (!previewActive_) {
+            time_.lastRoundedMinute = dt.rounded;
+        }
         
         struct tm animTime = forceAnimation_ ? forcedTime_ : dt.effective;
         buildAnimationFrames(DisplayTime{animTime, dt.rounded, dt.extra}, nowMs);
@@ -402,13 +424,23 @@ void ClockDisplay::startPreview(const struct tm& time, int loopCount) {
     previewTime_ = time;
     previewStartMs_ = millis();
     previewLoopCount_ = loopCount;
-    forceAnimationForTime(time);
+    previewNeedsTrigger_ = true; // Flag to trigger animation on next update
+    // Reset animation state to ensure fresh start
+    animation_.active = false;
+    animation_.currentStep = 0;
+    time_.lastRoundedMinute = -1; // Force trigger
 }
 
 void ClockDisplay::stopPreview() {
     previewActive_ = false;
     previewLoopCount_ = 0;
+    previewStartMs_ = 0;
+    previewNeedsTrigger_ = false;
     fadeController_.clear();
+    // Reset animation state
+    animation_.active = false;
+    animation_.currentStep = 0;
+    time_.lastRoundedMinute = -1; // Force refresh on next update
 }
 
 bool ClockDisplay::isPreviewActive() const {

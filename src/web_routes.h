@@ -1426,20 +1426,26 @@ void setupWebRoutes() {
     }
     
     struct tm previewTime = {};
+    // Initialize with current time first to ensure all fields are valid
+    if (!getLocalTime(&previewTime)) {
+      server.send(500, "text/plain", "Failed to get current time");
+      return;
+    }
+    
+    // Override hour and minute if time is provided
     if (doc["time"].is<String>()) {
       String timeStr = doc["time"].as<String>();
-      // Parse HH:MM format
-      int hour = 0, minute = 0;
-      if (sscanf(timeStr.c_str(), "%d:%d", &hour, &minute) == 2) {
-        previewTime.tm_hour = hour;
-        previewTime.tm_min = minute;
-      } else {
-        // Use current time
-        getLocalTime(&previewTime);
+      if (timeStr.length() > 0) {
+        // Parse HH:MM format
+        int hour = 0, minute = 0;
+        if (sscanf(timeStr.c_str(), "%d:%d", &hour, &minute) == 2) {
+          if (hour >= 0 && hour < 24 && minute >= 0 && minute < 60) {
+            previewTime.tm_hour = hour;
+            previewTime.tm_min = minute;
+            previewTime.tm_sec = 0; // Reset seconds for clean preview
+          }
+        }
       }
-    } else {
-      // Use current time
-      getLocalTime(&previewTime);
     }
     
     int loopCount = doc["loop"] | 1;
