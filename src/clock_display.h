@@ -36,6 +36,11 @@ public:
     void forceAnimationForTime(const struct tm& time);
     
     /**
+     * @brief Reset display state to initial conditions
+     */
+    void reset();
+    
+    /**
      * @brief Start animation preview for a specific time
      * @param time The time to preview
      * @param loopCount Number of times to loop (0 = infinite)
@@ -51,11 +56,6 @@ public:
      * @brief Check if preview is currently active
      */
     bool isPreviewActive() const;
-    
-    /**
-     * @brief Reset display state to initial conditions
-     */
-    void reset();
     
     // ========================================================================
     // Public Static Helper Methods (useful for testing and external use)
@@ -157,4 +157,3 @@ private:
 extern ClockDisplay clockDisplay;
 
 #endif // CLOCK_DISPLAY_H
-

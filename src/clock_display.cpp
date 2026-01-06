@@ -236,14 +236,14 @@ void ClockDisplay::buildAnimationFrames(const DisplayTime& dt, unsigned long now
             buildClassicFrames(targetSegments_, animation_.frames);
         }
         
-        // Add extra minute LEDs as a separate frame after all words if there are any
+        // Add extra minute LEDs progressively (one per frame) after all words
+        // This ensures each stripe fades in separately and works correctly when minute changes
         if (!animation_.frames.empty() && dt.extra > 0) {
-            // Create a new frame with all words plus the minute stripes
-            std::vector<uint16_t> minuteFrame = animation_.frames.back();
             for (int i = 0; i < dt.extra && i < 4; ++i) {
+                std::vector<uint16_t> minuteFrame = animation_.frames.back();
                 minuteFrame.push_back(EXTRA_MINUTE_LEDS[i]);
+                animation_.frames.push_back(minuteFrame);
             }
-            animation_.frames.push_back(minuteFrame);
         }
         
         if (!animation_.frames.empty()) {
