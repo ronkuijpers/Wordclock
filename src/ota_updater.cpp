@@ -166,6 +166,9 @@ static bool fetchManifest(JsonDocument& doc, WiFiClientSecure& client, const Str
   if (err) {
     logError(String("JSON parse error: ") + err.c_str());
     logError("Manifest size: " + String(payload.length()));
+    // Log first 200 chars of payload for debugging
+    String preview = payload.substring(0, 200);
+    logError("Payload preview: " + preview);
     return false;
   }
   return true;
