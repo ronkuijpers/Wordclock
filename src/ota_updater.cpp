@@ -127,10 +127,26 @@ static void writeFsVersion(const String& v) {
   f.close();
 }
 
-static bool fetchManifest(JsonDocument& doc, WiFiClientSecure& client) {
+static String normalizeChannel(String ch) {
+  ch.toLowerCase();
+  if (ch != "stable" && ch != "early" && ch != "develop") {
+    ch = "stable";
+  }
+  return ch;
+}
+
+static String buildManifestUrl(const String& channel) {
+  String url = String(VERSION_URL_BASE);
+  url += (url.indexOf('?') >= 0) ? "&channel=" : "?channel=";
+  url += channel;
+  return url;
+}
+
+static bool fetchManifest(JsonDocument& doc, WiFiClientSecure& client, const String& channel) {
   HTTPClient http;
   http.setTimeout(15000);
-  http.begin(client, VERSION_URL);
+  const String url = buildManifestUrl(channel);
+  http.begin(client, url);
   int code = http.GET();
   if (code != 200) {
     logError("Failed to GET manifest: HTTP " + String(code));
@@ -155,8 +171,7 @@ static JsonVariant selectChannelBlock(JsonDocument& doc, const String& requested
       return blk;
     }
   }
-  selected = "legacy";
-  return JsonVariant(); // empty -> legacy/top-level
+  return JsonVariant(); // empty -> legacy/top-level (keep selected as requested)
 }
 
 static bool parseFiles(JsonVariantConst jfiles, std::vector<FileEntry>& out) {
@@ -259,14 +274,10 @@ void syncFilesFromManifest() {
   std::unique_ptr<WiFiClientSecure> client(new WiFiClientSecure());
   client->setInsecure();
 
-  JsonDocument doc;
-  if (!fetchManifest(doc, *client)) return;
+  String requestedChannel = normalizeChannel(displaySettings.getUpdateChannel());
 
-  String requestedChannel = displaySettings.getUpdateChannel();
-  requestedChannel.toLowerCase();
-  if (requestedChannel != "stable" && requestedChannel != "early" && requestedChannel != "develop") {
-    requestedChannel = "stable";
-  }
+  JsonDocument doc;
+  if (!fetchManifest(doc, *client, requestedChannel)) return;
   String selectedChannel;
   JsonVariant channelBlock = selectChannelBlock(doc, requestedChannel, selectedChannel);
   if (requestedChannel != selectedChannel) {
@@ -323,14 +334,10 @@ void checkForFirmwareUpdate() {
   std::unique_ptr<WiFiClientSecure> client(new WiFiClientSecure());
   client->setInsecure();
 
-  JsonDocument doc;
-  if (!fetchManifest(doc, *client)) return;
+  String requestedChannel = normalizeChannel(displaySettings.getUpdateChannel());
 
-  String requestedChannel = displaySettings.getUpdateChannel();
-  requestedChannel.toLowerCase();
-  if (requestedChannel != "stable" && requestedChannel != "early" && requestedChannel != "develop") {
-    requestedChannel = "stable";
-  }
+  JsonDocument doc;
+  if (!fetchManifest(doc, *client, requestedChannel)) return;
   String selectedChannel;
   JsonVariant channelBlock = selectChannelBlock(doc, requestedChannel, selectedChannel);
   if (requestedChannel != selectedChannel) {
