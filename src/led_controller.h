@@ -9,6 +9,8 @@
 // Export the function prototypes:
 void initLeds();
 void showLeds(const std::vector<uint16_t> &ledIndices);
+void showLedsWithBrightness(const std::vector<uint16_t> &ledIndices, 
+                            const std::vector<uint8_t> &brightnessMultipliers);
 
 #ifdef PIO_UNIT_TESTING
 const std::vector<uint16_t>& test_getLastShownLeds();

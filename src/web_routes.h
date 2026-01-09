@@ -22,6 +22,7 @@
 #include "display_settings.h"
 #include "ui_auth.h"
 #include "wordclock.h"
+#include "clock_display.h"
 #include "mqtt_settings.h"
 #include "mqtt_client.h"
 #include "night_mode.h"
@@ -1278,31 +1279,6 @@ void setupWebRoutes() {
     server.send(200, "text/plain", "OK");
   });
 
-  server.on("/getAnimMode", []() {
-    if (!ensureUiAuth()) {
-      logWarn("[API] /getAnimMode: Auth failed");
-      return;
-    }
-    WordAnimationMode mode = displaySettings.getAnimationMode();
-    String result = mode == WordAnimationMode::Smart ? "smart" : "classic";
-    server.send(200, "text/plain", result);
-  });
-  server.on("/setAnimMode", []() {
-    if (!ensureUiAuth()) return;
-    if (!server.hasArg("mode")) {
-      server.send(400, "text/plain", "Missing mode");
-      return;
-    }
-    String st = server.arg("mode");
-    st.toLowerCase();
-    WordAnimationMode mode = WordAnimationMode::Classic;
-    if (st == "smart" || st == "1" || st == "true") {
-      mode = WordAnimationMode::Smart;
-    }
-    displaySettings.setAnimationMode(mode);
-  logInfo(String("🎞️ Animation mode ") + (mode == WordAnimationMode::Smart ? "SMART" : "CLASSIC"));
-    server.send(200, "text/plain", "OK");
-  });
 
   // Night mode configuration
   server.on("/getNightModeConfig", HTTP_GET, []() {

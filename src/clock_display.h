@@ -29,7 +29,7 @@ public:
     bool update();
     
     /**
-     * @brief Force animation for specific time (testing/preview)
+     * @brief Force animation for specific time (testing)
      * @param time The time to animate
      */
     void forceAnimationForTime(const struct tm& time);
@@ -50,10 +50,6 @@ public:
     static void removeLeds(std::vector<uint16_t>& base, const std::vector<uint16_t>& toRemove);
     static bool hetIsCurrentlyVisible(uint16_t hetIsDurationSec, unsigned long hetIsVisibleUntil, unsigned long nowMs);
     static void buildClassicFrames(const std::vector<WordSegment>& segs, std::vector<std::vector<uint16_t>>& frames);
-    static void buildSmartFrames(const std::vector<WordSegment>& prevSegments,
-                                const std::vector<WordSegment>& nextSegments,
-                                bool hetIsVisible,
-                                std::vector<std::vector<uint16_t>>& frames);
     
 private:
     // State management structures
@@ -129,4 +125,3 @@ private:
 extern ClockDisplay clockDisplay;
 
 #endif // CLOCK_DISPLAY_H
-

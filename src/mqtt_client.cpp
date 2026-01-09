@@ -233,6 +233,7 @@ void publishNightEffectState() {
   mqtt.publish(tNightEffectState.c_str(), s, true);
 }
 
+
 void publishNightDimState() {
   publishNumber(tNightDimState, nightMode.getDimPercent());
 }
@@ -358,6 +359,7 @@ static void initCommandHandlers() {
     [](bool on) { displaySettings.setAnimateWords(on); },
     []() { publishSwitch(tAnimState, displaySettings.getAnimateWords()); }
   ));
+  
   
   registry.registerHandler(tAutoUpdSet, new SwitchCommandHandler(
     "auto_update",

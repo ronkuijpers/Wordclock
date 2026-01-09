@@ -90,6 +90,34 @@
     </section>
 
     <section class="bg-white p-4 rounded-2xl shadow mb-4">
+      <h2 class="text-xl font-semibold mb-2">Animation Preview</h2>
+      <div class="mb-3">
+        <label for="previewTime" class="block text-sm mb-1">Preview Time</label>
+        <div class="flex gap-2">
+          <input type="time" id="previewTime" class="flex-1 border rounded p-2 text-sm">
+          <button id="previewCurrentBtn" class="px-3 py-2 rounded bg-gray-200 hover:bg-gray-300 text-sm">
+            Current
+          </button>
+        </div>
+      </div>
+      <div class="flex gap-2 mb-3">
+        <button id="previewPlayBtn" class="flex-1 py-2 rounded bg-green-500 text-white hover:bg-green-600">
+          ▶️ Play Preview
+        </button>
+        <button id="previewStopBtn" class="flex-1 py-2 rounded bg-red-500 text-white hover:bg-red-600">
+          ⏹️ Stop
+        </button>
+      </div>
+      <div class="mb-3">
+        <label class="inline-flex items-center space-x-2">
+          <input type="checkbox" id="previewLoop" class="form-checkbox">
+          <span class="text-sm">Loop preview</span>
+        </label>
+      </div>
+      <div id="previewStatus" class="text-xs text-gray-500"></div>
+    </section>
+
+    <section class="bg-white p-4 rounded-2xl shadow mb-4">
       <h2 class="text-xl font-semibold mb-2">Actions</h2>
       <div class="grid grid-cols-2 gap-2">
         <button id="restartBtn" class="py-2 rounded bg-yellow-500 text-white hover:bg-yellow-600">🔁 Restart</button>
@@ -155,6 +183,48 @@
           <option value="smart">Slim: alleen veranderende woorden</option>
         </select>
         <p class="text-xs text-gray-500 mt-1">Slim laat ongewijzigde woorden staan en animeert alleen 'HET/IS' en de wijzigingen.</p>
+      </div>
+      <div class="mb-3">
+        <label for="animSpeed" class="block text-sm mb-1">Animation Speed</label>
+        <select id="animSpeed" class="w-full border rounded p-2 text-sm">
+          <option value="slow">🐌 Slow (1000ms)</option>
+          <option value="normal" selected>⚡ Normal (500ms)</option>
+          <option value="fast">🚀 Fast (250ms)</option>
+          <option value="custom">⚙️ Custom</option>
+        </select>
+      </div>
+      <div id="customSpeedContainer" class="mb-3" style="display:none;">
+        <label for="customSpeedMs" class="block text-sm mb-1">
+          Custom Speed: <span id="customSpeedValue">500</span>ms
+        </label>
+        <div class="flex items-center gap-3">
+          <input type="range" id="customSpeedMs" min="100" max="2000" step="50" 
+                 value="500" class="flex-1">
+          <input type="number" id="customSpeedMsInput" min="100" max="2000" step="50" 
+                 value="500" class="w-24 border rounded p-1 text-sm">
+        </div>
+        <p class="text-xs text-gray-500 mt-1">Range: 100ms (very fast) to 2000ms (very slow)</p>
+      </div>
+      <div class="mb-3">
+        <label for="fadeEffect" class="block text-sm mb-1">Fade Effect</label>
+        <select id="fadeEffect" class="w-full border rounded p-2 text-sm">
+          <option value="none" selected>⚡ None (Instant)</option>
+          <option value="fadein">✨ Fade In</option>
+          <option value="fadeout">🌙 Fade Out</option>
+          <option value="fadeinout">💫 Fade In/Out</option>
+        </select>
+      </div>
+      <div id="fadeDurationContainer" class="mb-3" style="display:none;">
+        <label for="fadeDurationMs" class="block text-sm mb-1">
+          Fade Duration: <span id="fadeDurationValue">200</span>ms
+        </label>
+        <div class="flex items-center gap-3">
+          <input type="range" id="fadeDurationMs" min="50" max="500" step="25" 
+                 value="200" class="flex-1">
+          <input type="number" id="fadeDurationMsInput" min="50" max="500" step="25" 
+                 value="200" class="w-24 border rounded p-1 text-sm">
+        </div>
+        <p class="text-xs text-gray-500 mt-1">Range: 50ms (fast) to 500ms (slow)</p>
       </div>
       <label class="inline-flex items-center space-x-2 mb-2">
         <input type="checkbox" id="hetIsAlways2" class="form-checkbox">
@@ -961,6 +1031,63 @@
       });
     }
 
+    // Animation Speed loaders
+    const animSpeedSel = document.getElementById('animSpeed');
+    const customSpeedContainer = document.getElementById('customSpeedContainer');
+    const customSpeedSlider = document.getElementById('customSpeedMs');
+    const customSpeedInput = document.getElementById('customSpeedMsInput');
+    const customSpeedValue = document.getElementById('customSpeedValue');
+
+    const updateCustomSpeedVisibility = () => {
+      if (customSpeedContainer && animSpeedSel) {
+        customSpeedContainer.style.display = 
+          (animSpeedSel.value === 'custom') ? 'block' : 'none';
+      }
+    };
+
+    if (animSpeedSel) {
+      dataLoader.register('animSpeed', async () => {
+        const res = await fetch('/getAnimSpeed');
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        return res.text();
+      }, {
+        priority: 5,
+        onSuccess: (speed) => {
+          const s = (speed || '').trim().toLowerCase();
+          if (animSpeedSel) {
+            animSpeedSel.value = s || 'normal';
+            updateCustomSpeedVisibility();
+          }
+        },
+        onError: (error) => {
+          if (animSpeedSel) animSpeedSel.value = 'normal';
+          updateCustomSpeedVisibility();
+        }
+      });
+    }
+
+    if (customSpeedSlider && customSpeedInput && customSpeedValue) {
+      dataLoader.register('customSpeedMs', async () => {
+        const res = await fetch('/getCustomSpeedMs');
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        return res.text();
+      }, {
+        priority: 5,
+        onSuccess: (ms) => {
+          const msVal = parseInt(ms, 10) || 500;
+          if (customSpeedSlider) customSpeedSlider.value = msVal;
+          if (customSpeedInput) customSpeedInput.value = msVal;
+          if (customSpeedValue) customSpeedValue.textContent = msVal;
+        },
+        onError: (error) => {
+          const defaultMs = 500;
+          if (customSpeedSlider) customSpeedSlider.value = defaultMs;
+          if (customSpeedInput) customSpeedInput.value = defaultMs;
+          if (customSpeedValue) customSpeedValue.textContent = defaultMs;
+        }
+      });
+    }
+
     // HET IS Duration loader (normale prioriteit)
     const durSlider2 = document.getElementById('hetIsDuration2');
     const durValue2 = document.getElementById('hetIsDurationValue2');
@@ -1176,6 +1303,215 @@
         fetch('/setAnimMode?mode=' + encodeURIComponent(val));
       });
     }
+
+    // Animation Speed event listeners
+    if (animSpeedSel) {
+      animSpeedSel.addEventListener('change', () => {
+        const speed = animSpeedSel.value || 'normal';
+        fetch('/setAnimSpeed?speed=' + encodeURIComponent(speed));
+        updateCustomSpeedVisibility();
+      });
+    }
+
+    if (customSpeedSlider) {
+      customSpeedSlider.addEventListener('input', () => {
+        const ms = parseInt(customSpeedSlider.value, 10);
+        if (customSpeedInput) customSpeedInput.value = ms;
+        if (customSpeedValue) customSpeedValue.textContent = ms;
+      });
+      customSpeedSlider.addEventListener('change', () => {
+        const ms = parseInt(customSpeedSlider.value, 10);
+        fetch('/setCustomSpeedMs?ms=' + ms);
+      });
+    }
+
+    if (customSpeedInput) {
+      customSpeedInput.addEventListener('change', () => {
+        let ms = parseInt(customSpeedInput.value, 10);
+        if (isNaN(ms)) ms = 500;
+        ms = Math.max(100, Math.min(2000, ms));
+        customSpeedInput.value = ms;
+        if (customSpeedSlider) customSpeedSlider.value = ms;
+        if (customSpeedValue) customSpeedValue.textContent = ms;
+        fetch('/setCustomSpeedMs?ms=' + ms);
+      });
+    }
+
+    // Fade Effect loaders
+    const fadeEffectSel = document.getElementById('fadeEffect');
+    const fadeDurationContainer = document.getElementById('fadeDurationContainer');
+    const fadeDurationSlider = document.getElementById('fadeDurationMs');
+    const fadeDurationInput = document.getElementById('fadeDurationMsInput');
+    const fadeDurationValue = document.getElementById('fadeDurationValue');
+
+    const updateFadeDurationVisibility = () => {
+      if (fadeDurationContainer && fadeEffectSel) {
+        fadeDurationContainer.style.display = 
+          (fadeEffectSel.value !== 'none') ? 'block' : 'none';
+      }
+    };
+
+    if (fadeEffectSel) {
+      dataLoader.register('fadeEffect', async () => {
+        const res = await fetch('/getFadeEffect');
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        return res.text();
+      }, {
+        priority: 5,
+        onSuccess: (effect) => {
+          const e = (effect || '').trim().toLowerCase();
+          if (fadeEffectSel) {
+            fadeEffectSel.value = e || 'none';
+            updateFadeDurationVisibility();
+          }
+        },
+        onError: (error) => {
+          if (fadeEffectSel) fadeEffectSel.value = 'none';
+          updateFadeDurationVisibility();
+        }
+      });
+    }
+
+    if (fadeDurationSlider && fadeDurationInput && fadeDurationValue) {
+      dataLoader.register('fadeDurationMs', async () => {
+        const res = await fetch('/getFadeDurationMs');
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        return res.text();
+      }, {
+        priority: 5,
+        onSuccess: (ms) => {
+          const msVal = parseInt(ms, 10) || 200;
+          if (fadeDurationSlider) fadeDurationSlider.value = msVal;
+          if (fadeDurationInput) fadeDurationInput.value = msVal;
+          if (fadeDurationValue) fadeDurationValue.textContent = msVal;
+        },
+        onError: (error) => {
+          const defaultMs = 200;
+          if (fadeDurationSlider) fadeDurationSlider.value = defaultMs;
+          if (fadeDurationInput) fadeDurationInput.value = defaultMs;
+          if (fadeDurationValue) fadeDurationValue.textContent = defaultMs;
+        }
+      });
+    }
+
+    // Fade Effect event listeners
+    if (fadeEffectSel) {
+      fadeEffectSel.addEventListener('change', () => {
+        const effect = fadeEffectSel.value || 'none';
+        fetch('/setFadeEffect?effect=' + encodeURIComponent(effect));
+        updateFadeDurationVisibility();
+      });
+    }
+
+    if (fadeDurationSlider) {
+      fadeDurationSlider.addEventListener('input', () => {
+        const ms = parseInt(fadeDurationSlider.value, 10);
+        if (fadeDurationInput) fadeDurationInput.value = ms;
+        if (fadeDurationValue) fadeDurationValue.textContent = ms;
+      });
+      fadeDurationSlider.addEventListener('change', () => {
+        const ms = parseInt(fadeDurationSlider.value, 10);
+        fetch('/setFadeDurationMs?ms=' + ms);
+      });
+    }
+
+    if (fadeDurationInput) {
+      fadeDurationInput.addEventListener('change', () => {
+        let ms = parseInt(fadeDurationInput.value, 10);
+        if (isNaN(ms)) ms = 200;
+        ms = Math.max(50, Math.min(500, ms));
+        fadeDurationInput.value = ms;
+        if (fadeDurationSlider) fadeDurationSlider.value = ms;
+        if (fadeDurationValue) fadeDurationValue.textContent = ms;
+        fetch('/setFadeDurationMs?ms=' + ms);
+      });
+    }
+
+    // Animation Preview controls
+    const previewTimeInput = document.getElementById('previewTime');
+    const previewCurrentBtn = document.getElementById('previewCurrentBtn');
+    const previewPlayBtn = document.getElementById('previewPlayBtn');
+    const previewStopBtn = document.getElementById('previewStopBtn');
+    const previewLoopCb = document.getElementById('previewLoop');
+    const previewStatus = document.getElementById('previewStatus');
+
+    const updatePreviewStatus = (text) => {
+      if (previewStatus) previewStatus.textContent = text;
+    };
+
+    // Set current time in preview input
+    if (previewCurrentBtn && previewTimeInput) {
+      previewCurrentBtn.addEventListener('click', () => {
+        const now = new Date();
+        const hours = String(now.getHours()).padStart(2, '0');
+        const minutes = String(now.getMinutes()).padStart(2, '0');
+        previewTimeInput.value = `${hours}:${minutes}`;
+      });
+    }
+
+    // Play preview
+    if (previewPlayBtn) {
+      previewPlayBtn.addEventListener('click', async () => {
+        const time = previewTimeInput ? previewTimeInput.value : '';
+        const loop = previewLoopCb ? previewLoopCb.checked : false;
+        
+        try {
+          const response = await fetch('/previewAnimation', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              time: time || undefined,
+              loop: loop ? 0 : 1  // 0 = infinite, 1 = once
+            })
+          });
+          
+          if (response.ok) {
+            updatePreviewStatus('Previewing...');
+            previewPlayBtn.disabled = true;
+            previewStopBtn.disabled = false;
+          } else {
+            updatePreviewStatus('Preview failed');
+          }
+        } catch (error) {
+          console.error('Preview failed:', error);
+          updatePreviewStatus('Preview error');
+        }
+      });
+    }
+
+    // Stop preview
+    if (previewStopBtn) {
+      previewStopBtn.addEventListener('click', async () => {
+        try {
+          await fetch('/stopPreview', { method: 'POST' });
+          updatePreviewStatus('Stopped');
+          previewPlayBtn.disabled = false;
+          previewStopBtn.disabled = true;
+        } catch (error) {
+          console.error('Stop preview failed:', error);
+        }
+      });
+      previewStopBtn.disabled = true;
+    }
+
+    // Check preview status periodically
+    setInterval(async () => {
+      try {
+        const res = await fetch('/getPreviewStatus');
+        if (res.ok) {
+          const status = await res.text();
+          const isActive = status.trim() === 'active';
+          if (previewPlayBtn) previewPlayBtn.disabled = isActive;
+          if (previewStopBtn) previewStopBtn.disabled = !isActive;
+          if (isActive && previewStatus) {
+            previewStatus.textContent = 'Preview active...';
+          }
+        }
+      } catch (error) {
+        // Ignore errors
+      }
+    }, 1000);
+
     if (durSlider2) {
     durSlider2.addEventListener('input', () => {
       const sec = parseInt(durSlider2.value, 10);
