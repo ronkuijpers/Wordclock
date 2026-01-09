@@ -140,8 +140,6 @@ void setup() {
   initTimeSync(TZ_INFO, NTP_SERVER1, NTP_SERVER2);
   initDisplay();
   initWordclockSystem(uiAuth);
-  // Skip word-walk preview when setup is not finished
-  startupSequence.setWordWalkEnabled(!g_wifiHadCredentialsAtBoot && setupState.isComplete());
   initStartupSequence(startupSequence);
 }
 

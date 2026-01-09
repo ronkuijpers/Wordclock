@@ -5,20 +5,7 @@
 #include "log.h"
 
 constexpr GridVariant FIRMWARE_DEFAULT_GRID_VARIANT = GridVariant::NL_V4;
-enum class WordAnimationMode : uint8_t { Classic = 0, Smart = 1 };
-enum class AnimationSpeed : uint8_t {
-  Slow = 0,      // 1000ms per frame
-  Normal = 1,    // 500ms per frame (default)
-  Fast = 2,      // 250ms per frame
-  Custom = 3     // User-defined milliseconds
-};
-
-enum class FadeEffect : uint8_t {
-  None = 0,       // Instant (current behavior)
-  FadeIn = 1,     // Words fade in
-  FadeOut = 2,    // Words fade out
-  FadeInOut = 3   // Both fade in and out
-};
+enum class WordAnimationMode : uint8_t { Classic = 0 };
 
 class DisplaySettings {
 public:
@@ -28,31 +15,7 @@ public:
     if (hetIsDurationSec_ > 360) hetIsDurationSec_ = 360;
     sellMode_ = prefs_.getBool("sell_on", false);
     animateWords_ = prefs_.getBool("anim_on", false); // default OFF unless enabled via UI
-    uint8_t storedAnimMode = prefs_.getUChar("anim_mode", static_cast<uint8_t>(WordAnimationMode::Classic));
-    if (storedAnimMode > static_cast<uint8_t>(WordAnimationMode::Smart)) {
-      storedAnimMode = static_cast<uint8_t>(WordAnimationMode::Classic);
-    }
-    animationMode_ = static_cast<WordAnimationMode>(storedAnimMode);
-    
-    // Animation speed (new feature)
-    uint8_t storedSpeed = prefs_.getUChar("anim_speed", static_cast<uint8_t>(AnimationSpeed::Normal));
-    if (storedSpeed > static_cast<uint8_t>(AnimationSpeed::Custom)) {
-      storedSpeed = static_cast<uint8_t>(AnimationSpeed::Normal);
-    }
-    animationSpeed_ = static_cast<AnimationSpeed>(storedSpeed);
-    customSpeedMs_ = prefs_.getUShort("anim_speed_ms", 500);
-    if (customSpeedMs_ < 100) customSpeedMs_ = 100;
-    if (customSpeedMs_ > 2000) customSpeedMs_ = 2000;
-    
-    // Fade effects (new feature)
-    uint8_t storedFade = prefs_.getUChar("fade_effect", static_cast<uint8_t>(FadeEffect::None));
-    if (storedFade > static_cast<uint8_t>(FadeEffect::FadeInOut)) {
-      storedFade = static_cast<uint8_t>(FadeEffect::None);
-    }
-    fadeEffect_ = static_cast<FadeEffect>(storedFade);
-    fadeDurationMs_ = prefs_.getUShort("fade_dur_ms", 200);
-    if (fadeDurationMs_ < 50) fadeDurationMs_ = 50;
-    if (fadeDurationMs_ > 500) fadeDurationMs_ = 500;
+    animationMode_ = WordAnimationMode::Classic; // Only Classic mode available
     
     autoUpdate_ = prefs_.getBool("auto_upd", true);
     const uint8_t defaultVariantId = gridVariantToId(FIRMWARE_DEFAULT_GRID_VARIANT);
@@ -103,21 +66,6 @@ public:
   bool getAnimateWords() const { return animateWords_; }
   WordAnimationMode getAnimationMode() const { return animationMode_; }
   uint8_t getAnimationModeId() const { return static_cast<uint8_t>(animationMode_); }
-  AnimationSpeed getAnimationSpeed() const { return animationSpeed_; }
-  uint8_t getAnimationSpeedId() const { return static_cast<uint8_t>(animationSpeed_); }
-  uint16_t getAnimationSpeedMs() const {
-    switch (animationSpeed_) {
-      case AnimationSpeed::Slow: return 1000;
-      case AnimationSpeed::Normal: return 500;
-      case AnimationSpeed::Fast: return 250;
-      case AnimationSpeed::Custom: return customSpeedMs_;
-      default: return 500;
-    }
-  }
-  uint16_t getCustomSpeedMs() const { return customSpeedMs_; }
-  FadeEffect getFadeEffect() const { return fadeEffect_; }
-  uint8_t getFadeEffectId() const { return static_cast<uint8_t>(fadeEffect_); }
-  uint16_t getFadeDurationMs() const { return fadeDurationMs_; }
   bool getAutoUpdate() const { return autoUpdate_; }
   String getUpdateChannel() const { return updateChannel_; }
   bool hasStoredChannel() const { return hasStoredUpdateChannel_; }
@@ -145,58 +93,13 @@ public:
   }
 
   void setAnimationMode(WordAnimationMode mode) {
-    if (animationMode_ == mode) return;
-    animationMode_ = mode;
-    markDirty();
+    // Only Classic mode is supported
+    animationMode_ = WordAnimationMode::Classic;
   }
 
   void setAnimationModeById(uint8_t id) {
-    if (id > static_cast<uint8_t>(WordAnimationMode::Smart)) {
-      id = static_cast<uint8_t>(WordAnimationMode::Classic);
-    }
-    setAnimationMode(static_cast<WordAnimationMode>(id));
-  }
-
-  void setAnimationSpeed(AnimationSpeed speed) {
-    if (animationSpeed_ == speed) return;
-    animationSpeed_ = speed;
-    markDirty();
-  }
-
-  void setAnimationSpeedById(uint8_t id) {
-    if (id > static_cast<uint8_t>(AnimationSpeed::Custom)) {
-      id = static_cast<uint8_t>(AnimationSpeed::Normal);
-    }
-    setAnimationSpeed(static_cast<AnimationSpeed>(id));
-  }
-
-  void setCustomSpeedMs(uint16_t ms) {
-    if (ms < 100) ms = 100;
-    if (ms > 2000) ms = 2000;
-    if (customSpeedMs_ == ms) return;
-    customSpeedMs_ = ms;
-    markDirty();
-  }
-
-  void setFadeEffect(FadeEffect effect) {
-    if (fadeEffect_ == effect) return;
-    fadeEffect_ = effect;
-    markDirty();
-  }
-
-  void setFadeEffectById(uint8_t id) {
-    if (id > static_cast<uint8_t>(FadeEffect::FadeInOut)) {
-      id = static_cast<uint8_t>(FadeEffect::None);
-    }
-    setFadeEffect(static_cast<FadeEffect>(id));
-  }
-
-  void setFadeDurationMs(uint16_t ms) {
-    if (ms < 50) ms = 50;
-    if (ms > 500) ms = 500;
-    if (fadeDurationMs_ == ms) return;
-    fadeDurationMs_ = ms;
-    markDirty();
+    // Only Classic mode is supported
+    animationMode_ = WordAnimationMode::Classic;
   }
 
   void setAutoUpdate(bool on) {
@@ -256,10 +159,6 @@ public:
     prefs_.putBool("sell_on", sellMode_);
     prefs_.putBool("anim_on", animateWords_);
     prefs_.putUChar("anim_mode", static_cast<uint8_t>(animationMode_));
-    prefs_.putUChar("anim_speed", static_cast<uint8_t>(animationSpeed_));
-    prefs_.putUShort("anim_speed_ms", customSpeedMs_);
-    prefs_.putUChar("fade_effect", static_cast<uint8_t>(fadeEffect_));
-    prefs_.putUShort("fade_dur_ms", fadeDurationMs_);
     prefs_.putBool("auto_upd", autoUpdate_);
     prefs_.putString("upd_ch", updateChannel_);
     prefs_.putUChar("grid_id", gridVariantToId(gridVariant_));
@@ -297,10 +196,6 @@ private:
   bool sellMode_ = false;
   bool animateWords_ = false; // default OFF
   WordAnimationMode animationMode_ = WordAnimationMode::Classic;
-  AnimationSpeed animationSpeed_ = AnimationSpeed::Normal; // default Normal (500ms)
-  uint16_t customSpeedMs_ = 500; // For Custom speed mode
-  FadeEffect fadeEffect_ = FadeEffect::None; // default None (instant)
-  uint16_t fadeDurationMs_ = 200; // default 200ms fade duration
   bool autoUpdate_ = true;    // default ON to keep current behavior
   String updateChannel_ = "stable";
   GridVariant gridVariant_ = FIRMWARE_DEFAULT_GRID_VARIANT;

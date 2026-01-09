@@ -37,10 +37,6 @@ static String g_lastErr;
 static String tLightState, tLightSet;
 static String tClockState, tClockSet;
 static String tAnimState, tAnimSet;
-static String tAnimSpeedState, tAnimSpeedSet;
-static String tCustomSpeedMsState, tCustomSpeedMsSet;
-static String tFadeEffectState, tFadeEffectSet;
-static String tFadeDurationMsState, tFadeDurationMsSet;
 static String tAutoUpdState, tAutoUpdSet;
 static String tHetIsState, tHetIsSet;
 static String tLogLvlState, tLogLvlSet;
@@ -75,14 +71,6 @@ static void buildTopics() {
   tClockSet     = base + "/clock/set";
   tAnimState    = base + "/animate/state";
   tAnimSet      = base + "/animate/set";
-  tAnimSpeedState = base + "/animation/speed/state";
-  tAnimSpeedSet   = base + "/animation/speed/set";
-  tCustomSpeedMsState = base + "/animation/custom_speed/state";
-  tCustomSpeedMsSet   = base + "/animation/custom_speed/set";
-  tFadeEffectState = base + "/animation/fade_effect/state";
-  tFadeEffectSet   = base + "/animation/fade_effect/set";
-  tFadeDurationMsState = base + "/animation/fade_duration/state";
-  tFadeDurationMsSet   = base + "/animation/fade_duration/set";
   tAutoUpdState = base + "/autoupdate/state";
   tAutoUpdSet   = base + "/autoupdate/set";
   tHetIsState   = base + "/hetis/state";
@@ -133,17 +121,6 @@ static void publishDiscovery() {
   
   // Switches
   builder.addSwitch("Animate words", nodeId + "_anim", tAnimState, tAnimSet);
-  builder.addSelect("Animation speed", nodeId + "_anim_speed", tAnimSpeedState, tAnimSpeedSet,
-                    {"slow", "normal", "fast", "custom"});
-  builder.addNumber("Custom animation speed (ms)", nodeId + "_custom_speed_ms",
-                    tCustomSpeedMsState, tCustomSpeedMsSet,
-                    100, 2000, 50, "ms");
-  builder.addSelect("Animation fade effect", nodeId + "_fade_effect", 
-                    tFadeEffectState, tFadeEffectSet,
-                    {"none", "fadein", "fadeout", "fadeinout"});
-  builder.addNumber("Fade duration (ms)", nodeId + "_fade_duration",
-                    tFadeDurationMsState, tFadeDurationMsSet,
-                    50, 500, 25, "ms");
   builder.addSwitch("Auto update", nodeId + "_autoupd", tAutoUpdState, tAutoUpdSet);
   builder.addSwitch("Night mode enabled", nodeId + "_night_enabled", 
                    tNightEnabledState, tNightEnabledSet);
@@ -256,31 +233,6 @@ void publishNightEffectState() {
   mqtt.publish(tNightEffectState.c_str(), s, true);
 }
 
-void publishAnimSpeedState() {
-  AnimationSpeed speed = displaySettings.getAnimationSpeed();
-  const char* s = "normal";
-  switch (speed) {
-    case AnimationSpeed::Slow: s = "slow"; break;
-    case AnimationSpeed::Normal: s = "normal"; break;
-    case AnimationSpeed::Fast: s = "fast"; break;
-    case AnimationSpeed::Custom: s = "custom"; break;
-    default: s = "normal"; break;
-  }
-  mqtt.publish(tAnimSpeedState.c_str(), s, true);
-}
-
-void publishFadeEffectState() {
-  FadeEffect effect = displaySettings.getFadeEffect();
-  const char* s = "none";
-  switch (effect) {
-    case FadeEffect::None: s = "none"; break;
-    case FadeEffect::FadeIn: s = "fadein"; break;
-    case FadeEffect::FadeOut: s = "fadeout"; break;
-    case FadeEffect::FadeInOut: s = "fadeinout"; break;
-    default: s = "none"; break;
-  }
-  mqtt.publish(tFadeEffectState.c_str(), s, true);
-}
 
 void publishNightDimState() {
   publishNumber(tNightDimState, nightMode.getDimPercent());
@@ -331,10 +283,6 @@ void mqtt_publish_state(bool force) {
 
   publishLightState();
   publishSwitch(tAnimState, displaySettings.getAnimateWords());
-  publishAnimSpeedState();
-  publishNumber(tCustomSpeedMsState, displaySettings.getCustomSpeedMs());
-  publishFadeEffectState();
-  publishNumber(tFadeDurationMsState, displaySettings.getFadeDurationMs());
   publishSwitch(tAutoUpdState, displaySettings.getAutoUpdate());
   publishNumber(tHetIsState, displaySettings.getHetIsDurationSec());
   publishSwitch(tNightEnabledState, nightMode.isEnabled());
@@ -412,53 +360,6 @@ static void initCommandHandlers() {
     []() { publishSwitch(tAnimState, displaySettings.getAnimateWords()); }
   ));
   
-  registry.registerHandler(tAnimSpeedSet, new SelectCommandHandler(
-    {"slow", "normal", "fast", "custom"},
-    [](const String& val) {
-      AnimationSpeed speed = AnimationSpeed::Normal;
-      if (val == "slow") speed = AnimationSpeed::Slow;
-      else if (val == "fast") speed = AnimationSpeed::Fast;
-      else if (val == "custom") speed = AnimationSpeed::Custom;
-      displaySettings.setAnimationSpeed(speed);
-    },
-    []() { publishAnimSpeedState(); }
-  ));
-  
-  registry.registerHandler(tCustomSpeedMsSet, new NumberCommandHandler(
-    100, 2000,
-    [](int v) {
-      displaySettings.setCustomSpeedMs((uint16_t)v);
-    },
-    []() { publishNumber(tCustomSpeedMsState, displaySettings.getCustomSpeedMs()); }
-  ));
-  
-  registry.registerHandler(tFadeEffectSet, new SelectCommandHandler(
-    {"none", "fadein", "fadeout", "fadeinout"},
-    [](const String& val) {
-      String v = val;
-      v.toLowerCase();
-      FadeEffect effect;
-      if (v == "fadein") {
-        effect = FadeEffect::FadeIn;
-      } else if (v == "fadeout") {
-        effect = FadeEffect::FadeOut;
-      } else if (v == "fadeinout") {
-        effect = FadeEffect::FadeInOut;
-      } else {
-        effect = FadeEffect::None;
-      }
-      displaySettings.setFadeEffect(effect);
-    },
-    []() { publishFadeEffectState(); }
-  ));
-  
-  registry.registerHandler(tFadeDurationMsSet, new NumberCommandHandler(
-    50, 500,
-    [](int v) {
-      displaySettings.setFadeDurationMs((uint16_t)v);
-    },
-    []() { publishNumber(tFadeDurationMsState, displaySettings.getFadeDurationMs()); }
-  ));
   
   registry.registerHandler(tAutoUpdSet, new SwitchCommandHandler(
     "auto_update",
@@ -608,8 +509,6 @@ static bool mqtt_connect() {
   mqtt.subscribe(tLightSet.c_str());
   mqtt.subscribe(tClockSet.c_str());
   mqtt.subscribe(tAnimSet.c_str());
-  mqtt.subscribe(tAnimSpeedSet.c_str());
-  mqtt.subscribe(tCustomSpeedMsSet.c_str());
   mqtt.subscribe(tAutoUpdSet.c_str());
   mqtt.subscribe(tHetIsSet.c_str());
   mqtt.subscribe(tNightEnabledSet.c_str());

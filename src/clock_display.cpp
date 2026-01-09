@@ -34,11 +34,6 @@ void ClockDisplay::reset() {
     targetSegments_.clear();
     forceAnimation_ = false;
     loggedInitialTimeFailure_ = false;
-    fadeController_.clear();
-    previewActive_ = false;
-    previewLoopCount_ = 0;
-    previewStartMs_ = 0;
-    previewNeedsTrigger_ = false;
 }
 
 // ============================================================================
@@ -64,11 +59,6 @@ bool ClockDisplay::update() {
     
     // Check if we need to start animation
     triggerAnimationIfNeeded(dt, nowMs);
-    
-    // Update fade effects (if any active)
-    if (fadeController_.hasActiveFades()) {
-        fadeController_.updateFades(nowMs);
-    }
     
     // Execute animation or display static
     if (animation_.active) {
@@ -167,12 +157,8 @@ void ClockDisplay::resetNoTimeIndicator() {
 ClockDisplay::DisplayTime ClockDisplay::prepareDisplayTime() {
     ClockDisplay::DisplayTime dt;
     
-    // Use preview time if preview is active, otherwise use cached time
-    if (previewActive_) {
-        dt.effective = previewTime_;
-    } else {
-        dt.effective = time_.cached;
-    }
+    // Use cached time
+    dt.effective = time_.cached;
     
     // Apply sell-mode override (forces 10:47)
     if (displaySettings.isSellMode()) {
@@ -191,24 +177,11 @@ ClockDisplay::DisplayTime ClockDisplay::prepareDisplayTime() {
 // ============================================================================
 
 void ClockDisplay::triggerAnimationIfNeeded(const DisplayTime& dt, unsigned long nowMs) {
-    // Start animation when the rounded bucket changes, when forced externally, or when preview starts
-    bool shouldAnimate = false;
-    
-    if (previewActive_) {
-        // In preview mode, trigger animation when forced or when preview just started
-        if (forceAnimation_ || previewNeedsTrigger_) {
-            shouldAnimate = true;
-            previewNeedsTrigger_ = false;
-        }
-    } else {
-        // Normal mode: trigger on bucket change or force
-        shouldAnimate = (dt.rounded != time_.lastRoundedMinute || forceAnimation_);
-    }
+    // Start animation when the rounded bucket changes or when forced externally
+    bool shouldAnimate = (dt.rounded != time_.lastRoundedMinute || forceAnimation_);
     
     if (shouldAnimate) {
-        if (!previewActive_) {
-            time_.lastRoundedMinute = dt.rounded;
-        }
+        time_.lastRoundedMinute = dt.rounded;
         
         struct tm animTime = forceAnimation_ ? forcedTime_ : dt.effective;
         buildAnimationFrames(DisplayTime{animTime, dt.rounded, dt.extra}, nowMs);
@@ -225,24 +198,15 @@ void ClockDisplay::buildAnimationFrames(const DisplayTime& dt, unsigned long now
     stripHetIsIfDisabled(targetSegments_, hisSec);
     
     bool animate = displaySettings.getAnimateWords();
-    WordAnimationMode mode = displaySettings.getAnimationMode();
     
     if (animate) {
-        bool hetIsVisible = hetIsCurrentlyVisible(hisSec, hetIs_.visibleUntil, nowMs);
+        buildClassicFrames(targetSegments_, animation_.frames);
         
-        if (mode == WordAnimationMode::Smart && !lastSegments_.empty()) {
-            buildSmartFrames(lastSegments_, targetSegments_, hetIsVisible, animation_.frames);
-        } else {
-            buildClassicFrames(targetSegments_, animation_.frames);
-        }
-        
-        // Add extra minute LEDs progressively (one per frame) after all words
-        // This ensures each stripe fades in separately and works correctly when minute changes
+        // Add extra minute LEDs to final frame
         if (!animation_.frames.empty() && dt.extra > 0) {
+            auto& finalFrame = animation_.frames.back();
             for (int i = 0; i < dt.extra && i < 4; ++i) {
-                std::vector<uint16_t> minuteFrame = animation_.frames.back();
-                minuteFrame.push_back(EXTRA_MINUTE_LEDS[i]);
-                animation_.frames.push_back(minuteFrame);
+                finalFrame.push_back(EXTRA_MINUTE_LEDS[i]);
             }
         }
         
@@ -268,8 +232,8 @@ void ClockDisplay::buildAnimationFrames(const DisplayTime& dt, unsigned long now
 void ClockDisplay::executeAnimationStep(unsigned long nowMs) {
     unsigned long deltaMs = (animation_.currentStep == 0) ? 0 : (nowMs - animation_.lastStepAt);
     
-    // Get configurable animation speed from settings
-    uint16_t frameDelayMs = displaySettings.getAnimationSpeedMs();
+    // Fixed animation speed: 500ms per frame
+    const uint16_t frameDelayMs = 500;
     
     if (animation_.currentStep == 0 || deltaMs >= frameDelayMs) {
         if (animation_.currentStep < (int)animation_.frames.size()) {
@@ -299,94 +263,20 @@ void ClockDisplay::executeAnimationStep(unsigned long nowMs) {
                 logDebug(msg);
             }
             
-            // Apply fade effects if enabled
-            FadeEffect fadeEffect = displaySettings.getFadeEffect();
-            if (fadeEffect != FadeEffect::None) {
-                uint16_t fadeDuration = displaySettings.getFadeDurationMs();
-                fadeController_.setFadeEffect(fadeEffect);
-                
-                // Get previous frame to determine new LEDs
-                std::vector<uint16_t> prevFrame;
-                if (stepIndex > 0) {
-                    prevFrame = animation_.frames[stepIndex - 1];
-                }
-                
-                // Find new LEDs in current frame
-                std::vector<uint16_t> newLeds;
-                for (uint16_t led : frame) {
-                    if (std::find(prevFrame.begin(), prevFrame.end(), led) == prevFrame.end()) {
-                        newLeds.push_back(led);
-                    }
-                }
-                
-                // Start fades for new LEDs
-                for (uint16_t led : newLeds) {
-                    fadeController_.startFade(led, 255, fadeDuration, fadeEffect);
-                }
-                
-                // Build brightness multipliers for all LEDs in frame
-                std::vector<uint8_t> brightnessMultipliers;
-                for (uint16_t led : frame) {
-                    brightnessMultipliers.push_back(fadeController_.getCurrentBrightness(led));
-                }
-                
-                // Show LEDs with fade effects
-                showLedsWithBrightness(frame, brightnessMultipliers);
-            } else {
-                // No fade - instant display
-                showLeds(frame);
-            }
+            // Instant display (no fade effects)
+            showLeds(frame);
             
             animation_.lastStepAt = nowMs;
         }
         
         if (animation_.currentStep >= (int)animation_.frames.size()) {
-            // Display final frame with fade effects before ending animation
-            FadeEffect fadeEffect = displaySettings.getFadeEffect();
-            if (fadeEffect != FadeEffect::None && !animation_.frames.empty()) {
-                const auto& finalFrame = animation_.frames.back();
-                uint16_t fadeDuration = displaySettings.getFadeDurationMs();
-                fadeController_.setFadeEffect(fadeEffect);
-                
-                // Get previous frame to find new LEDs (including extra minute LEDs)
-                std::vector<uint16_t> prevFrame;
-                if (animation_.frames.size() > 1) {
-                    prevFrame = animation_.frames[animation_.frames.size() - 2];
-                }
-                
-                // Start fades for any new LEDs in final frame (including extra minute LEDs)
-                for (uint16_t led : finalFrame) {
-                    if (std::find(prevFrame.begin(), prevFrame.end(), led) == prevFrame.end()) {
-                        fadeController_.startFade(led, 255, fadeDuration, fadeEffect);
-                    }
-                }
-                
-                // Display final frame with fade effects
-                std::vector<uint8_t> brightnessMultipliers;
-                for (uint16_t led : finalFrame) {
-                    brightnessMultipliers.push_back(fadeController_.getCurrentBrightness(led));
-                }
-                showLedsWithBrightness(finalFrame, brightnessMultipliers);
-            }
-            
             animation_.active = false;
             updateHetIsVisibility(nowMs);
             lastSegments_ = targetSegments_;
         }
     } else if (animation_.currentStep > 0 && animation_.currentStep <= (int)animation_.frames.size()) {
         // Re-display current frame (called between animation steps)
-        // Apply fade effects if enabled
-        FadeEffect fadeEffect = displaySettings.getFadeEffect();
-        if (fadeEffect != FadeEffect::None) {
-            const auto& frame = animation_.frames[animation_.currentStep - 1];
-            std::vector<uint8_t> brightnessMultipliers;
-            for (uint16_t led : frame) {
-                brightnessMultipliers.push_back(fadeController_.getCurrentBrightness(led));
-            }
-            showLedsWithBrightness(frame, brightnessMultipliers);
-        } else {
-            showLeds(animation_.frames[animation_.currentStep - 1]);
-        }
+        showLeds(animation_.frames[animation_.currentStep - 1]);
     }
 }
 
@@ -419,49 +309,7 @@ void ClockDisplay::displayStaticTime(const DisplayTime& dt) {
         indices.push_back(EXTRA_MINUTE_LEDS[i]);
     }
     
-    // Apply fade effects if enabled (for extra minute LEDs that appear after animation)
-    FadeEffect fadeEffect = displaySettings.getFadeEffect();
-    if (fadeEffect != FadeEffect::None && !indices.empty()) {
-        uint16_t fadeDuration = displaySettings.getFadeDurationMs();
-        fadeController_.setFadeEffect(fadeEffect);
-        
-        // Get previous display state to find new LEDs
-        // Build previous indices from lastSegments_ and check what was shown before
-        std::vector<uint16_t> prevIndices;
-        if (!lastSegments_.empty()) {
-            for (const auto& seg : lastSegments_) {
-                if (hideHetIs && isHetIs(seg)) continue;
-                prevIndices.insert(prevIndices.end(), seg.leds.begin(), seg.leds.end());
-            }
-        }
-        
-        // Also check if we just finished animation - use the final animation frame
-        if (!animation_.frames.empty() && !animation_.active) {
-            const auto& finalFrame = animation_.frames.back();
-            for (uint16_t led : finalFrame) {
-                if (std::find(prevIndices.begin(), prevIndices.end(), led) == prevIndices.end()) {
-                    prevIndices.push_back(led);
-                }
-            }
-        }
-        
-        // Start fades for new LEDs (including extra minute LEDs that weren't in animation)
-        for (uint16_t led : indices) {
-            if (std::find(prevIndices.begin(), prevIndices.end(), led) == prevIndices.end()) {
-                fadeController_.startFade(led, 255, fadeDuration, fadeEffect);
-            }
-        }
-        
-        // Build brightness multipliers for all LEDs (respecting ongoing fades)
-        std::vector<uint8_t> brightnessMultipliers;
-        for (uint16_t led : indices) {
-            brightnessMultipliers.push_back(fadeController_.getCurrentBrightness(led));
-        }
-        
-        showLedsWithBrightness(indices, brightnessMultipliers);
-    } else {
-        showLeds(indices);
-    }
+    showLeds(indices);
     
     lastSegments_ = baseSegs;
 }
@@ -494,38 +342,6 @@ void ClockDisplay::updateHetIsVisibility(unsigned long nowMs) {
 void ClockDisplay::forceAnimationForTime(const struct tm& time) {
     forcedTime_ = time;
     forceAnimation_ = true;
-}
-
-// ============================================================================
-// Preview System
-// ============================================================================
-
-void ClockDisplay::startPreview(const struct tm& time, int loopCount) {
-    previewActive_ = true;
-    previewTime_ = time;
-    previewStartMs_ = millis();
-    previewLoopCount_ = loopCount;
-    previewNeedsTrigger_ = true; // Flag to trigger animation on next update
-    // Reset animation state to ensure fresh start
-    animation_.active = false;
-    animation_.currentStep = 0;
-    time_.lastRoundedMinute = -1; // Force trigger
-}
-
-void ClockDisplay::stopPreview() {
-    previewActive_ = false;
-    previewLoopCount_ = 0;
-    previewStartMs_ = 0;
-    previewNeedsTrigger_ = false;
-    fadeController_.clear();
-    // Reset animation state
-    animation_.active = false;
-    animation_.currentStep = 0;
-    time_.lastRoundedMinute = -1; // Force refresh on next update
-}
-
-bool ClockDisplay::isPreviewActive() const {
-    return previewActive_;
 }
 
 // ============================================================================
@@ -581,55 +397,4 @@ void ClockDisplay::buildClassicFrames(const std::vector<WordSegment>& segs,
     }
 }
 
-void ClockDisplay::buildSmartFrames(const std::vector<WordSegment>& prevSegments,
-                                   const std::vector<WordSegment>& nextSegments,
-                                   bool hetIsVisible,
-                                   std::vector<std::vector<uint16_t>>& frames) {
-    frames.clear();
-    if (prevSegments.empty()) {
-        buildClassicFrames(nextSegments, frames);
-        return;
-    }
-    
-    std::vector<WordSegment> prevVisible;
-    prevVisible.reserve(prevSegments.size());
-    for (const auto& seg : prevSegments) {
-        if (isHetIs(seg) && !hetIsVisible) continue;
-        prevVisible.push_back(seg);
-    }
-    
-    std::vector<uint16_t> current = flattenSegments(prevVisible);
-    
-    std::vector<WordSegment> removals;
-    for (const auto& seg : prevVisible) {
-        bool presentInNext = findSegment(nextSegments, seg.key) != nullptr;
-        if (isHetIs(seg) || !presentInNext) {
-            removals.push_back(seg);
-        }
-    }
-    
-    std::vector<WordSegment> additions;
-    for (const auto& seg : nextSegments) {
-        bool visibleBefore = findSegment(prevVisible, seg.key) != nullptr;
-        if (isHetIs(seg) || !visibleBefore) {
-            additions.push_back(seg);
-        }
-    }
-    
-    if (!removals.empty()) {
-        std::vector<uint16_t> removalLeds;
-        for (const auto& rem : removals) {
-            removalLeds.insert(removalLeds.end(), rem.leds.begin(), rem.leds.end());
-        }
-        removeLeds(current, removalLeds);
-        frames.push_back(current);
-    }
-    for (const auto& add : additions) {
-        current.insert(current.end(), add.leds.begin(), add.leds.end());
-        frames.push_back(current);
-    }
-    if (frames.empty()) {
-        frames.push_back(current);
-    }
-}
 
