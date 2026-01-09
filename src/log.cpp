@@ -42,7 +42,7 @@ static String currentLogTag;
 static unsigned long lastFlushMs = 0;
 static const unsigned long LOG_FLUSH_INTERVAL_MS = 5000;
 static uint32_t LOG_RETENTION_DAYS = 1;
-static bool LOG_DELETE_ON_BOOT = false;
+static bool LOG_DELETE_ON_BOOT = true;
 
 static void closeLogFile() {
   if (logFile) {
@@ -229,7 +229,7 @@ void initLogSettings() {
   prefs.begin("wc_log", true);
   uint8_t lvl = prefs.getUChar("level", (uint8_t)DEFAULT_LOG_LEVEL);
   LOG_RETENTION_DAYS = prefs.getUInt("retention", 1);
-  LOG_DELETE_ON_BOOT = prefs.getBool("delOnBoot", false);
+  LOG_DELETE_ON_BOOT = prefs.getBool("delOnBoot", true);
   prefs.end();
 
   if (lvl <= LOG_LEVEL_ERROR) {

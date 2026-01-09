@@ -4,6 +4,8 @@
 #include <ArduinoJson.h>
 #include <Update.h>
 #include <vector>
+#include <algorithm>
+#include <cstring>
 #include "fs_compat.h"
 #include "config.h"
 #include "log.h"
@@ -13,6 +15,15 @@
 #include "system_utils.h"
 
 static const char* FS_VERSION_FILE = "/.fs_version"; // marker
+static const char* UI_FILES[] = {
+  "admin.html",
+  "changepw.html",
+  "dashboard.html",
+  "logs.html",
+  "mqtt.html",
+  "setup.html",
+  "update.html",
+};
 
 struct FileEntry {
   String path;
@@ -49,6 +60,7 @@ static bool downloadToFs(const String& url, const String& path, WiFiClientSecure
   }
 
   int len = http.getSize();
+  const int expectedLen = len;
   if (len == 0) { http.end(); return false; }
 
   String tmp = path + ".tmp";
@@ -59,15 +71,36 @@ static bool downloadToFs(const String& url, const String& path, WiFiClientSecure
   WiFiClient& s = http.getStream();
   uint8_t buf[2048];
   int written = 0;
+  bool readTimedOut = false;
   while (http.connected() && (len > 0 || len == -1)) {
     size_t n = s.readBytes(buf, sizeof(buf));
-    if (n == 0) break;
+    if (n == 0) {
+      if (http.connected()) {
+        readTimedOut = true;
+      }
+      break;
+    }
     f.write(buf, n);
     written += n;
     if (len > 0) len -= n;
   }
   f.flush(); f.close();
   http.end();
+
+  if (readTimedOut) {
+    logError("HTTP read timeout for " + url);
+    FS_IMPL.remove(tmp);
+    return false;
+  }
+  if (expectedLen > 0 && written != expectedLen) {
+    logError("HTTP short read for " + url + " (" + String(written) + "/" + String(expectedLen) + ")");
+    FS_IMPL.remove(tmp);
+    return false;
+  }
+  if (written == 0) {
+    FS_IMPL.remove(tmp);
+    return false;
+  }
 
   FS_IMPL.remove(path);
   if (!FS_IMPL.rename(tmp, path)) {
@@ -139,6 +172,42 @@ static bool parseFiles(JsonVariantConst jfiles, std::vector<FileEntry>& out) {
   return true;
 }
 
+static bool isHtmlFileHealthy(const char* path) {
+  File f = FS_IMPL.open(path, "r");
+  if (!f) return false;
+  size_t size = f.size();
+  if (size < 64) { f.close(); return false; }
+
+  const size_t headLen = std::min<size_t>(256, size);
+  char headBuf[257] = {0};
+  size_t headRead = f.readBytes(headBuf, headLen);
+  headBuf[headRead] = '\0';
+  if (std::strstr(headBuf, "<!DOCTYPE html") == nullptr) {
+    f.close();
+    return false;
+  }
+
+  const size_t tailLen = std::min<size_t>(256, size);
+  if (size > tailLen) {
+    f.seek(size - tailLen, SeekSet);
+  } else {
+    f.seek(0, SeekSet);
+  }
+  char tailBuf[257] = {0};
+  size_t tailRead = f.readBytes(tailBuf, tailLen);
+  tailBuf[tailRead] = '\0';
+  f.close();
+  return std::strstr(tailBuf, "</html>") != nullptr;
+}
+
+static bool areUiFilesHealthy() {
+  for (const char* name : UI_FILES) {
+    String path = "/" + String(name);
+    if (!isHtmlFileHealthy(path.c_str())) return false;
+  }
+  return true;
+}
+
 void syncUiFilesFromConfiguredVersion() {
   logInfo("🔍 Checking UI files (configured version)...");
   if (!FS_IMPL.begin(true)) {
@@ -153,19 +222,12 @@ void syncUiFilesFromConfiguredVersion() {
   }
   const String currentVersion = readFsVersion();
   if (currentVersion == targetVersion) {
-    logInfo("UI up-to-date (configured version match).");
-    return;
+    if (areUiFilesHealthy()) {
+      logInfo("UI up-to-date (configured version match).");
+      return;
+    }
+    logWarn("UI version matches but files look invalid; re-syncing.");
   }
-
-  static const char* UI_FILES[] = {
-    "admin.html",
-    "changepw.html",
-    "dashboard.html",
-    "logs.html",
-    "mqtt.html",
-    "setup.html",
-    "update.html",
-  };
 
   std::unique_ptr<WiFiClientSecure> client(new WiFiClientSecure());
   client->setInsecure();
@@ -228,8 +290,11 @@ void syncFilesFromManifest() {
   const String currentFsVer = readFsVersion();
 
   if (manifestVersion.length() && manifestVersion == currentFsVer) {
-    logInfo("UI up-to-date (version match).");
-    return;
+    if (areUiFilesHealthy()) {
+      logInfo("UI up-to-date (version match).");
+      return;
+    }
+    logWarn("UI version matches but files look invalid; re-syncing.");
   }
 
   std::vector<FileEntry> files;
