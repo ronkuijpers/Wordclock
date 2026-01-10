@@ -148,6 +148,7 @@ static bool fetchManifest(JsonDocument& doc, WiFiClientSecure& client, const Str
   http.setFollowRedirects(HTTPC_STRICT_FOLLOW_REDIRECTS);
   http.addHeader("Accept-Encoding", "identity");
   const String url = buildManifestUrl(channel);
+  logInfo("OTA manifest URL: " + url);
   http.begin(client, url);
   int code = http.GET();
   if (code != 200) {
