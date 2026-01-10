@@ -113,7 +113,9 @@ static void ensureLogFile() {
     String path = String("/logs/") + tag + ".log";
     logFile = FS_IMPL.open(path, "a");
     if (!logFile) {
+#ifdef ENABLE_DEBUG_LOGGING
       Serial.println("[log] Failed to open log file for writing: " + path);
+#endif
       fileSinkEnabled = false;
       return;
     }
@@ -165,7 +167,9 @@ void log(String msg, int level) {
   // }
 
   String line = makeLogPrefix(level) + msg;
+#ifdef ENABLE_DEBUG_LOGGING
   Serial.print(line);
+#endif
 
   if (fileSinkEnabled) {
     ensureLogFile();
@@ -260,7 +264,9 @@ void logEnableFileSink() {
       }
       dir.close();
     }
+#ifdef ENABLE_DEBUG_LOGGING
     Serial.println("[log] Deleted all logs on boot as per settings.");
+#endif
   }
 
   fileSinkEnabled = true;
