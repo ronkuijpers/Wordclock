@@ -60,7 +60,7 @@ if command -v lcov > /dev/null 2>&1; then
          --exclude '*/mock*' \
          --exclude '*/usr/*' \
          --exclude '*/.platformio/*' \
-         --ignore-errors mismatch
+         --ignore-errors gcov,source
     
     if command -v genhtml > /dev/null 2>&1; then
         genhtml coverage.info --output-directory coverage_html --quiet
