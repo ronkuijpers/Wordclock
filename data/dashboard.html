@@ -394,7 +394,7 @@
       return res.text();
     }, {
       priority: 10,
-      interval: 10000,
+      interval: 30000,
       onSuccess: (status) => {
         setLoadingState('statusIndicator', false);
         clearErrorState('statusText');
@@ -1081,7 +1081,7 @@
 
     dataLoader.register('logs', loadLog, {
       priority: 2,
-      interval: 15000,
+      interval: 30000,
       onError: (error) => {
         console.warn('Log loading error:', error);
       }
