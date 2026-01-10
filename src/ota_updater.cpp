@@ -107,7 +107,7 @@ static bool downloadToFs(const String& url, const String& path, WiFiClientSecure
     FS_IMPL.remove(tmp);
     return false;
   }
-  logInfo("Wrote " + path + " (" + String(written) + " bytes)");
+  logDebug("Wrote " + path + " (" + String(written) + " bytes)");
   return true;
 }
 
@@ -148,7 +148,7 @@ static bool fetchManifest(JsonDocument& doc, WiFiClientSecure& client, const Str
   http.setFollowRedirects(HTTPC_STRICT_FOLLOW_REDIRECTS);
   http.addHeader("Accept-Encoding", "identity");
   const String url = buildManifestUrl(channel);
-  logInfo("OTA manifest URL: " + url);
+  logDebug("OTA manifest URL: " + url);
   http.begin(client, url);
   int code = http.GET();
   if (code != 200) {
