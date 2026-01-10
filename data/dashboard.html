@@ -227,7 +227,10 @@
 
         loader.loading = true;
         loader.lastError = null;
-        console.log('[DataLoader] Loading:', name);
+        // Only log if not in interval mode to reduce noise
+        if (!this.intervals.has(name)) {
+          console.log('[DataLoader] Loading:', name);
+        }
 
         try {
           const result = await Promise.race([
@@ -238,7 +241,10 @@
           ]);
 
           loader.retryCount = 0;
-          console.log('[DataLoader] Success:', name);
+          // Only log if not in interval mode to reduce noise
+          if (!this.intervals.has(name)) {
+            console.log('[DataLoader] Success:', name);
+          }
           if (loader.onSuccess) loader.onSuccess(result);
           return result;
         } catch (error) {
@@ -275,7 +281,14 @@
 
       startInterval(name) {
         const loader = this.loaders.get(name);
-        if (!loader || !loader.interval) return;
+        if (!loader) {
+          console.warn('[DataLoader] Cannot start interval: loader not found:', name);
+          return;
+        }
+        if (!loader.interval) {
+          console.warn('[DataLoader] Cannot start interval: no interval set for:', name);
+          return;
+        }
         
         if (this.intervals.has(name)) {
           clearInterval(this.intervals.get(name));
@@ -283,8 +296,11 @@
         
         // Load immediately, then set interval
         this.load(name);
-        const intervalId = setInterval(() => this.load(name), loader.interval);
+        const intervalId = setInterval(() => {
+          this.load(name);
+        }, loader.interval);
         this.intervals.set(name, intervalId);
+        console.log('[DataLoader] Started interval for', name, ':', (loader.interval/1000) + 's');
       }
 
       stopInterval(name) {
@@ -1103,6 +1119,9 @@
         
         // Get build info to determine branch and set intervals accordingly
         let buildBranch = 'unknown';
+        let statusInterval = 30000; // Default: 30 seconds
+        let logsInterval = 30000;   // Default: 30 seconds
+        
         try {
           const buildRes = await fetch('/buildinfo');
           if (buildRes.ok) {
@@ -1112,25 +1131,33 @@
             
             // Set intervals based on branch
             // dev branch: 5 minutes (300000ms), other branches: 30 seconds (30000ms)
-            const statusInterval = (buildBranch === 'dev') ? 300000 : 30000;
-            const logsInterval = (buildBranch === 'dev') ? 300000 : 30000;
+            statusInterval = (buildBranch === 'dev') ? 300000 : 30000;
+            logsInterval = (buildBranch === 'dev') ? 300000 : 30000;
             
-            // Update loader intervals
-            const statusLoader = dataLoader.loaders.get('status');
-            const logsLoader = dataLoader.loaders.get('logs');
-            
-            if (statusLoader) {
-              statusLoader.interval = statusInterval;
-              console.log(`[Dashboard] Status interval set to ${statusInterval/1000}s (branch: ${buildBranch})`);
-            }
-            
-            if (logsLoader) {
-              logsLoader.interval = logsInterval;
-              console.log(`[Dashboard] Logs interval set to ${logsInterval/1000}s (branch: ${buildBranch})`);
-            }
+            console.log(`[Dashboard] Intervals: status=${statusInterval/1000}s, logs=${logsInterval/1000}s (branch: ${buildBranch})`);
+          } else {
+            console.warn('[Dashboard] Could not fetch build info (HTTP ' + buildRes.status + '), using default intervals');
           }
         } catch (err) {
           console.warn('[Dashboard] Could not fetch build info, using default intervals:', err);
+        }
+        
+        // Update loader intervals BEFORE starting them
+        const statusLoader = dataLoader.loaders.get('status');
+        const logsLoader = dataLoader.loaders.get('logs');
+        
+        if (statusLoader) {
+          statusLoader.interval = statusInterval;
+          console.log(`[Dashboard] Status loader interval: ${statusInterval/1000}s`);
+        } else {
+          console.warn('[Dashboard] Status loader not found!');
+        }
+        
+        if (logsLoader) {
+          logsLoader.interval = logsInterval;
+          console.log(`[Dashboard] Logs loader interval: ${logsInterval/1000}s`);
+        } else {
+          console.warn('[Dashboard] Logs loader not found!');
         }
         
         // Initialize all data loaders
@@ -1139,8 +1166,40 @@
         });
         
         // Start interval loaders (will use updated intervals)
-        dataLoader.startInterval('status');
-        dataLoader.startInterval('logs');
+        if (statusLoader) {
+          if (statusLoader.interval) {
+            dataLoader.startInterval('status');
+            console.log('[Dashboard] Status interval started: ' + (statusLoader.interval/1000) + 's');
+          } else {
+            console.warn('[Dashboard] Status loader has no interval set!');
+          }
+        } else {
+          console.error('[Dashboard] Status loader not found!');
+        }
+        
+        if (logsLoader) {
+          if (logsLoader.interval) {
+            dataLoader.startInterval('logs');
+            console.log('[Dashboard] Logs interval started: ' + (logsLoader.interval/1000) + 's');
+          } else {
+            console.warn('[Dashboard] Logs loader has no interval set!');
+          }
+        } else {
+          console.error('[Dashboard] Logs loader not found!');
+        }
+        
+        // Verify intervals are running
+        if (dataLoader.intervals.has('status')) {
+          console.log('[Dashboard] Status interval is active');
+        } else {
+          console.warn('[Dashboard] Status interval is NOT active!');
+        }
+        
+        if (dataLoader.intervals.has('logs')) {
+          console.log('[Dashboard] Logs interval is active');
+        } else {
+          console.warn('[Dashboard] Logs interval is NOT active!');
+        }
         
         console.log('[Dashboard] Initialization complete');
       } catch (error) {
