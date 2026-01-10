@@ -8,6 +8,7 @@
 #include "log.h"
 #include <algorithm>
 #include <cstring>
+#include <map>
 
 // Global instance
 ClockDisplay clockDisplay;
@@ -155,6 +156,8 @@ void ClockDisplay::resetNoTimeIndicator() {
 
 ClockDisplay::DisplayTime ClockDisplay::prepareDisplayTime() {
     ClockDisplay::DisplayTime dt;
+    
+    // Use cached time
     dt.effective = time_.cached;
     
     // Apply sell-mode override (forces 10:47)
@@ -175,7 +178,9 @@ ClockDisplay::DisplayTime ClockDisplay::prepareDisplayTime() {
 
 void ClockDisplay::triggerAnimationIfNeeded(const DisplayTime& dt, unsigned long nowMs) {
     // Start animation when the rounded bucket changes or when forced externally
-    if (dt.rounded != time_.lastRoundedMinute || forceAnimation_) {
+    bool shouldAnimate = (dt.rounded != time_.lastRoundedMinute || forceAnimation_);
+    
+    if (shouldAnimate) {
         time_.lastRoundedMinute = dt.rounded;
         
         struct tm animTime = forceAnimation_ ? forcedTime_ : dt.effective;
@@ -193,15 +198,16 @@ void ClockDisplay::buildAnimationFrames(const DisplayTime& dt, unsigned long now
     stripHetIsIfDisabled(targetSegments_, hisSec);
     
     bool animate = displaySettings.getAnimateWords();
-    WordAnimationMode mode = displaySettings.getAnimationMode();
     
     if (animate) {
-        bool hetIsVisible = hetIsCurrentlyVisible(hisSec, hetIs_.visibleUntil, nowMs);
+        buildClassicFrames(targetSegments_, animation_.frames);
         
-        if (mode == WordAnimationMode::Smart && !lastSegments_.empty()) {
-            buildSmartFrames(lastSegments_, targetSegments_, hetIsVisible, animation_.frames);
-        } else {
-            buildClassicFrames(targetSegments_, animation_.frames);
+        // Add extra minute LEDs to final frame
+        if (!animation_.frames.empty() && dt.extra > 0) {
+            auto& finalFrame = animation_.frames.back();
+            for (int i = 0; i < dt.extra && i < 4; ++i) {
+                finalFrame.push_back(EXTRA_MINUTE_LEDS[i]);
+            }
         }
         
         if (!animation_.frames.empty()) {
@@ -226,7 +232,10 @@ void ClockDisplay::buildAnimationFrames(const DisplayTime& dt, unsigned long now
 void ClockDisplay::executeAnimationStep(unsigned long nowMs) {
     unsigned long deltaMs = (animation_.currentStep == 0) ? 0 : (nowMs - animation_.lastStepAt);
     
-    if (animation_.currentStep == 0 || deltaMs >= 500) {
+    // Fixed animation speed: 500ms per frame
+    const uint16_t frameDelayMs = 500;
+    
+    if (animation_.currentStep == 0 || deltaMs >= frameDelayMs) {
         if (animation_.currentStep < (int)animation_.frames.size()) {
             const auto& frame = animation_.frames[animation_.currentStep];
             
@@ -245,14 +254,18 @@ void ClockDisplay::executeAnimationStep(unsigned long nowMs) {
             msg += "ms (Δ";
             msg += (int)frame.size() - (int)prevSize;
             msg += " leds)";
-            if (deltaMs > 700) {
+            // Warn if actual delay is > 20% longer than configured delay
+            uint16_t thresholdMs = frameDelayMs + (frameDelayMs / 5); // frameDelayMs * 1.2
+            if (deltaMs > thresholdMs) {
                 msg += " ⚠️ slow";
                 logWarn(msg);
             } else {
                 logDebug(msg);
             }
             
+            // Instant display (no fade effects)
             showLeds(frame);
+            
             animation_.lastStepAt = nowMs;
         }
         
@@ -297,6 +310,7 @@ void ClockDisplay::displayStaticTime(const DisplayTime& dt) {
     }
     
     showLeds(indices);
+    
     lastSegments_ = baseSegs;
 }
 
@@ -383,55 +397,4 @@ void ClockDisplay::buildClassicFrames(const std::vector<WordSegment>& segs,
     }
 }
 
-void ClockDisplay::buildSmartFrames(const std::vector<WordSegment>& prevSegments,
-                                   const std::vector<WordSegment>& nextSegments,
-                                   bool hetIsVisible,
-                                   std::vector<std::vector<uint16_t>>& frames) {
-    frames.clear();
-    if (prevSegments.empty()) {
-        buildClassicFrames(nextSegments, frames);
-        return;
-    }
-    
-    std::vector<WordSegment> prevVisible;
-    prevVisible.reserve(prevSegments.size());
-    for (const auto& seg : prevSegments) {
-        if (isHetIs(seg) && !hetIsVisible) continue;
-        prevVisible.push_back(seg);
-    }
-    
-    std::vector<uint16_t> current = flattenSegments(prevVisible);
-    
-    std::vector<WordSegment> removals;
-    for (const auto& seg : prevVisible) {
-        bool presentInNext = findSegment(nextSegments, seg.key) != nullptr;
-        if (isHetIs(seg) || !presentInNext) {
-            removals.push_back(seg);
-        }
-    }
-    
-    std::vector<WordSegment> additions;
-    for (const auto& seg : nextSegments) {
-        bool visibleBefore = findSegment(prevVisible, seg.key) != nullptr;
-        if (isHetIs(seg) || !visibleBefore) {
-            additions.push_back(seg);
-        }
-    }
-    
-    if (!removals.empty()) {
-        std::vector<uint16_t> removalLeds;
-        for (const auto& rem : removals) {
-            removalLeds.insert(removalLeds.end(), rem.leds.begin(), rem.leds.end());
-        }
-        removeLeds(current, removalLeds);
-        frames.push_back(current);
-    }
-    for (const auto& add : additions) {
-        current.insert(current.end(), add.leds.begin(), add.leds.end());
-        frames.push_back(current);
-    }
-    if (frames.empty()) {
-        frames.push_back(current);
-    }
-}
 

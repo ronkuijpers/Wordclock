@@ -5,7 +5,7 @@
 #include "log.h"
 
 constexpr GridVariant FIRMWARE_DEFAULT_GRID_VARIANT = GridVariant::NL_V4;
-enum class WordAnimationMode : uint8_t { Classic = 0, Smart = 1 };
+enum class WordAnimationMode : uint8_t { Classic = 0 };
 
 class DisplaySettings {
 public:
@@ -15,11 +15,8 @@ public:
     if (hetIsDurationSec_ > 360) hetIsDurationSec_ = 360;
     sellMode_ = prefs_.getBool("sell_on", false);
     animateWords_ = prefs_.getBool("anim_on", false); // default OFF unless enabled via UI
-    uint8_t storedAnimMode = prefs_.getUChar("anim_mode", static_cast<uint8_t>(WordAnimationMode::Classic));
-    if (storedAnimMode > static_cast<uint8_t>(WordAnimationMode::Smart)) {
-      storedAnimMode = static_cast<uint8_t>(WordAnimationMode::Classic);
-    }
-    animationMode_ = static_cast<WordAnimationMode>(storedAnimMode);
+    animationMode_ = WordAnimationMode::Classic; // Only Classic mode available
+    
     autoUpdate_ = prefs_.getBool("auto_upd", true);
     const uint8_t defaultVariantId = gridVariantToId(FIRMWARE_DEFAULT_GRID_VARIANT);
     const bool hasGridKey = prefs_.isKey("grid_id");
@@ -96,16 +93,13 @@ public:
   }
 
   void setAnimationMode(WordAnimationMode mode) {
-    if (animationMode_ == mode) return;
-    animationMode_ = mode;
-    markDirty();
+    // Only Classic mode is supported
+    animationMode_ = WordAnimationMode::Classic;
   }
 
   void setAnimationModeById(uint8_t id) {
-    if (id > static_cast<uint8_t>(WordAnimationMode::Smart)) {
-      id = static_cast<uint8_t>(WordAnimationMode::Classic);
-    }
-    setAnimationMode(static_cast<WordAnimationMode>(id));
+    // Only Classic mode is supported
+    animationMode_ = WordAnimationMode::Classic;
   }
 
   void setAutoUpdate(bool on) {

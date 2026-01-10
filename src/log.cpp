@@ -42,7 +42,7 @@ static String currentLogTag;
 static unsigned long lastFlushMs = 0;
 static const unsigned long LOG_FLUSH_INTERVAL_MS = 5000;
 static uint32_t LOG_RETENTION_DAYS = 1;
-static bool LOG_DELETE_ON_BOOT = false;
+static bool LOG_DELETE_ON_BOOT = true;
 
 static void closeLogFile() {
   if (logFile) {
@@ -113,7 +113,9 @@ static void ensureLogFile() {
     String path = String("/logs/") + tag + ".log";
     logFile = FS_IMPL.open(path, "a");
     if (!logFile) {
+#ifdef ENABLE_DEBUG_LOGGING
       Serial.println("[log] Failed to open log file for writing: " + path);
+#endif
       fileSinkEnabled = false;
       return;
     }
@@ -165,7 +167,9 @@ void log(String msg, int level) {
   // }
 
   String line = makeLogPrefix(level) + msg;
+#ifdef ENABLE_DEBUG_LOGGING
   Serial.print(line);
+#endif
 
   if (fileSinkEnabled) {
     ensureLogFile();
@@ -229,7 +233,7 @@ void initLogSettings() {
   prefs.begin("wc_log", true);
   uint8_t lvl = prefs.getUChar("level", (uint8_t)DEFAULT_LOG_LEVEL);
   LOG_RETENTION_DAYS = prefs.getUInt("retention", 1);
-  LOG_DELETE_ON_BOOT = prefs.getBool("delOnBoot", false);
+  LOG_DELETE_ON_BOOT = prefs.getBool("delOnBoot", true);
   prefs.end();
 
   if (lvl <= LOG_LEVEL_ERROR) {
@@ -260,7 +264,9 @@ void logEnableFileSink() {
       }
       dir.close();
     }
+#ifdef ENABLE_DEBUG_LOGGING
     Serial.println("[log] Deleted all logs on boot as per settings.");
+#endif
   }
 
   fileSinkEnabled = true;
