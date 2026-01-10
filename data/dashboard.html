@@ -221,11 +221,9 @@
       async load(name) {
         const loader = this.loaders.get(name);
         if (!loader) {
-          console.warn('[DataLoader] Loader not found:', name);
           return;
         }
         if (loader.loading) {
-          console.log('[DataLoader] Loader already loading, skipping:', name);
           return;
         }
 
@@ -233,7 +231,6 @@
         loader.lastError = null;
         // Only log if not in interval mode to reduce noise
         if (!this.intervals.has(name)) {
-          console.log('[DataLoader] Loading:', name);
         }
 
         try {
@@ -247,23 +244,19 @@
           loader.retryCount = 0;
           // Only log if not in interval mode to reduce noise
           if (!this.intervals.has(name)) {
-            console.log('[DataLoader] Success:', name);
           }
           if (loader.onSuccess) loader.onSuccess(result);
           return result;
         } catch (error) {
           loader.lastError = error;
-          console.error('[DataLoader] Error loading', name + ':', error.message || error);
           if (loader.onError) loader.onError(error);
           
           // Retry logic
           if (loader.retryCount < this.retryDelays.length) {
             const delay = this.retryDelays[loader.retryCount];
             loader.retryCount++;
-            console.log('[DataLoader] Retrying', name, 'in', delay, 'ms (attempt', loader.retryCount + ')');
             setTimeout(() => this.load(name), delay);
           } else {
-            console.error('[DataLoader] Max retries reached for', name);
           }
         } finally {
           loader.loading = false;
@@ -286,11 +279,9 @@
       startInterval(name) {
         const loader = this.loaders.get(name);
         if (!loader) {
-          console.warn('[DataLoader] Cannot start interval: loader not found:', name);
           return;
         }
         if (!loader.interval) {
-          console.warn('[DataLoader] Cannot start interval: no interval set for:', name);
           return;
         }
         
@@ -308,12 +299,10 @@
         this.load(name);
         
         const intervalId = setInterval(function() {
-          console.log('[DataLoader] Interval callback triggered for:', name);
           self.load(name);
         }, intervalMs);
         
         this.intervals.set(name, intervalId);
-        console.log('[DataLoader] Started interval for ' + name + ': ' + intervalSeconds + 's (' + intervalMs + 'ms)');
       }
 
       stopInterval(name) {
@@ -636,7 +625,6 @@
         const cfg = await res.json();
         applyNightModeConfig(cfg);
       } catch (err) {
-        console.error('Nightmode update failed', err);
         setNightModeError();
         setTimeout(() => { loadNightMode(); }, 1500);
       }
@@ -649,7 +637,6 @@
         const cfg = await res.json();
         applyNightModeConfig(cfg);
       } catch (err) {
-        console.error('Nightmode config fetch failed', err);
         setNightModeError();
       }
     };
@@ -918,7 +905,6 @@
         }
       },
       onError: (error) => {
-        console.warn('Failed to load color:', error);
       }
     });
 
@@ -1006,7 +992,6 @@
           if (logLevelStatus) logLevelStatus.textContent = `Current log level: ${lvl || 'INFO'}`;
         },
         onError: (error) => {
-          console.warn('Failed to load log level:', error);
         }
       });
     }
@@ -1105,7 +1090,6 @@
         }
         }
       } catch (error) {
-        console.warn('Failed to load logs:', error);
       }
     };
 
@@ -1114,19 +1098,14 @@
       priority: 2,
       interval: 30000, // Default, will be updated based on branch
       onError: (error) => {
-        console.warn('Log loading error:', error);
       }
     });
 
     // Initialize all data loaders when DOM is ready
     async function initializeDashboard() {
       try {
-        console.log('[Dashboard] Initializing data loaders...');
-        console.log('[Dashboard] Registered loaders:', Array.from(dataLoader.loaders.keys()));
-        console.log('[Dashboard] Total loaders:', dataLoader.loaders.size);
         
         if (dataLoader.loaders.size === 0) {
-          console.error('[Dashboard] No loaders registered!');
           return;
         }
         
@@ -1140,7 +1119,6 @@
           if (buildRes.ok) {
             const buildInfo = await buildRes.json();
             buildBranch = buildInfo.git_branch || 'unknown';
-            console.log('[Dashboard] Build branch:', buildBranch);
             
             // Set intervals based on branch
             // dev branch: logs every 5 seconds, status every 30 seconds
@@ -1153,12 +1131,9 @@
               logsInterval = 30000;    // 30 seconds
             }
             
-            console.log(`[Dashboard] Intervals: status=${statusInterval/1000}s, logs=${logsInterval/1000}s (branch: ${buildBranch})`);
           } else {
-            console.warn('[Dashboard] Could not fetch build info (HTTP ' + buildRes.status + '), using default intervals');
           }
         } catch (err) {
-          console.warn('[Dashboard] Could not fetch build info, using default intervals:', err);
         }
         
         // Update loader intervals BEFORE starting them
@@ -1167,63 +1142,45 @@
         
         if (statusLoader) {
           statusLoader.interval = statusInterval;
-          console.log(`[Dashboard] Status loader interval: ${statusInterval/1000}s`);
         } else {
-          console.warn('[Dashboard] Status loader not found!');
         }
         
         if (logsLoader) {
           logsLoader.interval = logsInterval;
-          console.log(`[Dashboard] Logs loader interval: ${logsInterval/1000}s`);
         } else {
-          console.warn('[Dashboard] Logs loader not found!');
         }
         
         // Initialize all data loaders
         dataLoader.loadAll().catch(err => {
-          console.error('[Dashboard] Error loading data:', err);
         });
         
         // Start interval loaders (will use updated intervals)
         if (statusLoader) {
           if (statusLoader.interval) {
             dataLoader.startInterval('status');
-            console.log('[Dashboard] Status interval started: ' + (statusLoader.interval/1000) + 's');
           } else {
-            console.warn('[Dashboard] Status loader has no interval set!');
           }
         } else {
-          console.error('[Dashboard] Status loader not found!');
         }
         
         if (logsLoader) {
           if (logsLoader.interval) {
             dataLoader.startInterval('logs');
-            console.log('[Dashboard] Logs interval started: ' + (logsLoader.interval/1000) + 's');
           } else {
-            console.warn('[Dashboard] Logs loader has no interval set!');
           }
         } else {
-          console.error('[Dashboard] Logs loader not found!');
         }
         
         // Verify intervals are running
         if (dataLoader.intervals.has('status')) {
-          console.log('[Dashboard] Status interval is active');
         } else {
-          console.warn('[Dashboard] Status interval is NOT active!');
         }
         
         if (dataLoader.intervals.has('logs')) {
-          console.log('[Dashboard] Logs interval is active');
         } else {
-          console.warn('[Dashboard] Logs interval is NOT active!');
         }
         
-        console.log('[Dashboard] Initialization complete');
       } catch (error) {
-        console.error('[Dashboard] Initialization error:', error);
-        console.error('[Dashboard] Stack:', error.stack);
       }
     }
     
@@ -1231,15 +1188,11 @@
     try {
       if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', initializeDashboard);
-        console.log('[Dashboard] Waiting for DOMContentLoaded...');
       } else {
         // DOM is already ready
-        console.log('[Dashboard] DOM already ready, initializing...');
         initializeDashboard();
       }
     } catch (error) {
-      console.error('[Dashboard] Setup error:', error);
-      console.error('[Dashboard] Stack:', error.stack);
     }
 
     // HET IS controls event listeners
