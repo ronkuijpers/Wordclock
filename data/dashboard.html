@@ -220,8 +220,12 @@
 
       async load(name) {
         const loader = this.loaders.get(name);
-        if (!loader || loader.loading) {
-          if (!loader) console.warn('[DataLoader] Loader not found:', name);
+        if (!loader) {
+          console.warn('[DataLoader] Loader not found:', name);
+          return;
+        }
+        if (loader.loading) {
+          console.log('[DataLoader] Loader already loading, skipping:', name);
           return;
         }
 
@@ -292,15 +296,24 @@
         
         if (this.intervals.has(name)) {
           clearInterval(this.intervals.get(name));
+          this.intervals.delete(name);
         }
+        
+        // Store reference to this for use in interval callback
+        const self = this;
+        const intervalMs = loader.interval;
+        const intervalSeconds = intervalMs / 1000;
         
         // Load immediately, then set interval
         this.load(name);
-        const intervalId = setInterval(() => {
-          this.load(name);
-        }, loader.interval);
+        
+        const intervalId = setInterval(function() {
+          console.log('[DataLoader] Interval callback triggered for:', name);
+          self.load(name);
+        }, intervalMs);
+        
         this.intervals.set(name, intervalId);
-        console.log('[DataLoader] Started interval for', name, ':', (loader.interval/1000) + 's');
+        console.log('[DataLoader] Started interval for ' + name + ': ' + intervalSeconds + 's (' + intervalMs + 'ms)');
       }
 
       stopInterval(name) {
@@ -1130,9 +1143,15 @@
             console.log('[Dashboard] Build branch:', buildBranch);
             
             // Set intervals based on branch
-            // dev branch: 5 minutes (300000ms), other branches: 30 seconds (30000ms)
-            statusInterval = (buildBranch === 'dev') ? 300000 : 30000;
-            logsInterval = (buildBranch === 'dev') ? 300000 : 30000;
+            // dev branch: logs every 5 seconds, status every 30 seconds
+            // other branches: both every 30 seconds
+            if (buildBranch === 'dev') {
+              statusInterval = 30000;  // 30 seconds
+              logsInterval = 5000;     // 5 seconds
+            } else {
+              statusInterval = 30000;  // 30 seconds
+              logsInterval = 30000;    // 30 seconds
+            }
             
             console.log(`[Dashboard] Intervals: status=${statusInterval/1000}s, logs=${logsInterval/1000}s (branch: ${buildBranch})`);
           } else {
