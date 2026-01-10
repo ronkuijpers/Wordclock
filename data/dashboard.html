@@ -387,6 +387,7 @@
     }
 
     // Status loader (hoge prioriteit, interval)
+    // Interval will be set dynamically based on branch (dev: 5min, others: 30sec)
     dataLoader.register('status', async () => {
       setLoadingState('statusIndicator', true);
       const res = await fetch('/status');
@@ -394,7 +395,7 @@
       return res.text();
     }, {
       priority: 10,
-      interval: 30000,
+      interval: 30000, // Default, will be updated based on branch
       onSuccess: (status) => {
         setLoadingState('statusIndicator', false);
         clearErrorState('statusText');
@@ -1079,16 +1080,17 @@
       }
     };
 
+    // Logs loader (interval will be set dynamically based on branch)
     dataLoader.register('logs', loadLog, {
       priority: 2,
-      interval: 30000,
+      interval: 30000, // Default, will be updated based on branch
       onError: (error) => {
         console.warn('Log loading error:', error);
       }
     });
 
     // Initialize all data loaders when DOM is ready
-    function initializeDashboard() {
+    async function initializeDashboard() {
       try {
         console.log('[Dashboard] Initializing data loaders...');
         console.log('[Dashboard] Registered loaders:', Array.from(dataLoader.loaders.keys()));
@@ -1099,12 +1101,44 @@
           return;
         }
         
+        // Get build info to determine branch and set intervals accordingly
+        let buildBranch = 'unknown';
+        try {
+          const buildRes = await fetch('/buildinfo');
+          if (buildRes.ok) {
+            const buildInfo = await buildRes.json();
+            buildBranch = buildInfo.git_branch || 'unknown';
+            console.log('[Dashboard] Build branch:', buildBranch);
+            
+            // Set intervals based on branch
+            // dev branch: 5 minutes (300000ms), other branches: 30 seconds (30000ms)
+            const statusInterval = (buildBranch === 'dev') ? 300000 : 30000;
+            const logsInterval = (buildBranch === 'dev') ? 300000 : 30000;
+            
+            // Update loader intervals
+            const statusLoader = dataLoader.loaders.get('status');
+            const logsLoader = dataLoader.loaders.get('logs');
+            
+            if (statusLoader) {
+              statusLoader.interval = statusInterval;
+              console.log(`[Dashboard] Status interval set to ${statusInterval/1000}s (branch: ${buildBranch})`);
+            }
+            
+            if (logsLoader) {
+              logsLoader.interval = logsInterval;
+              console.log(`[Dashboard] Logs interval set to ${logsInterval/1000}s (branch: ${buildBranch})`);
+            }
+          }
+        } catch (err) {
+          console.warn('[Dashboard] Could not fetch build info, using default intervals:', err);
+        }
+        
         // Initialize all data loaders
         dataLoader.loadAll().catch(err => {
           console.error('[Dashboard] Error loading data:', err);
         });
         
-        // Start interval loaders
+        // Start interval loaders (will use updated intervals)
         dataLoader.startInterval('status');
         dataLoader.startInterval('logs');
         

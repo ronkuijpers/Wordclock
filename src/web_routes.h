@@ -873,6 +873,7 @@ void setupWebRoutes() {
     doc["firmware"] = FIRMWARE_VERSION;
     doc["ui"] = UI_VERSION;
     doc["git_sha"] = BUILD_GIT_SHA;
+    doc["git_branch"] = BUILD_GIT_BRANCH;
     doc["build_time_utc"] = BUILD_TIME_UTC;
     doc["environment"] = BUILD_ENV_NAME;
     String out;
